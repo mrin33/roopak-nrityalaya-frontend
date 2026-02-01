@@ -1,8 +1,30 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
+  const getDashboardLink = () => {
+    if (!user) return '/login';
+    switch (user.role) {
+      case 'admin':
+        return '/admin/dashboard';
+      case 'teacher':
+        return '/teacher/dashboard';
+      case 'student':
+        return '/student/dashboard';
+      default:
+        return '/';
+    }
+  };
 
   return (
     <nav className="bg-white shadow-md sticky top-0 z-50">
@@ -41,9 +63,31 @@ const Navbar = () => {
             <Link to="/contact" className="text-accent hover:text-primary transition-colors font-medium">
               Contact
             </Link>
-            <Link to="/login" className="btn-primary">
-              Login
-            </Link>
+            
+            {user ? (
+              <>
+                <Link 
+                  to={getDashboardLink()} 
+                  className="text-accent hover:text-primary transition-colors font-medium"
+                >
+                  Dashboard
+                </Link>
+                <div className="flex items-center space-x-4">
+                  <span className="text-sm text-gray-600">
+                    Hi, <span className="font-semibold text-accent">
+                      {user.profile?.full_name || user.profile?.fullName || user.email.split('@')[0]}
+                    </span>
+                  </span>
+                  <button onClick={handleLogout} className="btn-secondary">
+                    Logout
+                  </button>
+                </div>
+              </>
+            ) : (
+              <Link to="/login" className="btn-primary">
+                Login
+              </Link>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -114,13 +158,42 @@ const Navbar = () => {
             >
               Contact
             </Link>
-            <Link
-              to="/login"
-              className="block px-4 py-2 bg-primary text-white rounded-lg text-center font-medium"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Login
-            </Link>
+            
+            {user ? (
+              <>
+                <Link
+                  to={getDashboardLink()}
+                  className="block px-4 py-2 text-accent hover:bg-gray-100 rounded-lg transition-colors"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Dashboard
+                </Link>
+                <div className="px-4 py-2">
+                  <p className="text-sm text-gray-600 mb-2">
+                    Logged in as: <span className="font-semibold">
+                      {user.profile?.full_name || user.profile?.fullName || user.email.split('@')[0]}
+                    </span>
+                  </p>
+                  <button 
+                    onClick={() => {
+                      handleLogout();
+                      setIsMenuOpen(false);
+                    }} 
+                    className="w-full btn-secondary"
+                  >
+                    Logout
+                  </button>
+                </div>
+              </>
+            ) : (
+              <Link
+                to="/login"
+                className="block px-4 py-2 bg-primary text-white rounded-lg text-center font-medium"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Login
+              </Link>
+            )}
           </div>
         )}
       </div>
