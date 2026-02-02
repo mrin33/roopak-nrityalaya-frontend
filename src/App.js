@@ -17,7 +17,10 @@ import StudentFees from './pages/StudentFees';
 import StudentResources from './pages/StudentResources';
 import StudentSchedule from './pages/StudentSchedule';
 import TeacherDashboard from './pages/TeacherDashboard';
+import TeacherAttendance from './pages/TeacherAttendance';
+import TeacherStudents from './pages/TeacherStudents';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminStudents from './pages/AdminStudents';
 import Footer from './components/Footer';
 
 function App() {
@@ -89,6 +92,22 @@ function App() {
                   </ProtectedRoute>
                 } 
               />
+              <Route 
+                path="/teacher/attendance" 
+                element={
+                  <ProtectedRoute allowedRoles={['teacher']}>
+                    <TeacherAttendance />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/teacher/students" 
+                element={
+                  <ProtectedRoute allowedRoles={['teacher']}>
+                    <TeacherStudents />
+                  </ProtectedRoute>
+                } 
+              />
               
               {/* Protected Admin Routes */}
               <Route 
@@ -96,6 +115,14 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={['admin']}>
                     <AdminDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/admin/students" 
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminStudents />
                   </ProtectedRoute>
                 } 
               />
