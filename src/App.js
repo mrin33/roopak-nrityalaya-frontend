@@ -16,6 +16,8 @@ import StudentAttendance from './pages/StudentAttendance';
 import StudentFees from './pages/StudentFees';
 import StudentResources from './pages/StudentResources';
 import StudentSchedule from './pages/StudentSchedule';
+import TeacherDashboard from './pages/TeacherDashboard';
+import AdminDashboard from './pages/AdminDashboard';
 import Footer from './components/Footer';
 
 function App() {
@@ -78,7 +80,25 @@ function App() {
                 } 
               />
               
-              {/* Teacher and Admin routes will be added later */}
+              {/* Protected Teacher Routes */}
+              <Route 
+                path="/teacher/dashboard" 
+                element={
+                  <ProtectedRoute allowedRoles={['teacher']}>
+                    <TeacherDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              
+              {/* Protected Admin Routes */}
+              <Route 
+                path="/admin/dashboard" 
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminDashboard />
+                  </ProtectedRoute>
+                } 
+              />
             </Routes>
           </main>
           <Footer />
