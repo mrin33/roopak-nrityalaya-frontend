@@ -19,8 +19,12 @@ import StudentSchedule from './pages/StudentSchedule';
 import TeacherDashboard from './pages/TeacherDashboard';
 import TeacherAttendance from './pages/TeacherAttendance';
 import TeacherStudents from './pages/TeacherStudents';
+import TeacherBatches from './pages/TeacherBatches';
+import TeacherResources from './pages/TeacherResources';
+import TeacherProfile from './pages/TeacherProfile';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminStudents from './pages/AdminStudents';
+import AdminTeachers from './pages/AdminTeachers';
 import Footer from './components/Footer';
 
 function App() {
@@ -108,6 +112,30 @@ function App() {
                   </ProtectedRoute>
                 } 
               />
+              <Route 
+                path="/teacher/batches" 
+                element={
+                  <ProtectedRoute allowedRoles={['teacher']}>
+                    <TeacherBatches />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/teacher/resources" 
+                element={
+                  <ProtectedRoute allowedRoles={['teacher']}>
+                    <TeacherResources />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/teacher/profile" 
+                element={
+                  <ProtectedRoute allowedRoles={['teacher']}>
+                    <TeacherProfile />
+                  </ProtectedRoute>
+                } 
+              />
               
               {/* Protected Admin Routes */}
               <Route 
@@ -123,6 +151,14 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={['admin']}>
                     <AdminStudents />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/admin/teachers" 
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminTeachers />
                   </ProtectedRoute>
                 } 
               />
