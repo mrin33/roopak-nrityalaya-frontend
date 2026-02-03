@@ -25,7 +25,12 @@ import TeacherProfile from './pages/TeacherProfile';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminStudents from './pages/AdminStudents';
 import AdminTeachers from './pages/AdminTeachers';
+import AdminBatches from './pages/AdminBatches';
+import AdminFees from './pages/AdminFees';
+import AdminNotices from './pages/AdminNotices';
+import AdminGallery from './pages/AdminGallery';
 import Footer from './components/Footer';
+
 
 function App() {
   return (
@@ -159,6 +164,38 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={['admin']}>
                     <AdminTeachers />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/admin/batches" 
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminBatches />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/admin/fees" 
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminFees />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/admin/notices" 
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminNotices />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/admin/gallery" 
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <AdminGallery />
                   </ProtectedRoute>
                 } 
               />
