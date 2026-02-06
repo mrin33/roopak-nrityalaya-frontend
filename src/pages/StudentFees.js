@@ -5,11 +5,21 @@ const StudentFees = () => {
   const { user } = useAuth();
   const [feeData, setFeeData] = useState({
     monthlyFee: 1000,
+    // NEW Phase 1 fields
+    payment_window: 'quarterly',
+    discount: 2,
+    monthly_savings: 60,
     currentMonth: {
       month: 'February 2026',
-      amount: 1000,
+      base_amount: 3000,
+      discount: 2,
+      discount_amount: 60,
+      final_amount: 2940,
+      late_fee: 0,
+      is_late: false,
       status: 'pending',
-      dueDate: '2026-02-05'
+      dueDate: '2026-02-05',
+      days_until_late_fee: 8
     },
     history: []
   });
@@ -18,17 +28,26 @@ const StudentFees = () => {
     // TODO: Fetch real fee data from API
     setFeeData({
       monthlyFee: 1000,
+      // NEW Phase 1 fields
+      payment_window: 'quarterly',
+      discount: 2,
+      monthly_savings: 20,
       currentMonth: {
         month: 'February 2026',
-        amount: 1000,
+        base_amount: 3000,
+        discount: 2,
+        discount_amount: 60,
+        final_amount: 2940,
+        late_fee: 0,
+        is_late: false,
         status: 'pending',
-        dueDate: '2026-02-05'
+        dueDate: '2026-02-05',
+        days_until_late_fee: 8
       },
       history: [
-        { month: 'January 2026', amount: 1000, status: 'paid', paidDate: '2026-01-03', paymentId: 'PAY001' },
-        { month: 'December 2025', amount: 1000, status: 'paid', paidDate: '2025-12-02', paymentId: 'PAY002' },
-        { month: 'November 2025', amount: 1000, status: 'paid', paidDate: '2025-11-04', paymentId: 'PAY003' },
-        { month: 'October 2025', amount: 1000, status: 'paid', paidDate: '2025-10-01', paymentId: 'PAY004' },
+        { month: 'January 2026', base_amount: 3000, discount: 2, amount: 2940, late_fee: 0, total: 2940, status: 'paid', paidDate: '2026-01-03', paymentId: 'PAY001' },
+        { month: 'October 2025', base_amount: 3000, discount: 2, amount: 2940, late_fee: 0, total: 2940, status: 'paid', paidDate: '2025-10-02', paymentId: 'PAY002' },
+        { month: 'July 2025', base_amount: 3000, discount: 2, amount: 2940, late_fee: 100, total: 3040, status: 'paid', paidDate: '2025-07-20', paymentId: 'PAY003' },
       ]
     });
   }, []);
@@ -62,20 +81,91 @@ const StudentFees = () => {
           <p className="text-gray-600">View and manage your monthly fee payments</p>
         </div>
 
+        {/* Payment Plan Section - NEW Phase 1 */}
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+          <h3 className="text-2xl font-bold text-accent mb-6">Your Payment Plan</h3>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600 mb-1">Current Plan</p>
+              <p className="text-lg font-bold text-primary capitalize">
+                {feeData.payment_window}
+              </p>
+            </div>
+            
+            <div className="p-4 bg-green-50 rounded-lg">
+              <p className="text-sm text-gray-600 mb-1">Discount</p>
+              <p className="text-lg font-bold text-green-600">
+                {feeData.discount}%
+              </p>
+            </div>
+            
+            <div className="p-4 bg-blue-50 rounded-lg">
+              <p className="text-sm text-gray-600 mb-1">You Save</p>
+              <p className="text-lg font-bold text-blue-600">
+                ₹{feeData.monthly_savings}/month
+              </p>
+            </div>
+            
+            <div className="p-4 bg-purple-50 rounded-lg">
+              <button className="w-full btn-secondary text-sm">
+                Change Plan
+              </button>
+            </div>
+          </div>
+          
+          <div className="p-4 bg-primary/5 rounded-lg">
+            <p className="text-sm text-gray-700">
+              💡 <strong>Tip:</strong> Save more by paying in advance! 
+              Yearly plan gives you 10% discount (₹1,200 savings per year).
+            </p>
+          </div>
+        </div>
+
         {/* Current Month Fee Card */}
         <div className="bg-gradient-to-br from-primary to-primary-dark text-white rounded-2xl shadow-2xl p-8 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
-              <h2 className="text-2xl font-bold mb-4">Current Month Fee</h2>
+              <h2 className="text-2xl font-bold mb-4">Current Payment</h2>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-white/80">Month:</span>
                   <span className="font-semibold">{feeData.currentMonth.month}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-white/80">Amount:</span>
-                  <span className="font-semibold text-2xl">₹{feeData.currentMonth.amount}</span>
+                
+                {/* Fee Breakdown - NEW Phase 1 */}
+                <div className="space-y-2 py-3 border-t border-white/20">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-white/80">Base Amount:</span>
+                    <span>₹{feeData.currentMonth.base_amount}</span>
+                  </div>
+                  
+                  {feeData.currentMonth.discount > 0 && (
+                    <div className="flex items-center justify-between text-sm text-green-300">
+                      <span>Discount ({feeData.currentMonth.discount}%):</span>
+                      <span>- ₹{feeData.currentMonth.discount_amount}</span>
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center justify-between font-bold text-lg pt-2 border-t border-white/20">
+                    <span>Amount to Pay:</span>
+                    <span className="text-2xl">₹{feeData.currentMonth.final_amount}</span>
+                  </div>
+                  
+                  {feeData.currentMonth.is_late && feeData.currentMonth.late_fee > 0 && (
+                    <>
+                      <div className="flex items-center justify-between text-red-300 pt-2 border-t border-red-300/30">
+                        <span>Late Fee:</span>
+                        <span>+ ₹{feeData.currentMonth.late_fee}</span>
+                      </div>
+                      <div className="flex items-center justify-between font-bold text-xl text-red-200">
+                        <span>Total Due:</span>
+                        <span>₹{feeData.currentMonth.final_amount + feeData.currentMonth.late_fee}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
+
                 <div className="flex items-center justify-between">
                   <span className="text-white/80">Due Date:</span>
                   <span className="font-semibold">
@@ -121,6 +211,22 @@ const StudentFees = () => {
               )}
             </div>
           </div>
+
+          {/* Grace Period Warning - NEW Phase 1 */}
+          {feeData.currentMonth.status === 'pending' && 
+           feeData.currentMonth.days_until_late_fee > 0 && 
+           feeData.currentMonth.days_until_late_fee <= 10 && (
+            <div className="mt-6 p-4 bg-yellow-500/20 border border-yellow-300/30 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <svg className="w-5 h-5 text-yellow-300" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                </svg>
+                <p className="text-yellow-100 font-semibold">
+                  ⏰ {feeData.currentMonth.days_until_late_fee} days left before late fee of ₹100 applies
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Quick Stats */}
@@ -148,7 +254,7 @@ const StudentFees = () => {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Total Paid</p>
-                <p className="text-2xl font-bold text-accent">₹{feeData.history.length * 1000}</p>
+                <p className="text-2xl font-bold text-accent">₹{feeData.history.reduce((sum, p) => sum + p.total, 0)}</p>
               </div>
             </div>
           </div>
@@ -161,14 +267,14 @@ const StudentFees = () => {
                 </svg>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Months Paid</p>
+                <p className="text-sm text-gray-600">Payments Made</p>
                 <p className="text-2xl font-bold text-accent">{feeData.history.length}</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Payment History */}
+        {/* Payment History - UPDATED with Phase 1 columns */}
         <div className="bg-white rounded-xl shadow-lg p-6">
           <h2 className="text-2xl font-bold text-accent mb-6 pb-4 border-b">Payment History</h2>
           
@@ -177,10 +283,13 @@ const StudentFees = () => {
               <thead>
                 <tr className="border-b">
                   <th className="text-left py-3 px-4 font-semibold text-accent">Month</th>
+                  <th className="text-left py-3 px-4 font-semibold text-accent">Base Amount</th>
+                  <th className="text-left py-3 px-4 font-semibold text-accent">Discount</th>
                   <th className="text-left py-3 px-4 font-semibold text-accent">Amount</th>
+                  <th className="text-left py-3 px-4 font-semibold text-accent">Late Fee</th>
+                  <th className="text-left py-3 px-4 font-semibold text-accent">Total</th>
                   <th className="text-left py-3 px-4 font-semibold text-accent">Status</th>
                   <th className="text-left py-3 px-4 font-semibold text-accent">Paid Date</th>
-                  <th className="text-left py-3 px-4 font-semibold text-accent">Payment ID</th>
                   <th className="text-left py-3 px-4 font-semibold text-accent">Actions</th>
                 </tr>
               </thead>
@@ -188,7 +297,23 @@ const StudentFees = () => {
                 {feeData.history.map((payment, index) => (
                   <tr key={index} className="border-b hover:bg-gray-50 transition-colors">
                     <td className="py-3 px-4 font-medium">{payment.month}</td>
-                    <td className="py-3 px-4">₹{payment.amount}</td>
+                    <td className="py-3 px-4">₹{payment.base_amount}</td>
+                    <td className="py-3 px-4">
+                      {payment.discount > 0 ? (
+                        <span className="text-green-600 font-semibold">{payment.discount}%</span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 font-semibold text-primary">₹{payment.amount}</td>
+                    <td className="py-3 px-4">
+                      {payment.late_fee > 0 ? (
+                        <span className="text-red-600 font-semibold">+ ₹{payment.late_fee}</span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 font-bold">₹{payment.total}</td>
                     <td className="py-3 px-4">{getStatusBadge(payment.status)}</td>
                     <td className="py-3 px-4 text-gray-600 text-sm">
                       {new Date(payment.paidDate).toLocaleDateString('en-US', { 
@@ -197,7 +322,6 @@ const StudentFees = () => {
                         day: 'numeric' 
                       })}
                     </td>
-                    <td className="py-3 px-4 text-gray-600 text-sm font-mono">{payment.paymentId}</td>
                     <td className="py-3 px-4">
                       <button className="text-primary hover:text-primary-dark text-sm font-semibold">
                         Download Receipt
@@ -245,11 +369,11 @@ const StudentFees = () => {
           <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
             <h3 className="text-lg font-bold text-yellow-900 mb-3">📌 Important Notes</h3>
             <ul className="space-y-2 text-sm text-yellow-800">
-              <li>• Fee is due by the 5th of every month</li>
-              <li>• No late fee penalties currently</li>
+              <li>• Fee is due by the 5th of every month/quarter</li>
+              <li>• Grace period: 10 days before late fee applies</li>
+              <li>• Late fee: ₹100 after grace period</li>
               <li>• All transactions are secure via Razorpay</li>
               <li>• Receipt will be sent to your registered email</li>
-              <li>• For queries, contact admin</li>
             </ul>
           </div>
         </div>

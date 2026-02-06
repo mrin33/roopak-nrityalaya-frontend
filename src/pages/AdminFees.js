@@ -16,7 +16,7 @@ const AdminFees = () => {
   useEffect(() => {
     // TODO: Fetch fee payments from API
     setPayments([
-      { id: 1, studentName: 'Riya Sharma', rollNo: 'RN001', month: 'February 2026', amount: 1000, status: 'paid', paidDate: '2026-02-01', paymentId: 'PAY001' },
+      { id: 1, studentName: 'Riya Sharma', roll_number: 'PP1', payment_window: 'monthly', discount: 0, base_amount: 1000, late_fee: 0, total_amount: 1000 // UPDATED Phase 1, month: 'February 2026', amount: 1000, status: 'paid', paidDate: '2026-02-01', paymentId: 'PAY001' },
       { id: 2, studentName: 'Amit Kumar', rollNo: 'RN002', month: 'February 2026', amount: 1000, status: 'pending', dueDate: '2026-02-05', paymentId: null },
       { id: 3, studentName: 'Priya Patel', rollNo: 'RN003', month: 'February 2026', amount: 1000, status: 'paid', paidDate: '2026-02-02', paymentId: 'PAY002' },
       { id: 4, studentName: 'Rahul Singh', rollNo: 'RN004', month: 'February 2026', amount: 1000, status: 'overdue', dueDate: '2026-02-05', paymentId: null },

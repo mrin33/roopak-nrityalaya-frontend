@@ -25,8 +25,8 @@ const AdminBatches = () => {
         schedule: 'Mon, Wed, Fri',
         time: '8:00 AM - 9:30 AM',
         room: 'Studio 1',
-        totalStudents: 12,
-        maxStudents: 15,
+        current_enrolled: 12, // UPDATED Phase 1
+        max_students: 15, // UPDATED Phase 1
         isActive: true
       },
       {

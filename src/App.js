@@ -16,6 +16,11 @@ import StudentAttendance from './pages/StudentAttendance';
 import StudentFees from './pages/StudentFees';
 import StudentResources from './pages/StudentResources';
 import StudentSchedule from './pages/StudentSchedule';
+// Import new pages
+import StudentActivityLog from './pages/StudentActivityLog';
+import StudentGalleryUpload from './pages/StudentGalleryUpload';
+import StudentReviews from './pages/StudentReviews';
+import StudentMakeupClasses from './pages/StudentMakeupClasses';
 import TeacherDashboard from './pages/TeacherDashboard';
 import TeacherAttendance from './pages/TeacherAttendance';
 import TeacherStudents from './pages/TeacherStudents';
@@ -30,6 +35,7 @@ import AdminFees from './pages/AdminFees';
 import AdminNotices from './pages/AdminNotices';
 import AdminGallery from './pages/AdminGallery';
 import Footer from './components/Footer';
+
 
 
 function App() {
@@ -91,6 +97,28 @@ function App() {
                   </ProtectedRoute>
                 } 
               />
+              
+              // Add routes inside student routes section
+              <Route path="/student/activity-log" element={
+                <ProtectedRoute role="student">
+                  <StudentActivityLog />
+                </ProtectedRoute>
+              } />
+              <Route path="/student/gallery-upload" element={
+                <ProtectedRoute role="student">
+                  <StudentGalleryUpload />
+                </ProtectedRoute>
+              } />
+              <Route path="/student/reviews" element={
+                <ProtectedRoute role="student">
+                  <StudentReviews />
+                </ProtectedRoute>
+              } />
+              <Route path="/student/makeup-classes" element={
+                <ProtectedRoute role="student">
+                  <StudentMakeupClasses />
+                </ProtectedRoute>
+              } />
               
               {/* Protected Teacher Routes */}
               <Route 

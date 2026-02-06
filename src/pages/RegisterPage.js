@@ -13,15 +13,35 @@ const RegisterPage = () => {
     fullName: '',
     phone: '',
     dateOfBirth: '',
+    gender: '',
     address: '',
-    guardianName: '',
-    guardianPhone: ''
+    emergencyContactName: '',
+    emergencyContact: '',
+    currentLevel: '1',
+    paymentWindow: 'monthly',
+    enrollmentReason: ''
   });
 
-  const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+  const [error, setError] = useState('');
+
+  const levels = [
+    { id: 1, name: 'Praveshika Pratham', code: 'PP', monthlyFee: 1000 },
+    { id: 2, name: 'Praveshika Purna', code: 'PM', monthlyFee: 1200 },
+    { id: 3, name: 'Madhyama Pratham', code: 'MP', monthlyFee: 1500 },
+    { id: 4, name: 'Madhyama Purna', code: 'MM', monthlyFee: 1500 },
+    { id: 5, name: 'Visharad Pratham', code: 'VP', monthlyFee: 2000 },
+    { id: 6, name: 'Visharad Purna', code: 'VM', monthlyFee: 2000 },
+    { id: 7, name: 'Alankar Pratham', code: 'AP', monthlyFee: 2500 },
+    { id: 8, name: 'Alankar Purna', code: 'AM', monthlyFee: 2500 }
+  ];
+
+  const paymentOptions = [
+    { value: 'monthly', label: 'Monthly', discount: 0, multiplier: 1, badge: 'Flexible', color: 'blue' },
+    { value: 'quarterly', label: 'Quarterly', discount: 2, multiplier: 3, badge: 'Save 2%', color: 'green' },
+    { value: 'half_yearly', label: 'Half-Yearly', discount: 5, multiplier: 6, badge: 'Save 5%', color: 'purple' },
+    { value: 'yearly', label: 'Yearly', discount: 10, multiplier: 12, badge: 'Save 10%', color: 'gold' }
+  ];
 
   // Redirect if already logged in
   React.useEffect(() => {
@@ -30,343 +50,400 @@ const RegisterPage = () => {
     }
   }, [user, navigate]);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value
-    });
-    // Clear error for this field
-    if (errors[name]) {
-      setErrors({ ...errors, [name]: '' });
-    }
-    setErrorMessage('');
+  const getSelectedLevel = () => {
+    return levels.find(l => l.id === parseInt(formData.currentLevel));
   };
 
-  const validateForm = () => {
-    const newErrors = {};
+  const calculateFee = () => {
+    const level = getSelectedLevel();
+    if (!level) return { base: 0, discounted: 0, savings: 0 };
 
-    // Email validation
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email is invalid';
-    }
+    const option = paymentOptions.find(p => p.value === formData.paymentWindow);
+    const baseAmount = level.monthlyFee * option.multiplier;
+    const discountedAmount = baseAmount * (1 - option.discount / 100);
+    const savings = baseAmount - discountedAmount;
 
-    // Password validation
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
-    }
+    return {
+      base: baseAmount,
+      discounted: Math.round(discountedAmount),
+      savings: Math.round(savings)
+    };
+  };
 
-    // Confirm password
-    if (!formData.confirmPassword) {
-      newErrors.confirmPassword = 'Please confirm your password';
-    } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = 'Passwords do not match';
-    }
-
-    // Full name validation
-    if (!formData.fullName) {
-      newErrors.fullName = 'Full name is required';
-    } else if (formData.fullName.length < 3) {
-      newErrors.fullName = 'Full name must be at least 3 characters';
-    }
-
-    // Phone validation
-    if (!formData.phone) {
-      newErrors.phone = 'Phone number is required';
-    } else if (!/^\d{10}$/.test(formData.phone.replace(/\s/g, ''))) {
-      newErrors.phone = 'Phone number must be 10 digits';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setError('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setErrorMessage('');
-    setSuccessMessage('');
+    setError('');
 
-    if (!validateForm()) return;
+    // Validation
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
 
     setLoading(true);
 
     try {
-      // Remove confirmPassword before sending to API
-      const { confirmPassword, ...registrationData } = formData;
-      
-      await register(registrationData);
-      
-      // Stop loading spinner
-      setLoading(false);
-      
-      // Show success message
-      setSuccessMessage('✓ Account created successfully! Redirecting to dashboard...');
-      
-      // Redirect after 2 seconds
-      setTimeout(() => {
-        navigate('/student/dashboard');
-      }, 2000);
-    } catch (error) {
-      setErrorMessage(error.message || 'Registration failed. Please try again.');
+      await register({
+        email: formData.email,
+        password: formData.password,
+        fullName: formData.fullName,
+        phone: formData.phone,
+        dateOfBirth: formData.dateOfBirth,
+        gender: formData.gender,
+        address: formData.address,
+        emergencyContactName: formData.emergencyContactName,
+        emergencyContact: formData.emergencyContact,
+        currentLevelId: parseInt(formData.currentLevel),
+        paymentWindow: formData.paymentWindow,
+        enrollmentReason: formData.enrollmentReason
+      });
+
+      // Will redirect automatically via useEffect when user state updates
+    } catch (err) {
+      setError(err.response?.data?.message || 'Registration failed. Please try again.');
+    } finally {
       setLoading(false);
     }
   };
 
+  const fees = calculateFee();
+  const selectedOption = paymentOptions.find(p => p.value === formData.paymentWindow);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 py-12">
+      <div className="max-w-4xl mx-auto px-4">
+        
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-3xl">RN</span>
-          </div>
-          <h2 className="text-4xl font-heading font-bold text-primary mb-2">
-            Join Roopak Nrityalaya
-          </h2>
-          <p className="text-gray-600">Create your student account and begin your Kathak journey</p>
+          <h1 className="text-4xl font-heading font-bold text-primary mb-2">
+            Student Registration
+          </h1>
+          <p className="text-gray-600">Join Roopak Nrityalaya Kathak Academy</p>
         </div>
 
-        {/* Registration Form */}
         <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Success Message */}
-            {successMessage && (
-              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm flex items-center">
-                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                {successMessage}
-              </div>
-            )}
-
-            {/* Error Message */}
-            {errorMessage && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                {errorMessage}
-              </div>
-            )}
-
-            {/* Account Information Section */}
-            <div>
-              <h3 className="text-xl font-bold text-accent mb-4 pb-2 border-b border-gray-200">
-                Account Information
-              </h3>
-              
-              <div className="space-y-4">
-                {/* Email */}
-                <div>
-                  <label htmlFor="email" className="block text-sm font-semibold text-accent mb-2">
-                    Email Address *
-                  </label>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    className={`input-field ${errors.email ? 'border-red-500' : ''}`}
-                    placeholder="your.email@example.com"
-                  />
-                  {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
-                </div>
-
-                {/* Password Fields */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="password" className="block text-sm font-semibold text-accent mb-2">
-                      Password *
-                    </label>
-                    <input
-                      type="password"
-                      id="password"
-                      name="password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      className={`input-field ${errors.password ? 'border-red-500' : ''}`}
-                      placeholder="Minimum 6 characters"
-                    />
-                    {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
-                  </div>
-
-                  <div>
-                    <label htmlFor="confirmPassword" className="block text-sm font-semibold text-accent mb-2">
-                      Confirm Password *
-                    </label>
-                    <input
-                      type="password"
-                      id="confirmPassword"
-                      name="confirmPassword"
-                      value={formData.confirmPassword}
-                      onChange={handleChange}
-                      className={`input-field ${errors.confirmPassword ? 'border-red-500' : ''}`}
-                      placeholder="Re-enter password"
-                    />
-                    {errors.confirmPassword && <p className="text-red-500 text-sm mt-1">{errors.confirmPassword}</p>}
-                  </div>
-                </div>
-              </div>
+          
+          {/* Error Message */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-700 text-sm">{error}</p>
             </div>
+          )}
 
-            {/* Personal Information Section */}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            
+            {/* Personal Information */}
             <div>
-              <h3 className="text-xl font-bold text-accent mb-4 pb-2 border-b border-gray-200">
+              <h3 className="text-xl font-bold text-accent mb-4 pb-2 border-b-2 border-primary/20">
                 Personal Information
               </h3>
-              
-              <div className="space-y-4">
-                {/* Full Name */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label htmlFor="fullName" className="block text-sm font-semibold text-accent mb-2">
+                  <label className="block text-sm font-semibold text-accent mb-2">
                     Full Name *
                   </label>
                   <input
                     type="text"
-                    id="fullName"
                     name="fullName"
                     value={formData.fullName}
                     onChange={handleChange}
-                    className={`input-field ${errors.fullName ? 'border-red-500' : ''}`}
+                    className="input-field"
                     placeholder="Enter your full name"
+                    required
                   />
-                  {errors.fullName && <p className="text-red-500 text-sm mt-1">{errors.fullName}</p>}
                 </div>
 
-                {/* Phone and Date of Birth */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="phone" className="block text-sm font-semibold text-accent mb-2">
-                      Phone Number *
-                    </label>
-                    <input
-                      type="tel"
-                      id="phone"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleChange}
-                      className={`input-field ${errors.phone ? 'border-red-500' : ''}`}
-                      placeholder="10-digit number"
-                    />
-                    {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
-                  </div>
-
-                  <div>
-                    <label htmlFor="dateOfBirth" className="block text-sm font-semibold text-accent mb-2">
-                      Date of Birth
-                    </label>
-                    <input
-                      type="date"
-                      id="dateOfBirth"
-                      name="dateOfBirth"
-                      value={formData.dateOfBirth}
-                      onChange={handleChange}
-                      className="input-field"
-                    />
-                  </div>
-                </div>
-
-                {/* Address */}
                 <div>
-                  <label htmlFor="address" className="block text-sm font-semibold text-accent mb-2">
-                    Address
-                  </label>
-                  <textarea
-                    id="address"
-                    name="address"
-                    value={formData.address}
-                    onChange={handleChange}
-                    rows="3"
-                    className="input-field resize-none"
-                    placeholder="Enter your complete address"
-                  ></textarea>
-                </div>
-              </div>
-            </div>
-
-            {/* Guardian Information Section */}
-            <div>
-              <h3 className="text-xl font-bold text-accent mb-4 pb-2 border-b border-gray-200">
-                Guardian Information <span className="text-sm font-normal text-gray-500">(Optional - for minors)</span>
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="guardianName" className="block text-sm font-semibold text-accent mb-2">
-                    Guardian Name
+                  <label className="block text-sm font-semibold text-accent mb-2">
+                    Email *
                   </label>
                   <input
-                    type="text"
-                    id="guardianName"
-                    name="guardianName"
-                    value={formData.guardianName}
+                    type="email"
+                    name="email"
+                    value={formData.email}
                     onChange={handleChange}
                     className="input-field"
-                    placeholder="Parent/Guardian name"
+                    placeholder="your.email@example.com"
+                    required
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="guardianPhone" className="block text-sm font-semibold text-accent mb-2">
-                    Guardian Phone
+                  <label className="block text-sm font-semibold text-accent mb-2">
+                    Password *
+                  </label>
+                  <input
+                    type="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    className="input-field"
+                    placeholder="At least 6 characters"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-accent mb-2">
+                    Confirm Password *
+                  </label>
+                  <input
+                    type="password"
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    className="input-field"
+                    placeholder="Re-enter password"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-accent mb-2">
+                    Phone Number *
                   </label>
                   <input
                     type="tel"
-                    id="guardianPhone"
-                    name="guardianPhone"
-                    value={formData.guardianPhone}
+                    name="phone"
+                    value={formData.phone}
                     onChange={handleChange}
                     className="input-field"
-                    placeholder="10-digit number"
+                    placeholder="10-digit mobile number"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-accent mb-2">
+                    Date of Birth *
+                  </label>
+                  <input
+                    type="date"
+                    name="dateOfBirth"
+                    value={formData.dateOfBirth}
+                    onChange={handleChange}
+                    className="input-field"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-accent mb-2">
+                    Gender *
+                  </label>
+                  <select
+                    name="gender"
+                    value={formData.gender}
+                    onChange={handleChange}
+                    className="input-field"
+                    required
+                  >
+                    <option value="">Select gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-accent mb-2">
+                    Address
+                  </label>
+                  <input
+                    type="text"
+                    name="address"
+                    value={formData.address}
+                    onChange={handleChange}
+                    className="input-field"
+                    placeholder="City, State"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Terms and Conditions */}
-            <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-600">
-              By registering, you agree to our Terms of Service and Privacy Policy. 
-              You will be enrolled at <span className="font-semibold">Praveshika Pratham</span> (Level 1).
+            {/* Emergency Contact */}
+            <div>
+              <h3 className="text-xl font-bold text-accent mb-4 pb-2 border-b-2 border-primary/20">
+                Emergency Contact
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-semibold text-accent mb-2">
+                    Contact Person Name *
+                  </label>
+                  <input
+                    type="text"
+                    name="emergencyContactName"
+                    value={formData.emergencyContactName}
+                    onChange={handleChange}
+                    className="input-field"
+                    placeholder="Parent/Guardian name"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-accent mb-2">
+                    Contact Number *
+                  </label>
+                  <input
+                    type="tel"
+                    name="emergencyContact"
+                    value={formData.emergencyContact}
+                    onChange={handleChange}
+                    className="input-field"
+                    placeholder="Emergency contact number"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Level Selection */}
+            <div>
+              <h3 className="text-xl font-bold text-accent mb-4 pb-2 border-b-2 border-primary/20">
+                Course Information
+              </h3>
+              <div>
+                <label className="block text-sm font-semibold text-accent mb-2">
+                  Select Level *
+                </label>
+                <select
+                  name="currentLevel"
+                  value={formData.currentLevel}
+                  onChange={handleChange}
+                  className="input-field"
+                  required
+                >
+                  {levels.map(level => (
+                    <option key={level.id} value={level.id}>
+                      {level.name} - ₹{level.monthlyFee}/month
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Your roll number will be auto-assigned based on this level (e.g., {getSelectedLevel()?.code}1, {getSelectedLevel()?.code}2...)
+                </p>
+              </div>
+            </div>
+
+            {/* Payment Window Selection */}
+            <div>
+              <h3 className="text-xl font-bold text-accent mb-4 pb-2 border-b-2 border-primary/20">
+                Payment Preference
+              </h3>
+              
+              <label className="block text-sm font-semibold text-accent mb-3">
+                Select Payment Window *
+              </label>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {paymentOptions.map(option => (
+                  <label
+                    key={option.value}
+                    className={`relative cursor-pointer border-2 rounded-xl p-4 transition-all ${
+                      formData.paymentWindow === option.value
+                        ? 'border-primary bg-primary/5 shadow-lg'
+                        : 'border-gray-200 hover:border-primary/50'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentWindow"
+                      value={option.value}
+                      checked={formData.paymentWindow === option.value}
+                      onChange={handleChange}
+                      className="sr-only"
+                    />
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <p className="font-bold text-accent">{option.label}</p>
+                        <p className="text-xs text-gray-600">
+                          {option.multiplier} month{option.multiplier > 1 ? 's' : ''}
+                        </p>
+                      </div>
+                      {option.discount > 0 && (
+                        <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                          {option.badge}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-baseline space-x-2">
+                      {option.discount > 0 && (
+                        <span className="text-sm text-gray-400 line-through">
+                          ₹{getSelectedLevel()?.monthlyFee * option.multiplier}
+                        </span>
+                      )}
+                      <span className="text-xl font-bold text-primary">
+                        ₹{Math.round(getSelectedLevel()?.monthlyFee * option.multiplier * (1 - option.discount / 100))}
+                      </span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+
+              {/* Fee Summary */}
+              {fees.savings > 0 && (
+                <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-700 font-semibold">
+                    🎉 You save ₹{fees.savings} with {selectedOption?.label} payment!
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Enrollment Reason */}
+            <div>
+              <h3 className="text-xl font-bold text-accent mb-4 pb-2 border-b-2 border-primary/20">
+                About You
+              </h3>
+              <div>
+                <label className="block text-sm font-semibold text-accent mb-2">
+                  Why do you want to join? (Optional)
+                </label>
+                <textarea
+                  name="enrollmentReason"
+                  value={formData.enrollmentReason}
+                  onChange={handleChange}
+                  rows="4"
+                  className="input-field"
+                  placeholder="Tell us what motivated you to join Roopak Nrityalaya..."
+                ></textarea>
+                <p className="text-xs text-gray-500 mt-1">
+                  This helps us understand you better and customize your learning experience
+                </p>
+              </div>
             </div>
 
             {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Creating Account...
-                </span>
-              ) : (
-                'Create Account'
-              )}
-            </button>
-          </form>
+            <div className="pt-6 border-t">
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full btn-primary text-lg py-4 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Registering...' : 'Complete Registration'}
+              </button>
+            </div>
 
-          {/* Login Link */}
-          <div className="mt-6 text-center">
-            <p className="text-gray-600">
+            {/* Login Link */}
+            <div className="text-center text-sm text-gray-600">
               Already have an account?{' '}
               <Link to="/login" className="text-primary hover:text-primary-dark font-semibold">
-                Sign In
+                Login here
               </Link>
-            </p>
-          </div>
-
-          {/* Back to Home */}
-          <div className="mt-4 text-center">
-            <Link to="/" className="text-sm text-gray-500 hover:text-gray-700">
-              ← Back to Home
-            </Link>
-          </div>
+            </div>
+          </form>
         </div>
       </div>
     </div>
