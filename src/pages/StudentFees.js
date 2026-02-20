@@ -1,330 +1,219 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import PaymentWindowBadge from '../components/PaymentWindowBadge';
+import LateFeeWarning from '../components/LateFeeWarning';
 
 const StudentFees = () => {
   const { user } = useAuth();
-  const [feeData, setFeeData] = useState({
-    monthlyFee: 1000,
-    // NEW Phase 1 fields
-    payment_window: 'quarterly',
-    discount: 2,
-    monthly_savings: 60,
-    currentMonth: {
-      month: 'February 2026',
-      base_amount: 3000,
-      discount: 2,
-      discount_amount: 60,
-      final_amount: 2940,
-      late_fee: 0,
-      is_late: false,
-      status: 'pending',
-      dueDate: '2026-02-05',
-      days_until_late_fee: 8
-    },
-    history: []
-  });
+  const [student, setStudent] = useState(null);
+  const [currentPayment, setCurrentPayment] = useState(null);
+  const [paymentHistory, setPaymentHistory] = useState([]);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   useEffect(() => {
-    // TODO: Fetch real fee data from API
-    setFeeData({
-      monthlyFee: 1000,
-      // NEW Phase 1 fields
+    // TODO: Fetch student fee data from API
+    setStudent({
+      roll_number: 'PP15',
+      full_name: user?.profile?.full_name || 'Student Name',
+      level_name: 'Praveshika Pratham',
+      monthly_fee: 1000,
       payment_window: 'quarterly',
-      discount: 2,
-      monthly_savings: 20,
-      currentMonth: {
-        month: 'February 2026',
-        base_amount: 3000,
-        discount: 2,
-        discount_amount: 60,
-        final_amount: 2940,
-        late_fee: 0,
-        is_late: false,
-        status: 'pending',
-        dueDate: '2026-02-05',
-        days_until_late_fee: 8
-      },
-      history: [
-        { month: 'January 2026', base_amount: 3000, discount: 2, amount: 2940, late_fee: 0, total: 2940, status: 'paid', paidDate: '2026-01-03', paymentId: 'PAY001' },
-        { month: 'October 2025', base_amount: 3000, discount: 2, amount: 2940, late_fee: 0, total: 2940, status: 'paid', paidDate: '2025-10-02', paymentId: 'PAY002' },
-        { month: 'July 2025', base_amount: 3000, discount: 2, amount: 2940, late_fee: 100, total: 3040, status: 'paid', paidDate: '2025-07-20', paymentId: 'PAY003' },
-      ]
+      discount: 2
     });
-  }, []);
+
+    setCurrentPayment({
+      payment_id: 1,
+      due_date: '2026-02-28',
+      base_amount: 3000,
+      discount_percentage: 2,
+      discount_amount: 60,
+      late_fee: 0,
+      final_amount: 2940,
+      status: 'pending'
+    });
+
+    setPaymentHistory([
+      { id: 1, payment_date: '2025-11-01', amount: 2940, status: 'paid', payment_method: 'UPI' },
+      { id: 2, payment_date: '2025-08-01', amount: 2940, status: 'paid', payment_method: 'Card' },
+      { id: 3, payment_date: '2025-05-01', amount: 2940, status: 'paid', payment_method: 'Cash' }
+    ]);
+  }, [user]);
 
   const handlePayNow = () => {
-    // TODO: Integrate Razorpay payment gateway
-    alert('Razorpay integration will be added here!\nFor now, this is just a placeholder.');
+    setShowPaymentModal(true);
   };
 
-  const getStatusBadge = (status) => {
-    switch(status) {
-      case 'paid':
-        return <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">Paid</span>;
-      case 'pending':
-        return <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-semibold">Pending</span>;
-      case 'overdue':
-        return <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-semibold">Overdue</span>;
-      default:
-        return null;
-    }
+  const handlePaymentSubmit = (e) => {
+    e.preventDefault();
+    // TODO: Process payment via Razorpay
+    alert('Payment processed successfully! (Razorpay integration pending)');
+    setShowPaymentModal(false);
   };
+
+  if (!student || !currentPayment) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  const lateFeeAmount = currentPayment.late_fee || 0;
+  const daysUntilDue = Math.ceil((new Date(currentPayment.due_date) - new Date()) / (1000 * 60 * 60 * 24));
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-heading font-bold text-primary mb-2">
             Fee Management
           </h1>
-          <p className="text-gray-600">View and manage your monthly fee payments</p>
+          <p className="text-gray-600">View and manage your fee payments</p>
         </div>
 
-        {/* Payment Plan Section - NEW Phase 1 */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-          <h3 className="text-2xl font-bold text-accent mb-6">Your Payment Plan</h3>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600 mb-1">Current Plan</p>
-              <p className="text-lg font-bold text-primary capitalize">
-                {feeData.payment_window}
-              </p>
-            </div>
-            
-            <div className="p-4 bg-green-50 rounded-lg">
-              <p className="text-sm text-gray-600 mb-1">Discount</p>
-              <p className="text-lg font-bold text-green-600">
-                {feeData.discount}%
-              </p>
-            </div>
-            
-            <div className="p-4 bg-blue-50 rounded-lg">
-              <p className="text-sm text-gray-600 mb-1">You Save</p>
-              <p className="text-lg font-bold text-blue-600">
-                ₹{feeData.monthly_savings}/month
-              </p>
-            </div>
-            
-            <div className="p-4 bg-purple-50 rounded-lg">
-              <button className="w-full btn-secondary text-sm">
-                Change Plan
-              </button>
-            </div>
-          </div>
-          
-          <div className="p-4 bg-primary/5 rounded-lg">
-            <p className="text-sm text-gray-700">
-              💡 <strong>Tip:</strong> Save more by paying in advance! 
-              Yearly plan gives you 10% discount (₹1,200 savings per year).
-            </p>
-          </div>
-        </div>
+        {/* Late Fee Warning - Using LateFeeWarning Component */}
+        <LateFeeWarning 
+          hasLateFee={lateFeeAmount > 0}
+          lateFeeAmount={lateFeeAmount}
+          daysUntilLateFee={daysUntilDue}
+          nextDueDate={currentPayment.due_date}
+          variant="card"
+        />
 
-        {/* Current Month Fee Card */}
-        <div className="bg-gradient-to-br from-primary to-primary-dark text-white rounded-2xl shadow-2xl p-8 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div>
-              <h2 className="text-2xl font-bold mb-4">Current Payment</h2>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-white/80">Month:</span>
-                  <span className="font-semibold">{feeData.currentMonth.month}</span>
-                </div>
-                
-                {/* Fee Breakdown - NEW Phase 1 */}
-                <div className="space-y-2 py-3 border-t border-white/20">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-white/80">Base Amount:</span>
-                    <span>₹{feeData.currentMonth.base_amount}</span>
-                  </div>
-                  
-                  {feeData.currentMonth.discount > 0 && (
-                    <div className="flex items-center justify-between text-sm text-green-300">
-                      <span>Discount ({feeData.currentMonth.discount}%):</span>
-                      <span>- ₹{feeData.currentMonth.discount_amount}</span>
-                    </div>
-                  )}
-                  
-                  <div className="flex items-center justify-between font-bold text-lg pt-2 border-t border-white/20">
-                    <span>Amount to Pay:</span>
-                    <span className="text-2xl">₹{feeData.currentMonth.final_amount}</span>
-                  </div>
-                  
-                  {feeData.currentMonth.is_late && feeData.currentMonth.late_fee > 0 && (
-                    <>
-                      <div className="flex items-center justify-between text-red-300 pt-2 border-t border-red-300/30">
-                        <span>Late Fee:</span>
-                        <span>+ ₹{feeData.currentMonth.late_fee}</span>
-                      </div>
-                      <div className="flex items-center justify-between font-bold text-xl text-red-200">
-                        <span>Total Due:</span>
-                        <span>₹{feeData.currentMonth.final_amount + feeData.currentMonth.late_fee}</span>
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-white/80">Due Date:</span>
-                  <span className="font-semibold">
-                    {new Date(feeData.currentMonth.dueDate).toLocaleDateString('en-US', { 
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric' 
-                    })}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-white/80">Status:</span>
-                  {feeData.currentMonth.status === 'paid' ? (
-                    <span className="px-3 py-1 bg-green-500 rounded-full text-xs font-semibold">✓ Paid</span>
-                  ) : (
-                    <span className="px-3 py-1 bg-yellow-500 text-yellow-900 rounded-full text-xs font-semibold">Pending</span>
-                  )}
-                </div>
+        {/* Student Info & Current Payment */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+          {/* Student Info Card */}
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <h2 className="text-xl font-bold text-accent mb-4 pb-2 border-b">Student Information</h2>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Name:</span>
+                <span className="font-semibold text-accent">{student.full_name}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Roll Number:</span>
+                <span className="font-mono font-bold text-primary">{student.roll_number}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Level:</span>
+                <span className="font-semibold">{student.level_name}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Monthly Fee:</span>
+                <span className="font-bold text-primary">₹{student.monthly_fee}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Payment Plan:</span>
+                <PaymentWindowBadge 
+                  paymentWindow={student.payment_window}
+                  discount={student.discount}
+                />
               </div>
             </div>
-
-            <div className="flex flex-col justify-center">
-              {feeData.currentMonth.status === 'pending' ? (
-                <>
-                  <button 
-                    onClick={handlePayNow}
-                    className="bg-white text-primary px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition-all shadow-lg mb-4"
-                  >
-                    Pay Now with Razorpay
-                  </button>
-                  <p className="text-sm text-white/80 text-center">
-                    Secure payment via Razorpay • UPI, Cards, Net Banking accepted
-                  </p>
-                </>
-              ) : (
-                <div className="text-center">
-                  <svg className="w-24 h-24 mx-auto text-green-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <p className="text-xl font-semibold">Fee Paid!</p>
-                  <p className="text-white/80 text-sm">Thank you for your timely payment</p>
-                </div>
-              )}
-            </div>
           </div>
 
-          {/* Grace Period Warning - NEW Phase 1 */}
-          {feeData.currentMonth.status === 'pending' && 
-           feeData.currentMonth.days_until_late_fee > 0 && 
-           feeData.currentMonth.days_until_late_fee <= 10 && (
-            <div className="mt-6 p-4 bg-yellow-500/20 border border-yellow-300/30 rounded-lg">
-              <div className="flex items-center space-x-2">
-                <svg className="w-5 h-5 text-yellow-300" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                </svg>
-                <p className="text-yellow-100 font-semibold">
-                  ⏰ {feeData.currentMonth.days_until_late_fee} days left before late fee of ₹100 applies
+          {/* Current Payment Due */}
+          <div className="lg:col-span-2 bg-gradient-to-br from-primary to-primary-dark text-white rounded-xl shadow-lg p-8">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold mb-1">Current Payment Due</h2>
+                <p className="text-white/80">
+                  Due Date: {new Date(currentPayment.due_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
                 </p>
               </div>
+              <div className={`px-4 py-2 rounded-lg font-semibold ${
+                currentPayment.status === 'paid' 
+                  ? 'bg-green-500' 
+                  : 'bg-yellow-500 text-gray-900'
+              }`}>
+                {currentPayment.status === 'paid' ? 'PAID' : 'PENDING'}
+              </div>
             </div>
-          )}
+
+            <div className="bg-white/10 rounded-lg p-6 mb-6">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-lg">
+                  <span>Base Amount ({student.payment_window}):</span>
+                  <span className="font-semibold">₹{currentPayment.base_amount}</span>
+                </div>
+                
+                {currentPayment.discount_percentage > 0 && (
+                  <div className="flex items-center justify-between text-green-300">
+                    <span>Discount ({currentPayment.discount_percentage}%):</span>
+                    <span className="font-semibold">- ₹{currentPayment.discount_amount}</span>
+                  </div>
+                )}
+                
+                {lateFeeAmount > 0 && (
+                  <div className="flex items-center justify-between text-red-300">
+                    <span>Late Fee:</span>
+                    <span className="font-semibold">+ ₹{lateFeeAmount}</span>
+                  </div>
+                )}
+                
+                <div className="border-t border-white/20 pt-3 mt-3">
+                  <div className="flex items-center justify-between text-2xl font-bold">
+                    <span>Total Amount:</span>
+                    <span>₹{currentPayment.final_amount + lateFeeAmount}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {currentPayment.status === 'pending' && (
+              <button 
+                onClick={handlePayNow}
+                className="w-full bg-secondary text-primary py-4 rounded-lg font-bold text-xl hover:bg-secondary-dark transition-colors shadow-lg"
+              >
+                💳 Pay Now
+              </button>
+            )}
+
+            {currentPayment.status === 'paid' && (
+              <div className="bg-green-500 text-white py-4 rounded-lg text-center font-bold text-xl">
+                ✓ Payment Completed
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center space-x-4">
-              <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center">
-                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Monthly Fee</p>
-                <p className="text-2xl font-bold text-accent">₹{feeData.monthlyFee}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center space-x-4">
-              <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center">
-                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Total Paid</p>
-                <p className="text-2xl font-bold text-accent">₹{feeData.history.reduce((sum, p) => sum + p.total, 0)}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center space-x-4">
-              <div className="w-14 h-14 bg-purple-100 rounded-full flex items-center justify-center">
-                <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Payments Made</p>
-                <p className="text-2xl font-bold text-accent">{feeData.history.length}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Payment History - UPDATED with Phase 1 columns */}
+        {/* Payment History */}
         <div className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-2xl font-bold text-accent mb-6 pb-4 border-b">Payment History</h2>
+          <h2 className="text-2xl font-bold text-accent mb-6 pb-2 border-b">Payment History</h2>
           
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-3 px-4 font-semibold text-accent">Month</th>
-                  <th className="text-left py-3 px-4 font-semibold text-accent">Base Amount</th>
-                  <th className="text-left py-3 px-4 font-semibold text-accent">Discount</th>
-                  <th className="text-left py-3 px-4 font-semibold text-accent">Amount</th>
-                  <th className="text-left py-3 px-4 font-semibold text-accent">Late Fee</th>
-                  <th className="text-left py-3 px-4 font-semibold text-accent">Total</th>
-                  <th className="text-left py-3 px-4 font-semibold text-accent">Status</th>
-                  <th className="text-left py-3 px-4 font-semibold text-accent">Paid Date</th>
-                  <th className="text-left py-3 px-4 font-semibold text-accent">Actions</th>
+              <thead className="bg-gray-50 border-b-2">
+                <tr>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Date</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Amount</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Payment Method</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Status</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Receipt</th>
                 </tr>
               </thead>
               <tbody>
-                {feeData.history.map((payment, index) => (
-                  <tr key={index} className="border-b hover:bg-gray-50 transition-colors">
-                    <td className="py-3 px-4 font-medium">{payment.month}</td>
-                    <td className="py-3 px-4">₹{payment.base_amount}</td>
-                    <td className="py-3 px-4">
-                      {payment.discount > 0 ? (
-                        <span className="text-green-600 font-semibold">{payment.discount}%</span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 font-semibold text-primary">₹{payment.amount}</td>
-                    <td className="py-3 px-4">
-                      {payment.late_fee > 0 ? (
-                        <span className="text-red-600 font-semibold">+ ₹{payment.late_fee}</span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 font-bold">₹{payment.total}</td>
-                    <td className="py-3 px-4">{getStatusBadge(payment.status)}</td>
-                    <td className="py-3 px-4 text-gray-600 text-sm">
-                      {new Date(payment.paidDate).toLocaleDateString('en-US', { 
-                        year: 'numeric', 
+                {paymentHistory.map((payment) => (
+                  <tr key={payment.id} className="border-b hover:bg-gray-50">
+                    <td className="px-6 py-4 text-sm">
+                      {new Date(payment.payment_date).toLocaleDateString('en-IN', { 
+                        day: 'numeric', 
                         month: 'short', 
-                        day: 'numeric' 
+                        year: 'numeric' 
                       })}
                     </td>
-                    <td className="py-3 px-4">
-                      <button className="text-primary hover:text-primary-dark text-sm font-semibold">
-                        Download Receipt
+                    <td className="px-6 py-4 font-bold text-primary">₹{payment.amount}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{payment.payment_method}</td>
+                    <td className="px-6 py-4">
+                      <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
+                        ✓ {payment.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <button className="text-primary hover:text-primary-dark font-semibold text-sm">
+                        Download
                       </button>
                     </td>
                   </tr>
@@ -332,51 +221,78 @@ const StudentFees = () => {
               </tbody>
             </table>
           </div>
+
+          {paymentHistory.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-gray-500">No payment history available</p>
+            </div>
+          )}
         </div>
 
-        {/* Information Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
-            <h3 className="text-lg font-bold text-blue-900 mb-3">💳 Payment Methods</h3>
-            <ul className="space-y-2 text-sm text-blue-800">
-              <li className="flex items-center">
-                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                UPI (Google Pay, PhonePe, Paytm)
-              </li>
-              <li className="flex items-center">
-                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                Credit/Debit Cards
-              </li>
-              <li className="flex items-center">
-                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                Net Banking
-              </li>
-              <li className="flex items-center">
-                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-                Wallets
-              </li>
-            </ul>
-          </div>
+        {/* Payment Modal */}
+        {showPaymentModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full">
+              <div className="bg-primary text-white p-6 rounded-t-2xl">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-bold">Payment Checkout</h2>
+                  <button 
+                    onClick={() => setShowPaymentModal(false)}
+                    className="text-white hover:bg-white/20 rounded-full p-2"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
 
-          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
-            <h3 className="text-lg font-bold text-yellow-900 mb-3">📌 Important Notes</h3>
-            <ul className="space-y-2 text-sm text-yellow-800">
-              <li>• Fee is due by the 5th of every month/quarter</li>
-              <li>• Grace period: 10 days before late fee applies</li>
-              <li>• Late fee: ₹100 after grace period</li>
-              <li>• All transactions are secure via Razorpay</li>
-              <li>• Receipt will be sent to your registered email</li>
-            </ul>
+              <form onSubmit={handlePaymentSubmit} className="p-6">
+                <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-gray-600">Amount to Pay:</span>
+                    <span className="text-2xl font-bold text-primary">
+                      ₹{currentPayment.final_amount + lateFeeAmount}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-4 mb-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-accent mb-2">
+                      Payment Method
+                    </label>
+                    <select className="input-field">
+                      <option>UPI</option>
+                      <option>Credit/Debit Card</option>
+                      <option>Net Banking</option>
+                      <option>Cash</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                  <p className="text-sm text-blue-800">
+                    <strong>Note:</strong> You will be redirected to Razorpay payment gateway for secure payment processing.
+                  </p>
+                </div>
+
+                <div className="flex space-x-4">
+                  <button 
+                    type="button"
+                    onClick={() => setShowPaymentModal(false)}
+                    className="flex-1 btn-secondary"
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="flex-1 btn-primary">
+                    Proceed to Pay
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

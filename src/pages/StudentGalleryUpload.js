@@ -1,22 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import StatusBadge from '../components/StatusBadge';
+import EmptyState from '../components/EmptyState';
 
 const StudentGalleryUpload = () => {
   const { user } = useAuth();
-  const [myRequests, setMyRequests] = useState([]);
-  const [approvedUploads, setApprovedUploads] = useState([]);
+  const [requests, setRequests] = useState([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [filterStatus, setFilterStatus] = useState('all');
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     mediaType: 'photo',
-    category: '',
+    category: 'Performances',
     fileUrl: ''
   });
 
   useEffect(() => {
-    // TODO: Fetch gallery requests and approved uploads from API
-    setMyRequests([
+    // TODO: Fetch gallery requests from API
+    setRequests([
       {
         id: 1,
         title: 'My First Performance',
@@ -24,38 +26,31 @@ const StudentGalleryUpload = () => {
         media_type: 'photo',
         category: 'Performances',
         status: 'pending',
-        requested_at: '2026-02-03T10:30:00'
+        requested_at: '2026-02-03T10:30:00',
+        file_url: '/uploads/performance1.jpg'
       },
       {
         id: 2,
-        title: 'Practice Session',
+        title: 'Practice Session Video',
         description: 'Our batch practicing for competition',
-        media_type: 'photo',
+        media_type: 'video',
         category: 'Practice',
         status: 'approved',
-        requested_at: '2026-01-28T14:20:00',
-        reviewed_at: '2026-01-29T09:15:00'
+        requested_at: '2026-02-02T14:20:00',
+        reviewed_at: '2026-02-03T09:00:00',
+        file_url: '/uploads/practice1.mp4'
       },
       {
         id: 3,
-        title: 'Tarana Performance',
-        description: 'Solo Tarana at cultural event',
-        media_type: 'video',
-        category: 'Performances',
-        status: 'rejected',
-        requested_at: '2026-01-25T16:45:00',
-        reviewed_at: '2026-01-26T11:30:00',
-        rejection_reason: 'Video quality is too low. Please upload a higher resolution version.'
-      }
-    ]);
-
-    setApprovedUploads([
-      {
-        id: 2,
-        title: 'Practice Session',
-        description: 'Our batch practicing for competition',
+        title: 'Workshop Photo',
+        description: 'Photo from the recent workshop',
         media_type: 'photo',
-        category: 'Practice'
+        category: 'Workshops',
+        status: 'rejected',
+        requested_at: '2026-01-28T09:15:00',
+        reviewed_at: '2026-01-29T10:00:00',
+        rejection_reason: 'Image quality is too low. Please upload HD version.',
+        file_url: '/uploads/workshop1.jpg'
       }
     ]);
   }, []);
@@ -64,67 +59,40 @@ const StudentGalleryUpload = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // TODO: Upload file to server and get URL
-      // For now, just store the file name
-      setFormData({ ...formData, fileUrl: `/uploads/${file.name}` });
-    }
-  };
-
   const handleSubmit = (e) => {
     e.preventDefault();
-    // TODO: API call to submit gallery request
+    // TODO: API call to submit upload request
     const newRequest = {
-      id: myRequests.length + 1,
+      id: requests.length + 1,
       title: formData.title,
       description: formData.description,
       media_type: formData.mediaType,
       category: formData.category,
       status: 'pending',
-      requested_at: new Date().toISOString()
+      requested_at: new Date().toISOString(),
+      file_url: formData.fileUrl
     };
-    setMyRequests([newRequest, ...myRequests]);
+    setRequests([newRequest, ...requests]);
     setShowUploadModal(false);
-    setFormData({ title: '', description: '', mediaType: 'photo', category: '', fileUrl: '' });
-    alert('Upload request submitted! Admin will review it soon.');
+    setFormData({
+      title: '',
+      description: '',
+      mediaType: 'photo',
+      category: 'Performances',
+      fileUrl: ''
+    });
+    alert('Upload request submitted successfully! Admin will review it soon.');
   };
 
-  const getStatusBadge = (status) => {
-    switch(status) {
-      case 'pending':
-        return <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-semibold">⏳ Pending Review</span>;
-      case 'approved':
-        return <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">✓ Approved</span>;
-      case 'rejected':
-        return <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-semibold">✗ Rejected</span>;
-      default:
-        return null;
-    }
-  };
-
-  const getMediaIcon = (type) => {
-    if (type === 'photo') {
-      return (
-        <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-        </svg>
-      );
-    } else {
-      return (
-        <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
-          <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
-        </svg>
-      );
-    }
-  };
+  const filteredRequests = filterStatus === 'all' 
+    ? requests 
+    : requests.filter(r => r.status === filterStatus);
 
   const stats = {
-    pending: myRequests.filter(r => r.status === 'pending').length,
-    approved: myRequests.filter(r => r.status === 'approved').length,
-    rejected: myRequests.filter(r => r.status === 'rejected').length,
-    total: myRequests.length
+    total: requests.length,
+    pending: requests.filter(r => r.status === 'pending').length,
+    approved: requests.filter(r => r.status === 'approved').length,
+    rejected: requests.filter(r => r.status === 'rejected').length
   };
 
   return (
@@ -137,46 +105,26 @@ const StudentGalleryUpload = () => {
             <h1 className="text-4xl font-heading font-bold text-primary mb-2">
               Gallery Upload
             </h1>
-            <p className="text-gray-600">Share your performances and practice moments</p>
+            <p className="text-gray-600">Upload your performance photos and videos</p>
           </div>
-          <button 
-            onClick={() => setShowUploadModal(true)}
-            className="btn-primary"
-          >
-            + Upload Photo/Video
+          <button onClick={() => setShowUploadModal(true)} className="btn-primary">
+            + Upload Media
           </button>
         </div>
 
-        {/* Info Banner */}
-        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-8 rounded-r-lg">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-blue-700">
-                <strong>Note:</strong> All uploads require admin approval before appearing on the public gallery page. 
-                You'll be notified once your upload is reviewed.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Statistics Cards */}
+        {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-xl shadow-lg p-6">
-            <p className="text-sm text-gray-600 mb-1">Total Uploads</p>
+            <p className="text-sm text-gray-600 mb-1">Total Requests</p>
             <p className="text-3xl font-bold text-primary">{stats.total}</p>
+          </div>
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <p className="text-sm text-gray-600 mb-1">Pending</p>
+            <p className="text-3xl font-bold text-yellow-600">{stats.pending}</p>
           </div>
           <div className="bg-white rounded-xl shadow-lg p-6">
             <p className="text-sm text-gray-600 mb-1">Approved</p>
             <p className="text-3xl font-bold text-green-600">{stats.approved}</p>
-          </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <p className="text-sm text-gray-600 mb-1">Pending Review</p>
-            <p className="text-3xl font-bold text-yellow-600">{stats.pending}</p>
           </div>
           <div className="bg-white rounded-xl shadow-lg p-6">
             <p className="text-sm text-gray-600 mb-1">Rejected</p>
@@ -184,98 +132,105 @@ const StudentGalleryUpload = () => {
           </div>
         </div>
 
-        {/* My Upload Requests */}
+        {/* Filter */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-          <h2 className="text-2xl font-bold text-accent mb-6 pb-2 border-b">My Upload Requests</h2>
-          
-          {myRequests.length === 0 ? (
-            <div className="text-center py-12">
-              <svg className="w-24 h-24 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <p className="text-gray-500 text-lg mb-4">No upload requests yet</p>
-              <button onClick={() => setShowUploadModal(true)} className="btn-primary">
-                Upload Your First Photo/Video
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {myRequests.map((request) => (
-                <div key={request.id} className="border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-shadow">
-                  <div className={`h-48 flex items-center justify-center ${
-                    request.media_type === 'photo' ? 'bg-gradient-to-br from-blue-100 to-blue-50' : 'bg-gradient-to-br from-red-100 to-red-50'
-                  }`}>
-                    <div className={request.media_type === 'photo' ? 'text-blue-400' : 'text-red-400'}>
-                      {getMediaIcon(request.media_type)}
-                    </div>
-                  </div>
-                  
-                  <div className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-bold text-accent">{request.title}</h3>
-                      {getStatusBadge(request.status)}
-                    </div>
-                    
-                    <p className="text-sm text-gray-600 mb-2">{request.description}</p>
-                    
-                    <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
-                      <span className="px-2 py-1 bg-gray-100 rounded">
-                        {request.category}
-                      </span>
-                      <span className="capitalize">{request.media_type}</span>
-                    </div>
-                    
-                    <div className="text-xs text-gray-500 space-y-1">
-                      <p>Requested: {new Date(request.requested_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
-                      {request.reviewed_at && (
-                        <p>Reviewed: {new Date(request.reviewed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
-                      )}
-                    </div>
-
-                    {request.status === 'rejected' && request.rejection_reason && (
-                      <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <p className="text-xs font-semibold text-red-800 mb-1">Rejection Reason:</p>
-                        <p className="text-xs text-red-700">{request.rejection_reason}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-600">
+              Showing {filteredRequests.length} of {requests.length} requests
+            </p>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="input-field w-48"
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
         </div>
 
-        {/* My Approved Uploads */}
-        {approvedUploads.length > 0 && (
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-accent mb-6 pb-2 border-b">
-              My Approved Uploads (Visible on Gallery Page)
-            </h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {approvedUploads.map((upload) => (
-                <div key={upload.id} className="border border-gray-200 rounded-xl overflow-hidden hover:shadow-lg transition-shadow">
-                  <div className={`h-48 flex items-center justify-center ${
-                    upload.media_type === 'photo' ? 'bg-gradient-to-br from-green-100 to-green-50' : 'bg-gradient-to-br from-purple-100 to-purple-50'
-                  }`}>
-                    <div className={upload.media_type === 'photo' ? 'text-green-400' : 'text-purple-400'}>
-                      {getMediaIcon(upload.media_type)}
-                    </div>
+        {/* Requests Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredRequests.map((request) => (
+            <div key={request.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
+              <div className={`h-48 flex items-center justify-center ${
+                request.media_type === 'photo' ? 'bg-gradient-to-br from-blue-100 to-blue-50' : 'bg-gradient-to-br from-red-100 to-red-50'
+              }`}>
+                <div className={request.media_type === 'photo' ? 'text-blue-400' : 'text-red-400'}>
+                  {request.media_type === 'photo' ? (
+                    <svg className="w-20 h-20" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+                    </svg>
+                  ) : (
+                    <svg className="w-20 h-20" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+                    </svg>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-3">
+                  <h3 className="font-bold text-accent text-lg flex-1">{request.title}</h3>
+                  <StatusBadge status={request.status} type="request" />
+                </div>
+
+                <p className="text-sm text-gray-600 mb-4">{request.description}</p>
+
+                <div className="space-y-2 mb-4 pb-4 border-b">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Category:</span>
+                    <span className="px-2 py-1 bg-gray-100 rounded text-xs font-semibold">{request.category}</span>
                   </div>
-                  
-                  <div className="p-4">
-                    <h3 className="font-bold text-accent mb-2">{upload.title}</h3>
-                    <p className="text-sm text-gray-600 mb-2">{upload.description}</p>
-                    
-                    <div className="flex items-center justify-between text-xs text-gray-500">
-                      <span className="px-2 py-1 bg-gray-100 rounded">{upload.category}</span>
-                      <span className="text-green-600 font-semibold">✓ Live on Gallery</span>
-                    </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Type:</span>
+                    <span className="capitalize font-semibold">{request.media_type}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Submitted:</span>
+                    <span>{new Date(request.requested_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                   </div>
                 </div>
-              ))}
+
+                {request.status === 'approved' && request.reviewed_at && (
+                  <div className="p-3 bg-green-50 rounded-lg">
+                    <p className="text-xs text-green-700">
+                      ✓ Approved on {new Date(request.reviewed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </p>
+                  </div>
+                )}
+
+                {request.status === 'rejected' && request.rejection_reason && (
+                  <div className="p-3 bg-red-50 rounded-lg">
+                    <p className="text-xs font-semibold text-red-800 mb-1">Rejection Reason:</p>
+                    <p className="text-xs text-red-700">{request.rejection_reason}</p>
+                  </div>
+                )}
+
+                {request.status === 'pending' && (
+                  <div className="p-3 bg-yellow-50 rounded-lg">
+                    <p className="text-xs text-yellow-700">
+                      ⏳ Waiting for admin review...
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          ))}
+        </div>
+
+        {/* Empty State - Using EmptyState Component */}
+        {filteredRequests.length === 0 && (
+          <EmptyState 
+            icon="upload"
+            title="No upload requests yet"
+            description="Upload your performance photos and videos to share with everyone"
+            actionText="Upload Now"
+            onAction={() => setShowUploadModal(true)}
+            size="lg"
+          />
         )}
 
         {/* Upload Modal */}
@@ -284,7 +239,7 @@ const StudentGalleryUpload = () => {
             <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="bg-primary text-white p-6 rounded-t-2xl sticky top-0">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold">Upload Photo/Video</h2>
+                  <h2 className="text-2xl font-bold">Upload Media</h2>
                   <button 
                     onClick={() => setShowUploadModal(false)}
                     className="text-white hover:bg-white/20 rounded-full p-2"
@@ -300,13 +255,13 @@ const StudentGalleryUpload = () => {
                 <div className="space-y-6">
                   <div>
                     <label className="block text-sm font-semibold text-accent mb-2">Title *</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       name="title"
                       value={formData.title}
                       onChange={handleChange}
                       className="input-field"
-                      placeholder="E.g., Annual Day Performance"
+                      placeholder="My First Performance"
                       required
                     />
                   </div>
@@ -317,22 +272,21 @@ const StudentGalleryUpload = () => {
                       name="description"
                       value={formData.description}
                       onChange={handleChange}
-                      rows="3"
+                      rows="4"
                       className="input-field"
-                      placeholder="Describe what this photo/video shows..."
+                      placeholder="Describe your photo or video..."
                       required
                     ></textarea>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-semibold text-accent mb-2">Type *</label>
-                      <select 
+                      <label className="block text-sm font-semibold text-accent mb-2">Media Type *</label>
+                      <select
                         name="mediaType"
                         value={formData.mediaType}
                         onChange={handleChange}
                         className="input-field"
-                        required
                       >
                         <option value="photo">Photo</option>
                         <option value="video">Video</option>
@@ -341,54 +295,57 @@ const StudentGalleryUpload = () => {
 
                     <div>
                       <label className="block text-sm font-semibold text-accent mb-2">Category *</label>
-                      <select 
+                      <select
                         name="category"
                         value={formData.category}
                         onChange={handleChange}
                         className="input-field"
-                        required
                       >
-                        <option value="">Select category</option>
-                        <option value="Events">Events</option>
-                        <option value="Workshops">Workshops</option>
                         <option value="Performances">Performances</option>
                         <option value="Practice">Practice</option>
+                        <option value="Workshops">Workshops</option>
+                        <option value="Events">Events</option>
+                        <option value="Competitions">Competitions</option>
                       </select>
                     </div>
                   </div>
 
                   <div>
                     <label className="block text-sm font-semibold text-accent mb-2">Upload File *</label>
-                    <input 
-                      type="file" 
-                      onChange={handleFileChange}
-                      accept="image/*,video/*"
-                      className="input-field"
-                      required
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Max file size: 10MB. Accepted formats: JPG, PNG, MP4, MOV
-                    </p>
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                      <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      <p className="text-gray-600 mb-2">Click to upload or drag and drop</p>
+                      <p className="text-xs text-gray-500">
+                        {formData.mediaType === 'photo' ? 'PNG, JPG up to 10MB' : 'MP4, MOV up to 100MB'}
+                      </p>
+                      <input
+                        type="file"
+                        accept={formData.mediaType === 'photo' ? 'image/*' : 'video/*'}
+                        className="hidden"
+                        required
+                      />
+                    </div>
                   </div>
 
-                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <p className="text-sm text-yellow-800">
-                      <strong>⚠️ Important:</strong> Your upload will be reviewed by admin before appearing on the gallery page. 
-                      You'll be notified once it's approved or if changes are needed.
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-sm text-blue-800">
+                      <strong>Note:</strong> Your upload will be reviewed by admin before appearing in the gallery.
                     </p>
                   </div>
                 </div>
 
                 <div className="flex justify-end space-x-4 mt-8">
                   <button 
-                    type="button" 
+                    type="button"
                     onClick={() => setShowUploadModal(false)}
                     className="btn-secondary"
                   >
                     Cancel
                   </button>
                   <button type="submit" className="btn-primary">
-                    Submit for Approval
+                    Submit Request
                   </button>
                 </div>
               </form>

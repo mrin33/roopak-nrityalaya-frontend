@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import RollNumberBadge from '../components/RollNumberBadge';
+import StatusBadge from '../components/StatusBadge';
+import EmptyState from '../components/EmptyState';
 
 const TeacherStudents = () => {
   const { user } = useAuth();
@@ -20,14 +23,14 @@ const TeacherStudents = () => {
     ]);
 
     setStudents([
-      { id: 1, name: 'Riya Sharma', rollNo: 'RN001', batch: 'Morning Batch A', level: 'Praveshika Pratham', attendance: 92, phone: '9876543210', email: 'riya@test.com' },
-      { id: 2, name: 'Amit Kumar', rollNo: 'RN002', batch: 'Morning Batch A', level: 'Praveshika Pratham', attendance: 88, phone: '9876543211', email: 'amit@test.com' },
-      { id: 3, name: 'Priya Patel', rollNo: 'RN003', batch: 'Evening Batch B', level: 'Madhyama Pratham', attendance: 95, phone: '9876543212', email: 'priya@test.com' },
-      { id: 4, name: 'Rahul Singh', rollNo: 'RN004', batch: 'Evening Batch B', level: 'Madhyama Pratham', attendance: 85, phone: '9876543213', email: 'rahul@test.com' },
-      { id: 5, name: 'Sneha Gupta', rollNo: 'RN005', batch: 'Advanced Batch', level: 'Visharad Pratham', attendance: 97, phone: '9876543214', email: 'sneha@test.com' },
-      { id: 6, name: 'Arjun Reddy', rollNo: 'RN006', batch: 'Advanced Batch', level: 'Visharad Pratham', attendance: 90, phone: '9876543215', email: 'arjun@test.com' },
-      { id: 7, name: 'Ananya Iyer', rollNo: 'RN007', batch: 'Weekend Special', level: 'Praveshika Purna', attendance: 93, phone: '9876543216', email: 'ananya@test.com' },
-      { id: 8, name: 'Karan Mehta', rollNo: 'RN008', batch: 'Weekend Special', level: 'Praveshika Purna', attendance: 87, phone: '9876543217', email: 'karan@test.com' },
+      { id: 1, name: 'Riya Sharma', rollNo: 'PP1', batch: 'Morning Batch A', level: 'Praveshika Pratham', attendance: 92, phone: '9876543210', email: 'riya@test.com' },
+      { id: 2, name: 'Amit Kumar', rollNo: 'PP2', batch: 'Morning Batch A', level: 'Praveshika Pratham', attendance: 88, phone: '9876543211', email: 'amit@test.com' },
+      { id: 3, name: 'Priya Patel', rollNo: 'MP1', batch: 'Evening Batch B', level: 'Madhyama Pratham', attendance: 95, phone: '9876543212', email: 'priya@test.com' },
+      { id: 4, name: 'Rahul Singh', rollNo: 'MP2', batch: 'Evening Batch B', level: 'Madhyama Pratham', attendance: 85, phone: '9876543213', email: 'rahul@test.com' },
+      { id: 5, name: 'Sneha Gupta', rollNo: 'VP1', batch: 'Advanced Batch', level: 'Visharad Pratham', attendance: 97, phone: '9876543214', email: 'sneha@test.com' },
+      { id: 6, name: 'Arjun Reddy', rollNo: 'VP2', batch: 'Advanced Batch', level: 'Visharad Pratham', attendance: 90, phone: '9876543215', email: 'arjun@test.com' },
+      { id: 7, name: 'Ananya Iyer', rollNo: 'PD1', batch: 'Weekend Special', level: 'Praveshika Dwitiya', attendance: 93, phone: '9876543216', email: 'ananya@test.com' },
+      { id: 8, name: 'Karan Mehta', rollNo: 'PD2', batch: 'Weekend Special', level: 'Praveshika Dwitiya', attendance: 87, phone: '9876543217', email: 'karan@test.com' },
     ]);
   }, []);
 
@@ -38,12 +41,6 @@ const TeacherStudents = () => {
                          student.rollNo.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesBatch && matchesLevel && matchesSearch;
   });
-
-  const getAttendanceColor = (percentage) => {
-    if (percentage >= 90) return 'text-green-600 bg-green-100';
-    if (percentage >= 75) return 'text-yellow-600 bg-yellow-100';
-    return 'text-red-600 bg-red-100';
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
@@ -75,7 +72,9 @@ const TeacherStudents = () => {
             </p>
           </div>
           <div className="bg-white rounded-xl shadow-lg p-6">
-            <p className="text-sm text-gray-600 mb-1">Low Attendance (&lt;75%)</p>
+            <p className="text-sm text-gray-600 mb-1">
+              Low Attendance (&lt;75%)
+            </p>            
             <p className="text-3xl font-bold text-red-600">
               {students.filter(s => s.attendance < 75).length}
             </p>
@@ -120,13 +119,11 @@ const TeacherStudents = () => {
               >
                 <option value="all">All Levels</option>
                 <option value="Praveshika Pratham">Praveshika Pratham</option>
-                <option value="Praveshika Purna">Praveshika Purna</option>
+                <option value="Praveshika Dwitiya">Praveshika Dwitiya</option>
                 <option value="Madhyama Pratham">Madhyama Pratham</option>
-                <option value="Madhyama Purna">Madhyama Purna</option>
+                <option value="Madhyama Dwitiya">Madhyama Dwitiya</option>
                 <option value="Visharad Pratham">Visharad Pratham</option>
-                <option value="Visharad Purna">Visharad Purna</option>
-                <option value="Alankar Pratham">Alankar Pratham</option>
-                <option value="Alankar Purna">Alankar Purna</option>
+                <option value="Visharad Dwitiya">Visharad Dwitiya</option>
               </select>
             </div>
           </div>
@@ -136,7 +133,7 @@ const TeacherStudents = () => {
           </p>
         </div>
 
-        {/* Students Table */}
+        {/* Students Table - USING RollNumberBadge and StatusBadge */}
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -154,7 +151,9 @@ const TeacherStudents = () => {
               <tbody>
                 {filteredStudents.map((student) => (
                   <tr key={student.id} className="border-b hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 font-mono text-sm text-gray-900">{student.rollNo}</td>
+                    <td className="px-6 py-4">
+                      <RollNumberBadge rollNumber={student.rollNo} size="md" />
+                    </td>
                     <td className="px-6 py-4">
                       <p className="font-semibold text-accent">{student.name}</p>
                       <p className="text-sm text-gray-500">{student.email}</p>
@@ -162,9 +161,10 @@ const TeacherStudents = () => {
                     <td className="px-6 py-4 text-sm text-gray-600">{student.batch}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{student.level}</td>
                     <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getAttendanceColor(student.attendance)}`}>
-                        {student.attendance}%
-                      </span>
+                      <StatusBadge 
+                        status={student.attendance >= 90 ? 'present' : student.attendance >= 75 ? 'late' : 'absent'} 
+                      />
+                      <span className="ml-2 text-sm font-semibold">{student.attendance}%</span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{student.phone}</td>
                     <td className="px-6 py-4">
@@ -178,10 +178,13 @@ const TeacherStudents = () => {
             </table>
           </div>
 
+          {/* Empty State - USING EmptyState Component */}
           {filteredStudents.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-gray-500">No students found matching your criteria</p>
-            </div>
+            <EmptyState 
+              icon="user"
+              title="No students found"
+              description="Try adjusting your search or filter criteria"
+            />
           )}
         </div>
       </div>

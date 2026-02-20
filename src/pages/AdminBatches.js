@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import BatchCapacityBar from '../components/BatchCapacityBar';
+import StatusBadge from '../components/StatusBadge';
+import EmptyState from '../components/EmptyState';
 
 const AdminBatches = () => {
   const [batches, setBatches] = useState([]);
@@ -147,15 +150,19 @@ const AdminBatches = () => {
                     <div>{batch.schedule}</div>
                     <div className="text-xs text-gray-500">{batch.time}</div>
                   </td>
-                  <td className="px-6 py-4 text-sm">
-                    <span className="font-semibold">{batch.totalStudents}/{batch.maxStudents}</span>
+                  <td className="px-6 py-4">
+                    <BatchCapacityBar 
+                      currentEnrolled={batch.current_enrolled || batch.totalStudents}
+                      maxStudents={batch.max_students || batch.maxStudents}
+                      showLabel={false}
+                      size="sm"
+                    />
+                    <span className="text-xs text-gray-600 mt-1">
+                      {batch.current_enrolled || batch.totalStudents}/{batch.max_students || batch.maxStudents}
+                    </span>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                      batch.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                    }`}>
-                      {batch.isActive ? 'Active' : 'Inactive'}
-                    </span>
+                    <StatusBadge status={batch.isActive ? 'active' : 'inactive'} type="batch" />
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex space-x-2">

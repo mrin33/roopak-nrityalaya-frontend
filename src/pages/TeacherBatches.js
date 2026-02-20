@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import StatusBadge from '../components/StatusBadge';
 
 const TeacherBatches = () => {
   const [batches, setBatches] = useState([]);
@@ -215,13 +216,10 @@ const TeacherBatches = () => {
                         <td className="px-4 py-3 font-mono text-sm">{student.rollNo}</td>
                         <td className="px-4 py-3 font-medium text-accent">{student.name}</td>
                         <td className="px-4 py-3">
-                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                            student.attendance >= 90 ? 'bg-green-100 text-green-700' :
-                            student.attendance >= 75 ? 'bg-yellow-100 text-yellow-700' :
-                            'bg-red-100 text-red-700'
-                          }`}>
-                            {student.attendance}%
-                          </span>
+                        <StatusBadge 
+                          status={student.attendance >= 90 ? 'present' : student.attendance >= 75 ? 'late' : 'absent'} 
+                        />
+                        <span className="ml-2 text-sm">{student.attendance}%</span>
                         </td>
                       </tr>
                     ))}

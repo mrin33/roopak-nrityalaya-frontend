@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import RollNumberBadge from '../components/RollNumberBadge';
+import PaymentWindowBadge from '../components/PaymentWindowBadge';
+import StatusBadge from '../components/StatusBadge';
+import EmptyState from '../components/EmptyState';
 
 const AdminStudents = () => {
   const { user } = useAuth();
@@ -164,10 +168,8 @@ const AdminStudents = () => {
               <tbody>
                 {filteredStudents.map((student) => (
                   <tr key={student.id} className="border-b hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <span className="font-mono font-bold text-xl text-primary">
-                        {student.roll_number}
-                      </span>
+                     <td className="px-6 py-4">
+                      <RollNumberBadge rollNumber={student.roll_number} size="lg" />
                     </td>
                     <td className="px-6 py-4">
                       <p className="font-semibold text-accent">{student.name}</p>
@@ -175,27 +177,17 @@ const AdminStudents = () => {
                       <p className="text-sm text-gray-500">{student.phone}</p>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{student.level}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center space-x-2">
-                        <span className="capitalize text-sm">{student.payment_window.replace('_', '-')}</span>
-                        {student.discount > 0 && (
-                          <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
-                            -{student.discount}%
-                          </span>
-                        )}
-                      </div>
+                      <td className="px-6 py-4">
+                        <PaymentWindowBadge 
+                          paymentWindow={student.payment_window}
+                          discount={student.discount}
+                        />
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
+                        <td className="px-6 py-4 text-sm text-gray-600">
                       {student.batch || <span className="text-yellow-600 font-semibold">Not Assigned</span>}
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        student.status === 'active' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {student.status.charAt(0).toUpperCase() + student.status.slice(1)}
-                      </span>
+                      <StatusBadge status={student.status} type="student" />
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex space-x-2">
@@ -216,10 +208,12 @@ const AdminStudents = () => {
             </table>
           </div>
 
-          {filteredStudents.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-gray-500">No students found matching your criteria</p>
-            </div>
+         {filteredStudents.length === 0 && (
+            <EmptyState 
+              icon="user"
+              title="No students found"
+              description="Try adjusting your search or filter criteria"
+            />
           )}
         </div>
 

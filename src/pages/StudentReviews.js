@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import StarRating from '../components/StarRating';
+import EmptyState from '../components/EmptyState';
 
 const StudentReviews = () => {
   const { user } = useAuth();
@@ -66,23 +68,6 @@ const StudentReviews = () => {
     return months[month - 1];
   };
 
-  const renderStars = (rating) => {
-    return (
-      <div className="flex space-x-1">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <svg
-            key={star}
-            className={`w-5 h-5 ${star <= rating ? 'text-yellow-400' : 'text-gray-300'}`}
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
-            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-          </svg>
-        ))}
-      </div>
-    );
-  };
-
   const filteredReviews = filterMonth === 'all' 
     ? reviews 
     : reviews.filter(r => r.review_month === parseInt(filterMonth));
@@ -90,10 +75,10 @@ const StudentReviews = () => {
   const newReviewsCount = reviews.filter(r => !r.is_viewed_by_student).length;
 
   // Calculate average ratings
-  const avgTechnique = (reviews.reduce((sum, r) => sum + r.technique_rating, 0) / reviews.length).toFixed(1);
-  const avgRhythm = (reviews.reduce((sum, r) => sum + r.rhythm_rating, 0) / reviews.length).toFixed(1);
-  const avgCreativity = (reviews.reduce((sum, r) => sum + r.creativity_rating, 0) / reviews.length).toFixed(1);
-  const avgDiscipline = (reviews.reduce((sum, r) => sum + r.discipline_rating, 0) / reviews.length).toFixed(1);
+  const avgTechnique = reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.technique_rating, 0) / reviews.length).toFixed(1) : 0;
+  const avgRhythm = reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.rhythm_rating, 0) / reviews.length).toFixed(1) : 0;
+  const avgCreativity = reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.creativity_rating, 0) / reviews.length).toFixed(1) : 0;
+  const avgDiscipline = reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.discipline_rating, 0) / reviews.length).toFixed(1) : 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
@@ -130,22 +115,22 @@ const StudentReviews = () => {
           <div className="bg-white rounded-xl shadow-lg p-6">
             <p className="text-sm text-gray-600 mb-2">Technique</p>
             <p className="text-3xl font-bold text-primary mb-2">{avgTechnique}</p>
-            {renderStars(Math.round(parseFloat(avgTechnique)))}
+            <StarRating rating={parseFloat(avgTechnique)} size="md" />
           </div>
           <div className="bg-white rounded-xl shadow-lg p-6">
             <p className="text-sm text-gray-600 mb-2">Rhythm</p>
             <p className="text-3xl font-bold text-green-600 mb-2">{avgRhythm}</p>
-            {renderStars(Math.round(parseFloat(avgRhythm)))}
+            <StarRating rating={parseFloat(avgRhythm)} size="md" color="gold" />
           </div>
           <div className="bg-white rounded-xl shadow-lg p-6">
             <p className="text-sm text-gray-600 mb-2">Creativity</p>
             <p className="text-3xl font-bold text-purple-600 mb-2">{avgCreativity}</p>
-            {renderStars(Math.round(parseFloat(avgCreativity)))}
+            <StarRating rating={parseFloat(avgCreativity)} size="md" color="orange" />
           </div>
           <div className="bg-white rounded-xl shadow-lg p-6">
             <p className="text-sm text-gray-600 mb-2">Discipline</p>
             <p className="text-3xl font-bold text-blue-600 mb-2">{avgDiscipline}</p>
-            {renderStars(Math.round(parseFloat(avgDiscipline)))}
+            <StarRating rating={parseFloat(avgDiscipline)} size="md" />
           </div>
         </div>
 
@@ -199,27 +184,23 @@ const StudentReviews = () => {
                 </div>
               </div>
 
-              {/* Rating Breakdown */}
+              {/* Rating Breakdown - USING StarRating Component */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 pb-6 border-b">
                 <div>
                   <p className="text-sm font-semibold text-gray-700 mb-2">Technique</p>
-                  {renderStars(review.technique_rating)}
-                  <p className="text-xs text-gray-500 mt-1">{review.technique_rating}/5</p>
+                  <StarRating rating={review.technique_rating} showNumber={true} size="md" />
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-gray-700 mb-2">Rhythm</p>
-                  {renderStars(review.rhythm_rating)}
-                  <p className="text-xs text-gray-500 mt-1">{review.rhythm_rating}/5</p>
+                  <StarRating rating={review.rhythm_rating} showNumber={true} size="md" color="gold" />
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-gray-700 mb-2">Creativity</p>
-                  {renderStars(review.creativity_rating)}
-                  <p className="text-xs text-gray-500 mt-1">{review.creativity_rating}/5</p>
+                  <StarRating rating={review.creativity_rating} showNumber={true} size="md" color="orange" />
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-gray-700 mb-2">Discipline</p>
-                  {renderStars(review.discipline_rating)}
-                  <p className="text-xs text-gray-500 mt-1">{review.discipline_rating}/5</p>
+                  <StarRating rating={review.discipline_rating} showNumber={true} size="md" />
                 </div>
               </div>
 
@@ -253,13 +234,14 @@ const StudentReviews = () => {
           ))}
         </div>
 
+        {/* Empty State - USING EmptyState Component */}
         {filteredReviews.length === 0 && (
-          <div className="bg-white rounded-xl shadow-lg p-12 text-center">
-            <svg className="w-24 h-24 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <p className="text-gray-500 text-lg">No reviews found for the selected month</p>
-          </div>
+          <EmptyState 
+            icon="star"
+            title="No reviews found"
+            description="No reviews match your selected filter. Try viewing all months."
+            size="lg"
+          />
         )}
       </div>
     </div>

@@ -1,0 +1,467 @@
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import StarRating from '../components/StarRating';
+import RollNumberBadge from '../components/RollNumberBadge';
+
+const TeacherReviewStudents = () => {
+  const { user } = useAuth();
+  const [students, setStudents] = useState([]);
+  const [myReviews, setMyReviews] = useState([]);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+
+  const [formData, setFormData] = useState({
+    reviewMonth: new Date().getMonth() + 1,
+    reviewYear: new Date().getFullYear(),
+    techniqueRating: 3,
+    rhythmRating: 3,
+    creativityRating: 3,
+    disciplineRating: 3,
+    reviewText: ''
+  });
+
+  useEffect(() => {
+    // TODO: Fetch my students from API
+    setStudents([
+      {
+        id: 1,
+        roll_number: 'PP1',
+        full_name: 'Riya Sharma',
+        level_name: 'Praveshika Pratham',
+        batch_name: 'Morning Batch A',
+        last_review_date: '2026-01-01'
+      },
+      {
+        id: 2,
+        roll_number: 'PP2',
+        full_name: 'Amit Kumar',
+        level_name: 'Praveshika Pratham',
+        batch_name: 'Morning Batch A',
+        last_review_date: null
+      },
+      {
+        id: 3,
+        roll_number: 'MP1',
+        full_name: 'Priya Patel',
+        level_name: 'Madhyama Pratham',
+        batch_name: 'Evening Batch B',
+        last_review_date: '2026-01-01'
+      },
+      {
+        id: 4,
+        roll_number: 'MP2',
+        full_name: 'Rahul Singh',
+        level_name: 'Madhyama Pratham',
+        batch_name: 'Evening Batch B',
+        last_review_date: '2025-12-01'
+      }
+    ]);
+
+    setMyReviews([
+      {
+        id: 1,
+        student_name: 'Riya Sharma',
+        roll_number: 'PP1',
+        review_month: 1,
+        review_year: 2026,
+        overall_rating: 4.5,
+        created_at: '2026-02-01T10:00:00'
+      },
+      {
+        id: 2,
+        student_name: 'Priya Patel',
+        roll_number: 'MP1',
+        review_month: 1,
+        review_year: 2026,
+        overall_rating: 3.75,
+        created_at: '2026-02-01T10:30:00'
+      }
+    ]);
+  }, []);
+
+  const handleOpenReview = (student) => {
+    setSelectedStudent(student);
+    setFormData({
+      reviewMonth: new Date().getMonth() + 1,
+      reviewYear: new Date().getFullYear(),
+      techniqueRating: 3,
+      rhythmRating: 3,
+      creativityRating: 3,
+      disciplineRating: 3,
+      reviewText: ''
+    });
+    setShowReviewModal(true);
+  };
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleRatingChange = (category, rating) => {
+    setFormData(prev => ({
+      ...prev,
+      [category]: rating
+    }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    // TODO: API call to submit review
+    const overallRating = (
+      (parseInt(formData.techniqueRating) +
+      parseInt(formData.rhythmRating) +
+      parseInt(formData.creativityRating) +
+      parseInt(formData.disciplineRating)) / 4
+    ).toFixed(2);
+
+    const newReview = {
+      id: myReviews.length + 1,
+      student_name: selectedStudent.full_name,
+      roll_number: selectedStudent.roll_number,
+      review_month: parseInt(formData.reviewMonth),
+      review_year: parseInt(formData.reviewYear),
+      overall_rating: parseFloat(overallRating),
+      created_at: new Date().toISOString()
+    };
+
+    setMyReviews([newReview, ...myReviews]);
+    setStudents(students.map(s => 
+      s.id === selectedStudent.id 
+        ? { ...s, last_review_date: new Date().toISOString().split('T')[0] }
+        : s
+    ));
+    setShowReviewModal(false);
+    alert(`Review submitted for ${selectedStudent.full_name}! Student will be notified.`);
+  };
+
+  const renderStarSelector = (category) => {
+    return (
+      <StarRating
+        rating={formData[category]}
+        interactive={true}
+        onChange={(value) => handleRatingChange(category, value)}
+        size="lg"
+      />
+    );
+  };
+
+  const getMonthName = (month) => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[month - 1];
+  };
+
+  const needsReview = (student) => {
+    if (!student.last_review_date) return true;
+    const lastReview = new Date(student.last_review_date);
+    const currentDate = new Date();
+    const monthsDiff = (currentDate.getFullYear() - lastReview.getFullYear()) * 12 + 
+                       (currentDate.getMonth() - lastReview.getMonth());
+    return monthsDiff >= 1;
+  };
+
+  const studentsNeedingReview = students.filter(needsReview);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-heading font-bold text-primary mb-2">
+            Review Students
+          </h1>
+          <p className="text-gray-600">Provide monthly feedback to help students improve</p>
+        </div>
+
+        {/* Alert for pending reviews */}
+        {studentsNeedingReview.length > 0 && (
+          <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-8 rounded-r-lg">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-yellow-700">
+                  <strong>{studentsNeedingReview.length} student{studentsNeedingReview.length > 1 ? 's' : ''} need{studentsNeedingReview.length === 1 ? 's' : ''} a review this month!</strong> Regular feedback helps students track their progress.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Statistics */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <p className="text-sm text-gray-600 mb-1">Total Students</p>
+            <p className="text-3xl font-bold text-primary">{students.length}</p>
+          </div>
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <p className="text-sm text-gray-600 mb-1">Need Review</p>
+            <p className="text-3xl font-bold text-yellow-600">{studentsNeedingReview.length}</p>
+          </div>
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <p className="text-sm text-gray-600 mb-1">Reviews This Month</p>
+            <p className="text-3xl font-bold text-green-600">
+              {myReviews.filter(r => 
+                r.review_month === new Date().getMonth() + 1 && 
+                r.review_year === new Date().getFullYear()
+              ).length}
+            </p>
+          </div>
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <p className="text-sm text-gray-600 mb-1">Total Reviews</p>
+            <p className="text-3xl font-bold text-blue-600">{myReviews.length}</p>
+          </div>
+        </div>
+
+        {/* My Students */}
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+          <h2 className="text-2xl font-bold text-accent mb-6 pb-2 border-b">My Students</h2>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b-2">
+                <tr>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Roll No</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Student Name</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Level</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Batch</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Last Review</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {students.map((student) => (
+                  <tr key={student.id} className="border-b hover:bg-gray-50">
+                    <td>
+                      <RollNumberBadge rollNumber={student.roll_number} />
+                    </td>
+                    <td className="px-6 py-4 font-semibold text-accent">{student.full_name}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{student.level_name}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{student.batch_name}</td>
+                    <td className="px-6 py-4 text-sm">
+                      {student.last_review_date ? (
+                        <span className="text-gray-600">
+                          {new Date(student.last_review_date).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            year: 'numeric' 
+                          })}
+                        </span>
+                      ) : (
+                        <span className="text-yellow-600 font-semibold">Never reviewed</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <button
+                        onClick={() => handleOpenReview(student)}
+                        className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
+                          needsReview(student)
+                            ? 'bg-primary text-white hover:bg-primary-dark'
+                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        }`}
+                      >
+                        {needsReview(student) ? 'Submit Review' : 'Add Review'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Recent Reviews */}
+        <div className="bg-white rounded-xl shadow-lg p-6">
+          <h2 className="text-2xl font-bold text-accent mb-6 pb-2 border-b">Recent Reviews</h2>
+          
+          {myReviews.length === 0 ? (
+            <div className="text-center py-12">
+              <svg className="w-24 h-24 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <p className="text-gray-500 text-lg">No reviews submitted yet</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {myReviews.map((review) => (
+                <div key={review.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-16 h-16 bg-primary/10 rounded-lg flex flex-col items-center justify-center">
+                        <span className="text-2xl font-bold text-primary">{review.overall_rating}</span>
+                        <span className="text-xs text-gray-600">Rating</span>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-accent">{review.student_name}</p>
+                        <p className="text-sm text-gray-600">Roll No: {review.roll_number}</p>
+                        <p className="text-sm text-gray-600">
+                          {getMonthName(review.review_month)} {review.review_year}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-gray-500">
+                        Submitted on {new Date(review.created_at).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Review Modal */}
+        {showReviewModal && selectedStudent && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="bg-primary text-white p-6 rounded-t-2xl sticky top-0">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold">Monthly Review</h2>
+                    <p className="text-sm text-white/80 mt-1">
+                      {selectedStudent.full_name} ({selectedStudent.roll_number})
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setShowReviewModal(false)}
+                    className="text-white hover:bg-white/20 rounded-full p-2"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <form onSubmit={handleSubmit} className="p-6">
+                <div className="space-y-6">
+                  {/* Month and Year */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-accent mb-2">Review Month *</label>
+                      <select
+                        name="reviewMonth"
+                        value={formData.reviewMonth}
+                        onChange={handleChange}
+                        className="input-field"
+                        required
+                      >
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(month => (
+                          <option key={month} value={month}>
+                            {getMonthName(month)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-accent mb-2">Year *</label>
+                      <select
+                        name="reviewYear"
+                        value={formData.reviewYear}
+                        onChange={handleChange}
+                        className="input-field"
+                        required
+                      >
+                        <option value="2026">2026</option>
+                        <option value="2025">2025</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Rating Categories */}
+                  <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
+                    <h3 className="font-semibold text-accent mb-4">Rate Student Performance (1-5 Stars)</h3>
+                    
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Technique Progress *
+                      </label>
+                      {renderStarSelector('techniqueRating')}
+                      <p className="text-xs text-gray-500 mt-1">Footwork, hand gestures, body posture</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Rhythm Understanding *
+                      </label>
+                      {renderStarSelector('rhythmRating')}
+                      <p className="text-xs text-gray-500 mt-1">Taal mastery, layakari, tempo control</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Creativity & Expression *
+                      </label>
+                      {renderStarSelector('creativityRating')}
+                      <p className="text-xs text-gray-500 mt-1">Abhinaya, facial expressions, interpretation</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Discipline & Attendance *
+                      </label>
+                      {renderStarSelector('disciplineRating')}
+                      <p className="text-xs text-gray-500 mt-1">Regular practice, punctuality, dedication</p>
+                    </div>
+                  </div>
+
+                  {/* Overall Rating Display */}
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm font-semibold text-blue-900 mb-1">Overall Rating</p>
+                    <p className="text-3xl font-bold text-blue-600">
+                      {((parseInt(formData.techniqueRating) + 
+                         parseInt(formData.rhythmRating) + 
+                         parseInt(formData.creativityRating) + 
+                         parseInt(formData.disciplineRating)) / 4).toFixed(2)} / 5.00
+                    </p>
+                  </div>
+
+                  {/* Written Feedback */}
+                  <div>
+                    <label className="block text-sm font-semibold text-accent mb-2">
+                      Written Feedback *
+                    </label>
+                    <textarea
+                      name="reviewText"
+                      value={formData.reviewText}
+                      onChange={handleChange}
+                      rows="6"
+                      className="input-field"
+                      placeholder="Provide detailed feedback on the student's progress, strengths, and areas for improvement..."
+                      required
+                    ></textarea>
+                    <p className="text-xs text-gray-500 mt-1">
+                      This feedback will be visible to the student. Be constructive and encouraging!
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-4 mt-8">
+                  <button 
+                    type="button" 
+                    onClick={() => setShowReviewModal(false)}
+                    className="btn-secondary"
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn-primary">
+                    Submit Review
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default TeacherReviewStudents;
