@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import authService from '../utils/authService';
+import authService from '../services/authService'; // FIXED: Changed from utils to services
 
 const AuthContext = createContext(null);
 
@@ -9,7 +9,7 @@ export const AuthProvider = ({ children }) => {
 
   // Load user from localStorage on mount
   useEffect(() => {
-    const storedUser = authService.getStoredUser();
+    const storedUser = authService.getCurrentUser(); // FIXED: Changed from getStoredUser
     if (storedUser) {
       setUser(storedUser);
     }
@@ -20,8 +20,14 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const response = await authService.login(email, password);
-      setUser(response.data.user);
-      return response;
+      
+      // Backend returns: { success: true, data: { token, user } }
+      if (response.success && response.data) {
+        setUser(response.data.user);
+        return response;
+      }
+      
+      throw new Error(response.message || 'Login failed');
     } catch (error) {
       throw error;
     }
@@ -31,21 +37,22 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       const response = await authService.register(userData);
-      setUser(response.data.user);
-      return response;
+      
+      if (response.success && response.data) {
+        setUser(response.data.user);
+        return response;
+      }
+      
+      throw new Error(response.message || 'Registration failed');
     } catch (error) {
       throw error;
     }
   };
 
   // Logout function
-  const logout = async () => {
-    try {
-      await authService.logout();
-      setUser(null);
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
+  const logout = () => {
+    authService.logout();
+    setUser(null);
   };
 
   // Update user data
