@@ -4,15 +4,23 @@ const authService = {
   // Login user
   login: async (email, password) => {
     try {
-      const response = await api.post('/api/auth/login', { email, password });
-      // Store token and user info
-      if (response.data.token) {
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+      const response = await api.post('/auth/login', { email, password });
+      
+      console.log('🔵 Auth Service Response:', response.data);
+      
+      // Backend returns: { success: true, data: { token, user } }
+      if (response.data.success && response.data.data) {
+        const { token, user } = response.data.data;
+        
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(user));
+        
+        console.log('✅ Stored token and user');
       }
       
-      return response.data;
+      return response.data; // Return full response with success flag
     } catch (error) {
+      console.error('❌ Auth service error:', error);
       throw error;
     }
   },
@@ -20,12 +28,14 @@ const authService = {
   // Register new student
   register: async (userData) => {
     try {
-      const response = await api.post('/api/auth/register', userData);
+      const response = await api.post('/auth/register', userData);
       
-      // Store token and user info
-      if (response.data.token) {
-        localStorage.setItem('token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+      // Backend returns: { success: true, data: { token, user } }
+      if (response.data.success && response.data.data) {
+        const { token, user } = response.data.data;
+        
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(user));
       }
       
       return response.data;
