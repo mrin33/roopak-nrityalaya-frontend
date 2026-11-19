@@ -1,5 +1,5 @@
 /** @type {import('tailwindcss').Config} */
-const colors = require('tailwindcss/colors');
+import colors from 'tailwindcss/colors';
 
 /*
  * Roopak Nrityalaya design tokens.
@@ -7,7 +7,7 @@ const colors = require('tailwindcss/colors');
  * `gray` is mapped to Tailwind's warm "stone" scale so every existing
  * gray utility picks up the warmer palette.
  */
-module.exports = {
+export default {
   content: ['./src/**/*.{js,jsx,ts,tsx}'],
   theme: {
     extend: {

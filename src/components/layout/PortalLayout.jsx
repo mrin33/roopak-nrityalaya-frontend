@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Suspense } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { PageSkeleton } from '../ui/Skeleton';
 import { useAuth } from '../../context/AuthContext';
 import { PORTAL_NAV, portalPageTitle } from '../../config/navigation';
 import academy from '../../config/academy';
@@ -213,7 +215,9 @@ const PortalLayout = ({ role }) => {
         </header>
 
         <main id="portal-main" tabIndex={-1} className="outline-none" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-          <Outlet />
+          <Suspense fallback={<PageSkeleton label="Loading…" />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
       <ChangePasswordDialog open={passwordOpen} onClose={() => setPasswordOpen(false)} />

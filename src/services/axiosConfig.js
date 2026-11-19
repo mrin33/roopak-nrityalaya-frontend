@@ -1,10 +1,10 @@
 import axios from 'axios';
 
-// Backend origin, e.g. http://localhost:5000 or https://api.example.com
-// (configure REACT_APP_API_URL; a trailing "/api" is tolerated).
-export const API_ORIGIN = (process.env.REACT_APP_API_URL || 'http://localhost:5000')
-  .replace(/\/+$/, '')
-  .replace(/\/api$/, '');
+// Backend origin, e.g. https://api.example.com (set VITE_API_URL at build time;
+// a trailing "/api" is tolerated). Development falls back to the local API;
+// a production build without it calls the same origin (reverse-proxy setups).
+const configuredOrigin = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5000' : '');
+export const API_ORIGIN = configuredOrigin.replace(/\/+$/, '').replace(/\/api$/, '');
 
 const api = axios.create({
   baseURL: `${API_ORIGIN}/api`,

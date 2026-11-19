@@ -103,7 +103,7 @@ const LoginPage = () => {
       </form>
 
       {/* Development-only hint; never shipped in production builds and never shows passwords */}
-      {process.env.NODE_ENV === 'development' && (
+      {import.meta.env.DEV && (
         <div className="callout-info mt-8 text-xs">
           <p className="font-semibold">Local demo accounts</p>
           <p className="mt-1">

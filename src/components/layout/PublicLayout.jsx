@@ -1,5 +1,7 @@
 import React, { useEffect } from 'react';
+import { Suspense } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
+import { PageSkeleton } from '../ui/Skeleton';
 import PublicNavbar from './PublicNavbar';
 import PublicFooter from './PublicFooter';
 
@@ -29,7 +31,9 @@ const PublicLayout = () => {
     <div className="flex min-h-screen flex-col bg-background">
       <PublicNavbar />
       <main id="main" className="flex-1 outline-none" tabIndex={-1}>
-        <Outlet />
+        <Suspense fallback={<PageSkeleton label="Loading…" stats={false} />}>
+          <Outlet />
+        </Suspense>
       </main>
       <PublicFooter />
     </div>

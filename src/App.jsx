@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
@@ -7,52 +7,53 @@ import ProtectedRoute from './components/ProtectedRoute';
 import PublicLayout from './components/layout/PublicLayout';
 import PortalLayout from './components/layout/PortalLayout';
 
+// Pages are code-split per route; the landing page stays in the main bundle.
 // Public pages
 import HomePage from './pages/HomePage';
-import AboutPage from './pages/AboutPage';
-import TeachersPage from './pages/TeachersPage';
-import GalleryPage from './pages/GalleryPage';
-import NoticesPage from './pages/NoticesPage';
-import ContactPage from './pages/ContactPage';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import SetPasswordPage from './pages/SetPasswordPage';
-import NotFoundPage from './pages/NotFoundPage';
+const AboutPage = lazy(() => import('./pages/AboutPage'));
+const TeachersPage = lazy(() => import('./pages/TeachersPage'));
+const GalleryPage = lazy(() => import('./pages/GalleryPage'));
+const NoticesPage = lazy(() => import('./pages/NoticesPage'));
+const ContactPage = lazy(() => import('./pages/ContactPage'));
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const RegisterPage = lazy(() => import('./pages/RegisterPage'));
+const SetPasswordPage = lazy(() => import('./pages/SetPasswordPage'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 // Student portal
-import StudentDashboard from './pages/StudentDashboard';
-import StudentAttendance from './pages/StudentAttendance';
-import StudentFees from './pages/StudentFees';
-import StudentActivityLog from './pages/StudentActivityLog';
-import StudentReviews from './pages/StudentReviews';
-import StudentGalleryUpload from './pages/StudentGalleryUpload';
-import StudentMakeupClasses from './pages/StudentMakeupClasses';
-import StudentResources from './pages/StudentResources';
-import StudentSchedule from './pages/StudentSchedule';
+const StudentDashboard = lazy(() => import('./pages/StudentDashboard'));
+const StudentAttendance = lazy(() => import('./pages/StudentAttendance'));
+const StudentFees = lazy(() => import('./pages/StudentFees'));
+const StudentActivityLog = lazy(() => import('./pages/StudentActivityLog'));
+const StudentReviews = lazy(() => import('./pages/StudentReviews'));
+const StudentGalleryUpload = lazy(() => import('./pages/StudentGalleryUpload'));
+const StudentMakeupClasses = lazy(() => import('./pages/StudentMakeupClasses'));
+const StudentResources = lazy(() => import('./pages/StudentResources'));
+const StudentSchedule = lazy(() => import('./pages/StudentSchedule'));
 
 // Teacher portal
-import TeacherDashboard from './pages/TeacherDashboard';
-import TeacherAttendance from './pages/TeacherAttendance';
-import TeacherStudents from './pages/TeacherStudents';
-import TeacherBatches from './pages/TeacherBatches';
-import TeacherReviewStudents from './pages/TeacherReviewStudents';
-import TeacherBatchTransfer from './pages/TeacherBatchTransfer';
-import TeacherResources from './pages/TeacherResources';
-import TeacherProfile from './pages/TeacherProfile';
-import TeacherMakeupRequests from './pages/TeacherMakeupRequests';
+const TeacherDashboard = lazy(() => import('./pages/TeacherDashboard'));
+const TeacherAttendance = lazy(() => import('./pages/TeacherAttendance'));
+const TeacherStudents = lazy(() => import('./pages/TeacherStudents'));
+const TeacherBatches = lazy(() => import('./pages/TeacherBatches'));
+const TeacherReviewStudents = lazy(() => import('./pages/TeacherReviewStudents'));
+const TeacherBatchTransfer = lazy(() => import('./pages/TeacherBatchTransfer'));
+const TeacherResources = lazy(() => import('./pages/TeacherResources'));
+const TeacherProfile = lazy(() => import('./pages/TeacherProfile'));
+const TeacherMakeupRequests = lazy(() => import('./pages/TeacherMakeupRequests'));
 
 // Admin portal
-import AdminDashboard from './pages/AdminDashboard';
-import AdminStudents from './pages/AdminStudents';
-import AdminTeachers from './pages/AdminTeachers';
-import AdminBatches from './pages/AdminBatches';
-import AdminFees from './pages/AdminFees';
-import AdminGalleryRequests from './pages/AdminGalleryRequests';
-import AdminAnalytics from './pages/AdminAnalytics';
-import AdminStatusChanges from './pages/AdminStatusChanges';
-import AdminNotices from './pages/AdminNotices';
-import AdminGallery from './pages/AdminGallery';
-import AdminMessages from './pages/AdminMessages';
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const AdminStudents = lazy(() => import('./pages/AdminStudents'));
+const AdminTeachers = lazy(() => import('./pages/AdminTeachers'));
+const AdminBatches = lazy(() => import('./pages/AdminBatches'));
+const AdminFees = lazy(() => import('./pages/AdminFees'));
+const AdminGalleryRequests = lazy(() => import('./pages/AdminGalleryRequests'));
+const AdminAnalytics = lazy(() => import('./pages/AdminAnalytics'));
+const AdminStatusChanges = lazy(() => import('./pages/AdminStatusChanges'));
+const AdminNotices = lazy(() => import('./pages/AdminNotices'));
+const AdminGallery = lazy(() => import('./pages/AdminGallery'));
+const AdminMessages = lazy(() => import('./pages/AdminMessages'));
 
 const PORTALS = {
   student: [

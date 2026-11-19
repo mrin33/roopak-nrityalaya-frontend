@@ -1,66 +1,18 @@
 import api from './axiosConfig';
 
 const noticeService = {
-  // Public/Authenticated method to get notices
+  // Public/authenticated: notices, optionally filtered by category / audience
   getNotices: async (filters = {}) => {
-    try {
-      const queryParams = new URLSearchParams();
-      if (filters.category && filters.category !== 'all') {
-        queryParams.append('category', filters.category);
-      }
-      if (filters.target_audience && filters.target_audience !== 'all') {
-        queryParams.append('target_audience', filters.target_audience);
-      }
-
-      const queryString = queryParams.toString();
-      const url = `/notices${queryString ? `?${queryString}` : ''}`;
-
-      const response = await api.get(url);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
+    const params = {};
+    if (filters.category && filters.category !== 'all') params.category = filters.category;
+    if (filters.target_audience && filters.target_audience !== 'all') params.target_audience = filters.target_audience;
+    return (await api.get('/notices', { params })).data;
   },
-
-  // Admin-only: Get all notices including drafts
-  getAllAdminNotices: async () => {
-    try {
-      const response = await api.get('/notices/admin');
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  // Admin-only: Create a notice
-  createNotice: async (noticeData) => {
-    try {
-      const response = await api.post('/notices', noticeData);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  // Admin-only: Update a notice
-  updateNotice: async (id, noticeData) => {
-    try {
-      const response = await api.put(`/notices/${id}`, noticeData);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  },
-
-  // Admin-only: Delete a notice
-  deleteNotice: async (id) => {
-    try {
-      const response = await api.delete(`/notices/${id}`);
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  }
+  // Admin: all notices including drafts
+  getAllAdminNotices: async () => (await api.get('/notices/admin')).data,
+  createNotice: async (noticeData) => (await api.post('/notices', noticeData)).data,
+  updateNotice: async (id, noticeData) => (await api.put(`/notices/${id}`, noticeData)).data,
+  deleteNotice: async (id) => (await api.delete(`/notices/${id}`)).data,
 };
 
 export default noticeService;

@@ -3,7 +3,7 @@
 ## Unreleased (branch `modernization`)
 
 ### Security & backend alignment
-- API base URL now comes from `REACT_APP_API_URL` (was hardcoded to `http://localhost:5000`).
+- API base URL now comes from `VITE_API_URL` (was hardcoded to `http://localhost:5000`).
 - A wrong password no longer reloads the login page and hides the error: the 401 redirect only applies to expired/revoked sessions, which now show a "session ended" notice.
 - Admin "Add Teacher" no longer sets the shared password `password123`; the admin gets a one-time invitation link (copy dialog) and can issue a new one with **Send link**.
 - New `/set-password` page for invitation / reset links.

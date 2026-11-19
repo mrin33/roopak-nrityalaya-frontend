@@ -4,13 +4,13 @@
  */
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { act } from 'react-dom/test-utils';
+import { act } from 'react';
 import App from './App';
 
-jest.mock('./services/axiosConfig', () => {
+vi.mock('./services/axiosConfig', () => {
   const fail = () => Promise.reject(new Error('Network unavailable (test)'));
-  const api = { get: jest.fn(fail), post: jest.fn(fail), put: jest.fn(fail), delete: jest.fn(fail) };
-  return { __esModule: true, default: api, API_ORIGIN: '', fetchProtectedMediaUrl: jest.fn(fail) };
+  const api = { get: vi.fn(fail), post: vi.fn(fail), put: vi.fn(fail), delete: vi.fn(fail) };
+  return { __esModule: true, default: api, API_ORIGIN: '', fetchProtectedMediaUrl: vi.fn(fail) };
 });
 
 const PUBLIC = ['/', '/about', '/teachers', '/gallery', '/notices', '/contact', '/login', '/register', '/set-password?token=x', '/no-such-page'];
@@ -25,15 +25,15 @@ let root;
 let consoleError;
 
 beforeAll(() => {
-  window.scrollTo = jest.fn();
-  window.HTMLElement.prototype.scrollIntoView = jest.fn();
+  window.scrollTo = vi.fn();
+  window.HTMLElement.prototype.scrollIntoView = vi.fn();
   global.IS_REACT_ACT_ENVIRONMENT = true;
 });
 
 beforeEach(() => {
   container = document.createElement('div');
   document.body.appendChild(container);
-  consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+  consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 
 afterEach(() => {
@@ -51,7 +51,7 @@ const renderAt = async (path) => {
   });
   // let rejected requests settle into error states
   await act(async () => {
-    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 150)); // lazy route chunks + rejected requests settle
   });
 };
 
