@@ -10,6 +10,7 @@ import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
 import adminService from '../services/adminService';
 import { useToast } from '../context/ToastContext';
+import LoadMore from '../components/ui/LoadMore';
 import { formatDate } from '../utils/date';
 
 const formatMonth = (f) =>
@@ -25,6 +26,20 @@ const STATUS_TABS = [
   ['refunded', 'Refunded'],
 ];
 
+const PAGE_SIZE = 200;
+const mapFee = (f) => ({
+  id: f.payment_id,
+  studentName: f.student_name || 'Unknown',
+  rollNo: f.roll_number || '',
+  month: formatMonth(f),
+  amount: Number(f.total_amount) || 0,
+  status: f.payment_status, // paid | pending | overdue | failed | refunded
+  paidDate: f.status === 'completed' && f.payment_date ? f.payment_date : null,
+  dueDate: f.due_date || null,
+  method: f.payment_method,
+  reference: f.transaction_id || `PAY-${f.payment_id}`,
+});
+
 const AdminFees = () => {
   const toast = useToast();
   const [payments, setPayments] = useState([]);
@@ -34,6 +49,8 @@ const AdminFees = () => {
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
   const [formData, setFormData] = useState(EMPTY_FORM);
 
@@ -41,21 +58,9 @@ const AdminFees = () => {
     try {
       setLoading(true);
       setError(null);
-      const [feesData, studentsData] = await Promise.all([adminService.getAllFees(), adminService.getAllStudents()]);
-      setPayments(
-        feesData.map((f) => ({
-          id: f.payment_id,
-          studentName: f.student_name || 'Unknown',
-          rollNo: f.roll_number || '',
-          month: formatMonth(f),
-          amount: Number(f.total_amount) || 0,
-          status: f.payment_status, // paid | pending | overdue | failed | refunded
-          paidDate: f.status === 'completed' && f.payment_date ? f.payment_date : null,
-          dueDate: f.due_date || null,
-          method: f.payment_method,
-          reference: f.transaction_id || `PAY-${f.payment_id}`,
-        }))
-      );
+      const [feesPage, studentsData] = await Promise.all([adminService.getFeesPage({ limit: PAGE_SIZE }), adminService.getAllStudents()]);
+      setPayments(feesPage.rows.map(mapFee));
+      setTotal(feesPage.total);
       setStudents(studentsData);
     } catch (err) {
       setError(err.message || 'Failed to load fees data');
@@ -63,6 +68,19 @@ const AdminFees = () => {
       setLoading(false);
     }
   }, []);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const page = await adminService.getFeesPage({ limit: PAGE_SIZE, offset: payments.length });
+      setPayments((list) => [...list, ...page.rows.map(mapFee).filter((r) => !list.some((x) => x.id === r.id))]);
+      setTotal(page.total);
+    } catch (err) {
+      toast.error(err.message || 'Could not load more payments.');
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
     fetchData();
@@ -201,6 +219,7 @@ const AdminFees = () => {
           Showing {filtered.length} of {payments.length} records
         </p>
       </section>
+      <LoadMore loaded={payments.length} total={total} loading={loadingMore} onLoadMore={loadMore} noun="payments" />
 
       <Modal open={showModal} onClose={() => setShowModal(false)} title="Record a payment" description="Use this for payments received at the office." size="md" dismissible={!saving}>
         <form onSubmit={handleSubmit}>

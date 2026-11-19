@@ -4,9 +4,12 @@ import PageHeader from '../components/ui/PageHeader';
 import Icon from '../components/ui/Icon';
 import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
+import LoadMore from '../components/ui/LoadMore';
 import adminService from '../services/adminService';
 import { useToast } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
+
+const PAGE_SIZE = 100;
 
 // Messages submitted through the public Contact page.
 const AdminMessages = () => {
@@ -17,12 +20,16 @@ const AdminMessages = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
+  const [total, setTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const fetchMessages = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      setMessages(await adminService.getMessages());
+      const page = await adminService.getMessagesPage({ limit: PAGE_SIZE });
+      setMessages(page.rows);
+      setTotal(page.total);
     } catch (err) {
       setError(err.message || 'Failed to load messages');
     } finally {
@@ -33,6 +40,19 @@ const AdminMessages = () => {
   useEffect(() => {
     fetchMessages();
   }, [fetchMessages]);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const page = await adminService.getMessagesPage({ limit: PAGE_SIZE, offset: messages.length });
+      setMessages((list) => [...list, ...page.rows.filter((r) => !list.some((x) => x.message_id === r.message_id))]);
+      setTotal(page.total);
+    } catch (err) {
+      toast.error(err.message || 'Could not load more messages.');
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const setRead = async (m, isRead) => {
     setBusyId(m.message_id);
@@ -53,6 +73,7 @@ const AdminMessages = () => {
     try {
       await adminService.deleteMessage(m.message_id);
       setMessages((list) => list.filter((x) => x.message_id !== m.message_id));
+      setTotal((n) => Math.max(0, n - 1));
       toast.success('Message deleted.');
     } catch (err) {
       toast.error(err.message || 'Could not delete the message.');
@@ -134,6 +155,7 @@ const AdminMessages = () => {
           })}
         </ul>
       )}
+      <LoadMore loaded={messages.length} total={total} loading={loadingMore} onLoadMore={loadMore} noun="messages" />
     </div>
   );
 };

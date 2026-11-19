@@ -6,7 +6,12 @@ import Icon from '../components/ui/Icon';
 import RollNumberBadge from '../components/RollNumberBadge';
 import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
+import LoadMore from '../components/ui/LoadMore';
 import adminService from '../services/adminService';
+import { useToast } from '../context/ToastContext';
+
+const PAGE_SIZE = 200;
+const mapChange = (c) => ({ ...c, id: c.change_id, from: c.status_from, to: c.status_to, changed_at: c.created_at });
 
 const TYPES = {
   enrollment: ['New enrolment', 'badge-success', 'plus'],
@@ -16,7 +21,10 @@ const TYPES = {
 };
 
 const AdminStatusChanges = () => {
+  const toast = useToast();
   const [changes, setChanges] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [filterType, setFilterType] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -25,8 +33,9 @@ const AdminStatusChanges = () => {
     try {
       setLoading(true);
       setError(null);
-      const rows = await adminService.getStatusChanges();
-      setChanges(rows.map((c) => ({ ...c, id: c.change_id, from: c.status_from, to: c.status_to, changed_at: c.created_at })));
+      const page = await adminService.getStatusChangesPage({ limit: PAGE_SIZE });
+      setChanges(page.rows.map(mapChange));
+      setTotal(page.total);
     } catch (err) {
       setError(err.message || 'Failed to load status history');
     } finally {
@@ -37,6 +46,19 @@ const AdminStatusChanges = () => {
   useEffect(() => {
     fetchChanges();
   }, [fetchChanges]);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const page = await adminService.getStatusChangesPage({ limit: PAGE_SIZE, offset: changes.length });
+      setChanges((list) => [...list, ...page.rows.map(mapChange)]);
+      setTotal(page.total);
+    } catch (err) {
+      toast.error(err.message || 'Could not load more records.');
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   if (loading) return <PageSkeleton label="Loading status history…" />;
   if (error) return <ErrorState message={error} onRetry={fetchChanges} />;
@@ -102,6 +124,7 @@ const AdminStatusChanges = () => {
           })}
         </ol>
       )}
+      <LoadMore loaded={changes.length} total={total} loading={loadingMore} onLoadMore={loadMore} noun="records" />
     </div>
   );
 };

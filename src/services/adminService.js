@@ -4,6 +4,13 @@ import api from './axiosConfig';
 // Notices: see noticeService. Gallery requests: see galleryRequestService.
 const multipart = { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 120000 };
 
+// Paginated list: { rows, total } (total comes from the X-Total-Count header).
+const getPage = async (url, params) => {
+  const res = await api.get(url, { params });
+  const total = Number(res.headers && res.headers['x-total-count']);
+  return { rows: res.data, total: Number.isFinite(total) ? total : res.data.length };
+};
+
 const adminService = {
   getDashboard: async () => (await api.get('/admin/dashboard')).data,
 
@@ -32,6 +39,7 @@ const adminService = {
 
   // Fees
   getAllFees: async (params) => (await api.get('/admin/fees', { params })).data,
+  getFeesPage: (params) => getPage('/admin/fees', params),
   recordFeePayment: async (paymentData) => (await api.post('/admin/fees/record', paymentData)).data,
 
   // Attendance oversight
@@ -45,6 +53,7 @@ const adminService = {
 
   // Contact-form messages
   getMessages: async () => (await api.get('/admin/messages')).data,
+  getMessagesPage: (params) => getPage('/admin/messages', params),
   updateMessage: async (id, is_read) => (await api.put(`/admin/messages/${id}`, { is_read })).data,
   deleteMessage: async (id) => (await api.delete(`/admin/messages/${id}`)).data,
 
@@ -56,6 +65,7 @@ const adminService = {
 
   // Status history
   getStatusChanges: async (params) => (await api.get('/admin/status-changes', { params })).data,
+  getStatusChangesPage: (params) => getPage('/admin/status-changes', params),
 };
 
 export default adminService;
