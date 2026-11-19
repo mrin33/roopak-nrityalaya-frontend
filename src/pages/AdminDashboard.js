@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const AdminDashboard = () => {
-  const { user } = useAuth();
+  // const { user } = useAuth();
   const [dashboardData, setDashboardData] = useState({
     totalStudents: 0,
     totalTeachers: 0,
@@ -18,35 +18,69 @@ const AdminDashboard = () => {
     levelDistribution: []
   });
 
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   useEffect(() => {
-    // TODO: Fetch real data from API
-    setDashboardData({
-      totalStudents: 156,
-      totalTeachers: 12,
-      totalBatches: 18,
-      pendingFees: 23,
-      recentRegistrations: [
-        { id: 1, name: 'Riya Sharma', level: 'Praveshika Pratham', date: '2026-01-31' },
-        { id: 2, name: 'Amit Kumar', level: 'Praveshika Pratham', date: '2026-01-30' },
-        { id: 3, name: 'Priya Patel', level: 'Madhyama Pratham', date: '2026-01-29' }
-      ],
-      feeCollection: {
-        thisMonth: 145000,
-        lastMonth: 152000,
-        pending: 23000
-      },
-      levelDistribution: [
-        { level: 'Praveshika Pratham', count: 45 },
-        { level: 'Praveshika Purna', count: 38 },
-        { level: 'Madhyama Pratham', count: 28 },
-        { level: 'Madhyama Purna', count: 22 },
-        { level: 'Visharad Pratham', count: 12 },
-        { level: 'Visharad Purna', count: 8 },
-        { level: 'Alankar Pratham', count: 2 },
-        { level: 'Alankar Purna', count: 1 }
-      ]
-    });
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        const adminService = require('../services/adminService').default;
+        
+        const [stats, students] = await Promise.all([
+          adminService.getDashboard(),
+          adminService.getAllStudents()
+        ]);
+
+        // Process recent registrations
+        const recentRegistrations = [...students]
+          .sort((a, b) => new Date(b.enrollment_date || 0) - new Date(a.enrollment_date || 0))
+          .slice(0, 3)
+          .map(s => ({
+            id: s.student_id,
+            name: s.full_name,
+            level: s.level_name || 'Unassigned',
+            date: s.enrollment_date
+          }));
+
+        // Process level distribution
+        const levelCounts = {};
+        students.forEach(s => {
+          if (s.level_name) {
+            levelCounts[s.level_name] = (levelCounts[s.level_name] || 0) + 1;
+          }
+        });
+        const levelDistribution = Object.entries(levelCounts).map(([level, count]) => ({
+          level,
+          count
+        }));
+
+        setDashboardData({
+          totalStudents: stats.total_students || 0,
+          totalTeachers: stats.total_teachers || 0,
+          totalBatches: stats.total_batches || 0,
+          pendingFees: 0, // Need accurate endpoint or calculate from students
+          recentRegistrations,
+          feeCollection: {
+            thisMonth: stats.monthly_revenue || 0,
+            lastMonth: 0,
+            pending: 0
+          },
+          levelDistribution
+        });
+      } catch (err) {
+        console.error('Error fetching admin dashboard data:', err);
+        setError('Failed to load dashboard data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
   }, []);
+
+  if (loading) return <LoadingSpinner fullScreen={true} text="Loading dashboard..." size="lg" />;
+  if (error) return <div className="min-h-screen flex items-center justify-center"><div className="text-red-600">{error}</div></div>;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">

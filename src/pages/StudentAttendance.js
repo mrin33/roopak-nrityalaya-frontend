@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
 
 const StudentAttendance = () => {
-  const { user } = useAuth();
+
   const [attendanceData, setAttendanceData] = useState({
     overall: { present: 0, absent: 0, late: 0, percentage: 0 },
     records: []

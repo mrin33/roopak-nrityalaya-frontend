@@ -1,83 +1,47 @@
 import React, { useState, useEffect } from 'react';
+import galleryRequestService from '../services/galleryRequestService';
 import StatusBadge from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
 
 const AdminGalleryRequests = () => {
   const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [processing, setProcessing] = useState(false);
+
+  const fetchRequests = async () => {
+    try {
+      setLoading(true);
+      const data = await galleryRequestService.getAllAdminRequests();
+      setRequests(data || []);
+    } catch (error) {
+      console.error('Failed to fetch requests:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // TODO: Fetch gallery requests from API
-    setRequests([
-      {
-        id: 1,
-        student_name: 'Riya Sharma',
-        roll_number: 'PP1',
-        title: 'My First Performance',
-        description: 'Annual Day 2025 performance photo',
-        media_type: 'photo',
-        category: 'Performances',
-        status: 'pending',
-        requested_at: '2026-02-03T10:30:00',
-        file_url: '/uploads/performance1.jpg'
-      },
-      {
-        id: 2,
-        student_name: 'Amit Kumar',
-        roll_number: 'PP2',
-        title: 'Practice Session Video',
-        description: 'Our batch practicing for competition',
-        media_type: 'video',
-        category: 'Practice',
-        status: 'pending',
-        requested_at: '2026-02-02T14:20:00',
-        file_url: '/uploads/practice1.mp4'
-      },
-      {
-        id: 3,
-        student_name: 'Priya Patel',
-        roll_number: 'MP1',
-        title: 'Workshop Participation',
-        description: 'Photo from the recent workshop',
-        media_type: 'photo',
-        category: 'Workshops',
-        status: 'approved',
-        requested_at: '2026-01-28T09:15:00',
-        reviewed_at: '2026-01-29T10:00:00',
-        reviewed_by: 'Admin',
-        file_url: '/uploads/workshop1.jpg'
-      },
-      {
-        id: 4,
-        student_name: 'Rahul Singh',
-        roll_number: 'MP2',
-        title: 'Solo Performance',
-        description: 'Tarana performance at cultural event',
-        media_type: 'video',
-        category: 'Performances',
-        status: 'rejected',
-        requested_at: '2026-01-25T16:45:00',
-        reviewed_at: '2026-01-26T11:30:00',
-        reviewed_by: 'Admin',
-        rejection_reason: 'Video quality is too low. Please upload HD version.',
-        file_url: '/uploads/performance2.mp4'
-      }
-    ]);
+    fetchRequests();
   }, []);
 
-  const handleApprove = (request) => {
+  const handleApprove = async (request) => {
     if (!window.confirm(`Approve upload request from ${request.student_name}?`)) return;
     
-    // TODO: API call to approve
-    setRequests(requests.map(r => 
-      r.id === request.id 
-        ? { ...r, status: 'approved', reviewed_at: new Date().toISOString(), reviewed_by: 'Admin' }
-        : r
-    ));
-    alert(`Request approved! "${request.title}" is now visible in the gallery.`);
+    setProcessing(true);
+    try {
+      await galleryRequestService.updateRequestStatus(request.id, 'approved');
+      alert(`Request approved! "${request.title}" is now visible in the gallery.`);
+      fetchRequests();
+    } catch (error) {
+      console.error('Approval failed:', error);
+      alert('Failed to approve request.');
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const handleRejectClick = (request) => {
@@ -86,37 +50,20 @@ const AdminGalleryRequests = () => {
     setShowRejectModal(true);
   };
 
-  const handleRejectSubmit = (e) => {
+  const handleRejectSubmit = async (e) => {
     e.preventDefault();
-    // TODO: API call to reject
-    setRequests(requests.map(r => 
-      r.id === selectedRequest.id 
-        ? { 
-            ...r, 
-            status: 'rejected', 
-            reviewed_at: new Date().toISOString(), 
-            reviewed_by: 'Admin',
-            rejection_reason: rejectionReason
-          }
-        : r
-    ));
-    setShowRejectModal(false);
-    alert(`Request rejected. ${selectedRequest.student_name} will be notified.`);
-  };
-
-  const getMediaIcon = (type) => {
-    if (type === 'photo') {
-      return (
-        <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-        </svg>
-      );
+    setProcessing(true);
+    try {
+      await galleryRequestService.updateRequestStatus(selectedRequest.id, 'rejected', rejectionReason);
+      setShowRejectModal(false);
+      alert(`Request rejected. ${selectedRequest.student_name} will be notified.`);
+      fetchRequests();
+    } catch (error) {
+      console.error('Rejection failed:', error);
+      alert('Failed to reject request.');
+    } finally {
+      setProcessing(false);
     }
-    return (
-      <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-        <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
-      </svg>
-    );
   };
 
   const filteredRequests = filter === 'all' 
@@ -129,6 +76,18 @@ const AdminGalleryRequests = () => {
     rejected: requests.filter(r => r.status === 'rejected').length,
     total: requests.length
   };
+
+  // Create an absolute URL for media files since the backend serves them at /uploads
+  const API_BASE = process.env.REACT_APP_API_URL ? process.env.REACT_APP_API_URL.replace('/api', '') : 'http://localhost:5000';
+  const getMediaUrl = (url) => url ? `${API_BASE}${url}` : '';
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-xl text-gray-500 text-center py-20">Loading requests...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
@@ -180,22 +139,58 @@ const AdminGalleryRequests = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredRequests.map((request) => (
-            <div key={request.id} className="bg-white rounded-xl shadow-lg overflow-hidden">
-              <div className={`h-48 flex items-center justify-center ${
-                request.media_type === 'photo' ? 'bg-gradient-to-br from-blue-100 to-blue-50' : 'bg-gradient-to-br from-red-100 to-red-50'
-              }`}>
-                <div className={request.media_type === 'photo' ? 'text-blue-400' : 'text-red-400'}>
-                  {getMediaIcon(request.media_type)}
-                </div>
+            <div key={request.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col">
+              <div className="relative h-48 bg-gray-100 flex items-center justify-center overflow-hidden">
+                {request.file_url ? (
+                  request.media_type === 'photo' ? (
+                    <img src={getMediaUrl(request.file_url)} alt="preview" className="object-cover w-full h-full" />
+                  ) : (
+                    <video src={getMediaUrl(request.file_url)} className="object-cover w-full h-full" controls={false} />
+                  )
+                ) : (
+                  <div className={request.media_type === 'photo' ? 'text-blue-400' : 'text-red-400'}>
+                    {request.media_type === 'photo' ? (
+                      <svg className="w-20 h-20" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <svg className="w-20 h-20" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+                      </svg>
+                    )}
+                  </div>
+                )}
+                
+                {request.media_type === 'video' && request.file_url && (
+                   <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                     <svg className="w-12 h-12 text-white opacity-80" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+                     </svg>
+                   </div>
+                )}
+                
+                {request.file_url && (
+                   <a 
+                     href={getMediaUrl(request.file_url)} 
+                     target="_blank" 
+                     rel="noreferrer" 
+                     className="absolute top-2 right-2 bg-black/50 text-white p-2 rounded-full hover:bg-black/70"
+                     title="View full size"
+                   >
+                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                     </svg>
+                   </a>
+                )}
               </div>
 
-              <div className="p-6">
+              <div className="p-6 flex flex-col flex-grow">
                 <div className="flex items-start justify-between mb-3">
                   <h3 className="font-bold text-accent text-lg">{request.title}</h3>
                   <StatusBadge status={request.status} type="request" />
                 </div>
 
-                <p className="text-sm text-gray-600 mb-4">{request.description}</p>
+                <p className="text-sm text-gray-600 mb-4 h-10 line-clamp-2">{request.description}</p>
 
                 <div className="space-y-2 mb-4 pb-4 border-b">
                   <div className="flex items-center justify-between text-sm">
@@ -216,37 +211,41 @@ const AdminGalleryRequests = () => {
                   </div>
                 </div>
 
-                {request.status === 'pending' && (
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleApprove(request)}
-                      className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-semibold text-sm"
-                    >
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => handleRejectClick(request)}
-                      className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 font-semibold text-sm"
-                    >
-                      Reject
-                    </button>
-                  </div>
-                )}
+                <div className="mt-auto">
+                  {request.status === 'pending' && (
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleApprove(request)}
+                        disabled={processing}
+                        className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-semibold text-sm disabled:opacity-50"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => handleRejectClick(request)}
+                        disabled={processing}
+                        className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 font-semibold text-sm disabled:opacity-50"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  )}
 
-                {request.status === 'approved' && (
-                  <div className="p-3 bg-green-50 rounded-lg">
-                    <p className="text-xs text-green-700">
-                      Approved on {new Date(request.reviewed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} by {request.reviewed_by}
-                    </p>
-                  </div>
-                )}
+                  {request.status === 'approved' && (
+                    <div className="p-3 bg-green-50 rounded-lg">
+                      <p className="text-xs text-green-700">
+                        Approved on {new Date(request.reviewed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} by {request.reviewed_by_name || 'Admin'}
+                      </p>
+                    </div>
+                  )}
 
-                {request.status === 'rejected' && request.rejection_reason && (
-                  <div className="p-3 bg-red-50 rounded-lg">
-                    <p className="text-xs font-semibold text-red-800 mb-1">Rejection Reason:</p>
-                    <p className="text-xs text-red-700">{request.rejection_reason}</p>
-                  </div>
-                )}
+                  {request.status === 'rejected' && request.rejection_reason && (
+                    <div className="p-3 bg-red-50 rounded-lg">
+                      <p className="text-xs font-semibold text-red-800 mb-1">Rejection Reason:</p>
+                      <p className="text-xs text-red-700">{request.rejection_reason}</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           ))}
@@ -309,8 +308,8 @@ const AdminGalleryRequests = () => {
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 font-semibold">
-                    Confirm Rejection
+                  <button type="submit" disabled={processing} className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 font-semibold disabled:opacity-50">
+                    {processing ? 'Processing...' : 'Confirm Rejection'}
                   </button>
                 </div>
               </form>

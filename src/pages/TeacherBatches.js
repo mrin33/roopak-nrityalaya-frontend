@@ -1,62 +1,62 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import StatusBadge from '../components/StatusBadge';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const TeacherBatches = () => {
   const [batches, setBatches] = useState([]);
   const [selectedBatch, setSelectedBatch] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // TODO: Fetch teacher's batches from API
-    setBatches([
-      {
-        id: 1,
-        name: 'Morning Batch A',
-        level: 'Praveshika Pratham',
-        schedule: 'Monday, Wednesday, Friday',
-        time: '8:00 AM - 9:30 AM',
-        room: 'Studio 1',
-        totalStudents: 12,
-        averageAttendance: 92,
-        students: [
-          { id: 1, name: 'Riya Sharma', rollNo: 'RN001', attendance: 95 },
-          { id: 2, name: 'Amit Kumar', rollNo: 'RN002', attendance: 88 },
-          { id: 3, name: 'Priya Patel', rollNo: 'RN003', attendance: 92 },
-          { id: 4, name: 'Rahul Singh', rollNo: 'RN004', attendance: 90 },
-          { id: 5, name: 'Sneha Gupta', rollNo: 'RN005', attendance: 96 },
-          { id: 6, name: 'Arjun Reddy', rollNo: 'RN006', attendance: 89 },
-        ]
-      },
-      {
-        id: 2,
-        name: 'Evening Batch B',
-        level: 'Madhyama Pratham',
-        schedule: 'Tuesday, Thursday, Saturday',
-        time: '5:00 PM - 6:30 PM',
-        room: 'Studio 2',
-        totalStudents: 15,
-        averageAttendance: 88,
-        students: [
-          { id: 7, name: 'Ananya Iyer', rollNo: 'RN007', attendance: 90 },
-          { id: 8, name: 'Karan Mehta', rollNo: 'RN008', attendance: 85 },
-        ]
-      },
-      {
-        id: 3,
-        name: 'Advanced Batch',
-        level: 'Visharad Pratham',
-        schedule: 'Monday, Wednesday, Friday',
-        time: '6:00 PM - 7:30 PM',
-        room: 'Main Hall',
-        totalStudents: 10,
-        averageAttendance: 95,
-        students: [
-          { id: 9, name: 'Divya Shah', rollNo: 'RN009', attendance: 97 },
-          { id: 10, name: 'Rohan Desai', rollNo: 'RN010', attendance: 93 },
-        ]
-      },
-    ]);
+    const fetchBatchesAndStudents = async () => {
+      try {
+        setLoading(true);
+        const teacherService = require('../services/teacherService').default;
+        
+        const [batchesData, studentsData] = await Promise.all([
+          teacherService.getBatches(),
+          teacherService.getStudents()
+        ]);
+
+        const formattedBatches = batchesData.map(b => {
+          const batchStudents = studentsData.filter(s => s.batch_name === b.batch_name);
+          const totalAttendance = batchStudents.reduce((sum, s) => sum + (Number(s.attendance_percentage) || 0), 0);
+          const averageAttendance = batchStudents.length > 0 ? Math.round(totalAttendance / batchStudents.length) : 0;
+
+          return {
+            id: b.batch_id,
+            name: b.batch_name,
+            level: b.level_name,
+            schedule: b.schedule,
+            time: b.time,
+            room: b.room,
+            totalStudents: b.active_students,
+            averageAttendance: averageAttendance,
+            students: batchStudents.map(s => ({
+              id: s.student_id,
+              name: s.full_name,
+              rollNo: s.roll_number,
+              attendance: Math.round(Number(s.attendance_percentage) || 0)
+            }))
+          };
+        });
+
+        setBatches(formattedBatches);
+      } catch (err) {
+        console.error('Error fetching batches:', err);
+        setError('Failed to load batches');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBatchesAndStudents();
   }, []);
+
+  if (loading) return <LoadingSpinner fullScreen={true} text="Loading batches..." size="lg" />;
+  if (error) return <div className="min-h-screen flex items-center justify-center"><div className="text-red-600">{error}</div></div>;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">

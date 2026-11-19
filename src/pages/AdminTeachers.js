@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const AdminTeachers = () => {
   const [teachers, setTeachers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -15,84 +18,97 @@ const AdminTeachers = () => {
   });
 
   useEffect(() => {
-    // TODO: Fetch all teachers from API
-    setTeachers([
-      { 
-        id: 1, 
-        name: 'Priya Sharma', 
-        email: 'priya.teacher@test.com', 
-        phone: '9876543210', 
-        specialization: 'Lucknow Gharana', 
-        experience: 15, 
-        batches: 4, 
-        students: 45, 
-        isActive: true 
-      },
-      { 
-        id: 2, 
-        name: 'Rajesh Kumar', 
-        email: 'rajesh.teacher@test.com', 
-        phone: '9876543211', 
-        specialization: 'Jaipur Gharana', 
-        experience: 12, 
-        batches: 3, 
-        students: 38, 
-        isActive: true 
-      },
-      { 
-        id: 3, 
-        name: 'Meera Iyer', 
-        email: 'meera.teacher@test.com', 
-        phone: '9876543212', 
-        specialization: 'Kathak Classical', 
-        experience: 10, 
-        batches: 2, 
-        students: 25, 
-        isActive: true 
-      },
-      { 
-        id: 4, 
-        name: 'Anil Verma', 
-        email: 'anil.teacher@test.com', 
-        phone: '9876543213', 
-        specialization: 'Banaras Gharana', 
-        experience: 8, 
-        batches: 2, 
-        students: 20, 
-        isActive: false 
-      },
-    ]);
+    fetchTeachers();
   }, []);
 
+  const fetchTeachers = async () => {
+    try {
+      setLoading(true);
+      const adminService = require('../services/adminService').default;
+      const data = await adminService.getAllTeachers();
+      setTeachers(data.map(t => ({
+        id: t.teacher_id,
+        name: t.full_name,
+        email: t.email,
+        phone: t.phone,
+        specialization: t.specialization,
+        experience: t.experience_years,
+        batches: 0, // Not provided directly, default to 0
+        students: t.total_students || 0,
+        isActive: t.is_active
+      })));
+    } catch (err) {
+      console.error('Error fetching teachers:', err);
+      setError('Failed to load teachers');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredTeachers = teachers.filter(teacher =>
-    teacher.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    teacher.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    teacher.specialization.toLowerCase().includes(searchTerm.toLowerCase())
+    (teacher.name && teacher.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (teacher.email && teacher.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (teacher.specialization && teacher.specialization.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // TODO: Add teacher via API
-    alert('Teacher added! (API integration pending)');
-    setShowAddModal(false);
-    setFormData({ fullName: '', email: '', phone: '', specialization: '', experienceYears: '', qualifications: '', bio: '' });
-  };
-
-  const handleToggleStatus = (teacherId) => {
-    setTeachers(teachers.map(t => 
-      t.id === teacherId ? { ...t, isActive: !t.isActive } : t
-    ));
-  };
-
-  const handleDelete = (teacherId) => {
-    if (window.confirm('Delete this teacher?')) {
-      setTeachers(teachers.filter(t => t.id !== teacherId));
+    try {
+      const adminService = require('../services/adminService').default;
+      const teacherPayload = {
+        email: formData.email,
+        password: 'password123', // Default password for new teachers created silently
+        full_name: formData.fullName,
+        phone: formData.phone,
+        specialization: formData.specialization,
+        experience_years: parseInt(formData.experienceYears) || 0,
+        bio: formData.bio || ''
+      };
+      await adminService.createTeacher(teacherPayload);
+      alert('Teacher added successfully!');
+      fetchTeachers();
+      setShowAddModal(false);
+      setFormData({ fullName: '', email: '', phone: '', specialization: '', experienceYears: '', qualifications: '', bio: '' });
+    } catch (err) {
+      console.error('Error adding teacher:', err);
+      alert('Failed to add teacher');
     }
   };
+
+  const handleToggleStatus = async (teacherId) => {
+    try {
+      const teacher = teachers.find(t => t.id === teacherId);
+      const newStatus = !teacher.isActive;
+      const adminService = require('../services/adminService').default;
+      await adminService.updateTeacher(teacherId, { is_active: newStatus });
+      setTeachers(teachers.map(t => 
+        t.id === teacherId ? { ...t, isActive: newStatus } : t
+      ));
+    } catch (err) {
+      console.error('Error updating status:', err);
+      alert('Failed to update status');
+    }
+  };
+
+  const handleDelete = async (teacherId) => {
+    if (window.confirm('Delete this teacher?')) {
+      try {
+        const adminService = require('../services/adminService').default;
+        await adminService.deleteTeacher(teacherId);
+        setTeachers(teachers.filter(t => t.id !== teacherId));
+      } catch (err) {
+        console.error('Error deleting teacher:', err);
+        alert('Failed to delete teacher');
+      }
+    }
+  };
+
+  if (loading) return <LoadingSpinner fullScreen={true} text="Loading teachers..." size="lg" />;
+  if (error) return <div className="min-h-screen flex items-center justify-center"><div className="text-red-600">{error}</div></div>;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">

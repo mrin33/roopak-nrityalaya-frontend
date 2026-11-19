@@ -1,56 +1,95 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+
 import RollNumberBadge from '../components/RollNumberBadge';
 import PaymentWindowBadge from '../components/PaymentWindowBadge';
 import StatusBadge from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const AdminStudents = () => {
-  const { user } = useAuth();
+  // const { user } = useAuth();
   const [students, setStudents] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterLevel, setFilterLevel] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [filterPaymentWindow, setFilterPaymentWindow] = useState('all'); // NEW Phase 1
+  const [filterPaymentWindow, setFilterPaymentWindow] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // TODO: Fetch all students from API
-    // UPDATED with Phase 1 fields
-    setStudents([
-      { id: 1, roll_number: 'PP1', name: 'Riya Sharma', email: 'riya@test.com', phone: '9876543210', level: 'Praveshika Pratham', batch: 'Morning Batch A', payment_window: 'monthly', discount: 0, status: 'active', enrollmentDate: '2025-09-01' },
-      { id: 2, roll_number: 'PP2', name: 'Amit Kumar', email: 'amit@test.com', phone: '9876543211', level: 'Praveshika Pratham', batch: 'Morning Batch A', payment_window: 'yearly', discount: 10, status: 'active', enrollmentDate: '2025-09-01' },
-      { id: 3, roll_number: 'MP1', name: 'Priya Patel', email: 'priya@test.com', phone: '9876543212', level: 'Madhyama Pratham', batch: 'Evening Batch B', payment_window: 'quarterly', discount: 2, status: 'active', enrollmentDate: '2025-08-15' },
-      { id: 4, roll_number: 'MP2', name: 'Rahul Singh', email: 'rahul@test.com', phone: '9876543213', level: 'Madhyama Pratham', batch: 'Evening Batch B', payment_window: 'half_yearly', discount: 5, status: 'active', enrollmentDate: '2025-08-15' },
-      { id: 5, roll_number: 'VP1', name: 'Sneha Gupta', email: 'sneha@test.com', phone: '9876543214', level: 'Visharad Pratham', batch: 'Advanced Batch', payment_window: 'yearly', discount: 10, status: 'active', enrollmentDate: '2025-07-20' },
-      { id: 6, roll_number: 'PM1', name: 'Inactive Student', email: 'inactive@test.com', phone: '9876543215', level: 'Praveshika Purna', batch: null, payment_window: 'monthly', discount: 0, status: 'inactive', enrollmentDate: '2025-06-01' },
-    ]);
+    fetchStudents();
   }, []);
 
-  const filteredStudents = students.filter(student => {
-    const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         student.roll_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         student.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesLevel = filterLevel === 'all' || student.level === filterLevel;
-    const matchesStatus = filterStatus === 'all' || student.status === filterStatus;
-    const matchesPayment = filterPaymentWindow === 'all' || student.payment_window === filterPaymentWindow; // NEW
-    return matchesSearch && matchesLevel && matchesStatus && matchesPayment;
-  });
-
-  const handleDeleteStudent = (studentId) => {
-    if (window.confirm('Are you sure you want to delete this student?')) {
-      setStudents(students.filter(s => s.id !== studentId));
-      alert('Student deleted successfully!');
+  const fetchStudents = async () => {
+    try {
+      setLoading(true);
+      const adminService = require('../services/adminService').default;
+      const data = await adminService.getAllStudents();
+      setStudents(data.map(s => ({
+        id: s.student_id,
+        roll_number: s.roll_number,
+        name: s.full_name,
+        email: s.email,
+        phone: s.phone,
+        level: s.level_name || 'Unassigned',
+        batch: s.batch_name,
+        payment_window: s.payment_window || 'monthly',
+        discount: s.discount || 0,
+        status: s.status,
+        enrollmentDate: s.enrollment_date
+      })));
+    } catch (err) {
+      console.error('Error fetching students:', err);
+      setError('Failed to load students');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleToggleStatus = (studentId) => {
-    setStudents(students.map(s => 
-      s.id === studentId 
-        ? { ...s, status: s.status === 'active' ? 'inactive' : 'active' }
-        : s
-    ));
+  const filteredStudents = students.filter(student => {
+    const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                         (student.roll_number && student.roll_number.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                         (student.email && student.email.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesLevel = filterLevel === 'all' || student.level === filterLevel;
+    const matchesStatus = filterStatus === 'all' || student.status === filterStatus;
+    const matchesPayment = filterPaymentWindow === 'all' || student.payment_window === filterPaymentWindow;
+    return matchesSearch && matchesLevel && matchesStatus && matchesPayment;
+  });
+
+  const handleDeleteStudent = async (studentId) => {
+    if (window.confirm('Are you sure you want to delete this student?')) {
+      try {
+        const adminService = require('../services/adminService').default;
+        await adminService.deleteStudent(studentId);
+        setStudents(students.filter(s => s.id !== studentId));
+        alert('Student deleted successfully!');
+      } catch (err) {
+        console.error('Error deleting student:', err);
+        alert('Failed to delete student');
+      }
+    }
   };
+
+  const handleToggleStatus = async (studentId) => {
+    try {
+      const student = students.find(s => s.id === studentId);
+      const newStatus = student.status === 'active' ? 'inactive' : 'active';
+      const adminService = require('../services/adminService').default;
+      await adminService.changeStudentStatus(studentId, { status: newStatus });
+      setStudents(students.map(s => 
+        s.id === studentId 
+          ? { ...s, status: newStatus }
+          : s
+      ));
+    } catch (err) {
+      console.error('Error changing abstract status:', err);
+      alert('Failed to change student status');
+    }
+  };
+
+  if (loading) return <LoadingSpinner fullScreen={true} text="Loading students..." size="lg" />;
+  if (error) return <div className="min-h-screen flex items-center justify-center"><div className="text-red-600">{error}</div></div>;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">

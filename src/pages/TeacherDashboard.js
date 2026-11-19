@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const TeacherDashboard = () => {
   const { user } = useAuth();
@@ -10,30 +11,72 @@ const TeacherDashboard = () => {
     classesToday: 0,
     pendingAttendance: 0,
     recentNotices: [],
-    upcomingClasses: []
+    upcomingClasses: [],
+    profile: null
   });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // TODO: Fetch real data from API
-    setDashboardData({
-      myBatches: [
-        { id: 1, name: 'Evening Batch A', level: 'Praveshika Pratham', students: 12, schedule: 'Mon, Wed, Fri - 5:00 PM' },
-        { id: 2, name: 'Morning Batch B', level: 'Madhyama Pratham', students: 8, schedule: 'Tue, Thu, Sat - 10:00 AM' },
-        { id: 3, name: 'Advanced Batch', level: 'Visharad Purna', students: 6, schedule: 'Mon, Wed - 7:00 PM' }
-      ],
-      totalStudents: 26,
-      classesToday: 2,
-      pendingAttendance: 1,
-      recentNotices: [
-        { id: 1, title: 'Level Examinations Schedule Released', date: '2026-01-28' },
-        { id: 2, title: 'Teacher Training Workshop - February', date: '2026-01-25' }
-      ],
-      upcomingClasses: [
-        { batch: 'Evening Batch A', date: '2026-02-03', time: '5:00 PM', students: 12 },
-        { batch: 'Advanced Batch', date: '2026-02-03', time: '7:00 PM', students: 6 }
-      ]
-    });
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        // We import dependencies here to avoid cycle if any, but better to import at top
+        const teacherService = require('../services/teacherService').default;
+        
+        // Fetch dashboard stats and batches
+        const [stats, batches, profile] = await Promise.all([
+          teacherService.getDashboard(),
+          teacherService.getBatches(),
+          teacherService.getProfile()
+        ]);
+
+        setDashboardData({
+          myBatches: batches.map(b => ({
+            id: b.batch_id,
+            name: b.batch_name,
+            level: b.level_name,
+            students: b.active_students,
+            schedule: `${b.schedule} - ${b.time}`
+          })),
+          totalStudents: stats.total_students,
+          classesToday: 0, // TODO: calculate from schedule
+          pendingAttendance: 0, // TODO: fetch from attendance
+          recentNotices: [], // Make endpoint if needed
+          upcomingClasses: batches.slice(0, 2).map(b => ({
+            batch: b.batch_name,
+            time: b.time,
+            students: b.active_students
+          })),
+          profile: profile
+        });
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+        setError('Failed to load dashboard data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
   }, []);
+
+  if (loading) {
+    return <LoadingSpinner fullScreen={true} text="Loading dashboard..." size="lg" />;
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <button onClick={() => window.location.reload()} className="btn-primary">
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
@@ -41,7 +84,7 @@ const TeacherDashboard = () => {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-heading font-bold text-primary mb-2">
-            Welcome, {user?.profile?.full_name || user?.email}
+            Welcome, {dashboardData.profile?.full_name || user?.profile?.full_name || user?.email}
           </h1>
           <p className="text-gray-600">Teacher Dashboard - Manage your classes and students</p>
         </div>
@@ -250,7 +293,7 @@ const TeacherDashboard = () => {
               <div className="space-y-3 text-sm">
                 <div>
                   <p className="text-white/70">Name</p>
-                  <p className="font-semibold">{user?.profile?.full_name || 'N/A'}</p>
+                  <p className="font-semibold">{dashboardData.profile?.full_name || user?.profile?.full_name || 'N/A'}</p>
                 </div>
                 <div>
                   <p className="text-white/70">Email</p>
@@ -258,11 +301,11 @@ const TeacherDashboard = () => {
                 </div>
                 <div>
                   <p className="text-white/70">Experience</p>
-                  <p className="font-semibold">{user?.profile?.experience_years || 0} years</p>
+                  <p className="font-semibold">{dashboardData.profile?.experience_years ?? user?.profile?.experience_years ?? 0} years</p>
                 </div>
                 <div>
                   <p className="text-white/70">Specialization</p>
-                  <p className="font-semibold">{user?.profile?.specialization || 'Kathak'}</p>
+                  <p className="font-semibold">{dashboardData.profile?.specialization || user?.profile?.specialization || 'Kathak'}</p>
                 </div>
               </div>
               <Link to="/teacher/profile" className="block mt-4 text-center bg-white text-primary px-4 py-2 rounded-lg font-semibold hover:bg-gray-100 transition-colors">

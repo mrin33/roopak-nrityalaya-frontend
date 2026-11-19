@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
 
 const StudentSchedule = () => {
-  const { user } = useAuth();
   const [schedule, setSchedule] = useState({
     batchInfo: null,
     weeklySchedule: [],

@@ -1,66 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import noticeService from '../services/noticeService';
 
 const NoticesPage = () => {
-  // Placeholder data - will come from backend later
-  const [notices] = useState([
-    {
-      id: 1,
-      title: 'Annual Day 2026 - Registration Open',
-      content: 'We are excited to announce that registration for our Annual Day performance is now open! All students are encouraged to participate. The event will be held on March 15, 2026. Please register by February 28, 2026.',
-      postedDate: '2026-01-25',
-      targetAudience: 'all',
-      isActive: true,
-      category: 'event'
-    },
-    {
-      id: 2,
-      title: 'February Fees Reminder',
-      content: 'This is a reminder that fees for the month of February are due by February 5, 2026. Please ensure timely payment to avoid any disruption in classes. Online payment options are available through the student portal.',
-      postedDate: '2026-01-28',
-      targetAudience: 'students',
-      isActive: true,
-      category: 'fees'
-    },
-    {
-      id: 3,
-      title: 'New Batch Starting - Praveshika Pratham',
-      content: 'A new beginner batch (Praveshika Pratham) will commence from February 10, 2026. Classes will be held on Monday, Wednesday, and Friday from 5:00 PM to 6:30 PM. Limited seats available. Contact admin for enrollment.',
-      postedDate: '2026-01-20',
-      targetAudience: 'all',
-      isActive: true,
-      category: 'admission'
-    },
-    {
-      id: 4,
-      title: 'Teacher Training Workshop - February 2026',
-      content: 'A special workshop on teaching methodologies for Kathak will be conducted for all faculty members on February 18-19, 2026. This is a mandatory workshop. Please confirm your attendance with the admin.',
-      postedDate: '2026-01-22',
-      targetAudience: 'teachers',
-      isActive: true,
-      category: 'workshop'
-    },
-    {
-      id: 5,
-      title: 'Holiday Notice - Republic Day',
-      content: 'The academy will remain closed on January 26, 2026 (Republic Day). Regular classes will resume from January 27, 2026. Wishing everyone a Happy Republic Day!',
-      postedDate: '2026-01-24',
-      targetAudience: 'all',
-      isActive: true,
-      category: 'holiday'
-    },
-    {
-      id: 6,
-      title: 'Examination Schedule - March 2026',
-      content: 'Level examination for all students will be conducted in the first week of March 2026. Detailed schedule and syllabus will be shared with students by their respective teachers. Please prepare accordingly.',
-      postedDate: '2026-01-18',
-      targetAudience: 'students',
-      isActive: true,
-      category: 'examination'
-    },
-  ]);
-
+  const [notices, setNotices] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [filterCategory, setFilterCategory] = useState('all');
-  const categories = ['all', 'event', 'fees', 'admission', 'workshop', 'holiday', 'examination'];
+  
+  const categories = ['all', 'event', 'fees', 'admission', 'workshop', 'holiday', 'examination', 'general'];
+
+  useEffect(() => {
+    const fetchNotices = async () => {
+      try {
+        setLoading(true);
+        // Will fetch published notices. We don't filter by target audience strictly here if it's the public page, 
+        // but if someone is logged in we might. For now, get all public notices.
+        const data = await noticeService.getNotices();
+        setNotices(data);
+      } catch (error) {
+        console.error('Failed to fetch notices:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchNotices();
+  }, []);
 
   const filteredNotices = notices.filter(notice => {
     if (filterCategory === 'all') return true;
@@ -75,6 +39,7 @@ const NoticesPage = () => {
       workshop: 'bg-yellow-100 text-yellow-800',
       holiday: 'bg-red-100 text-red-800',
       examination: 'bg-orange-100 text-orange-800',
+      general: 'bg-gray-100 text-gray-800'
     };
     return colors[category] || 'bg-gray-100 text-gray-800';
   };
@@ -117,8 +82,13 @@ const NoticesPage = () => {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         );
+      case 'general':
       default:
-        return null;
+        return (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
     }
   };
 
@@ -166,7 +136,15 @@ const NoticesPage = () => {
       {/* Notices List */}
       <section className="py-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          {filteredNotices.length > 0 ? (
+          {loading ? (
+             <div className="text-center py-20">
+               <svg className="animate-spin h-10 w-10 text-primary mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+               </svg>
+               <p className="text-gray-500 text-xl">Loading notices...</p>
+             </div>
+          ) : filteredNotices.length > 0 ? (
             <div className="space-y-6">
               {filteredNotices.map((notice) => (
                 <div
@@ -176,14 +154,21 @@ const NoticesPage = () => {
                   {/* Header */}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
-                      <h2 className="text-2xl font-heading font-bold text-primary mb-2">
-                        {notice.title}
-                      </h2>
+                      <div className="flex items-center gap-3 mb-2">
+                        <h2 className="text-2xl font-heading font-bold text-primary">
+                          {notice.title}
+                        </h2>
+                        {notice.is_important && (
+                          <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
+                            Important
+                          </span>
+                        )}
+                      </div>
                       <p className="text-sm text-gray-500">
-                        Posted on {formatDate(notice.postedDate)}
+                        Posted on {formatDate(notice.created_at)}
                       </p>
                     </div>
-                    <div className="ml-4">
+                    <div className="ml-4 flex-shrink-0">
                       <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold capitalize ${getCategoryColor(notice.category)}`}>
                         {getCategoryIcon(notice.category)}
                         {notice.category}
@@ -193,7 +178,7 @@ const NoticesPage = () => {
 
                   {/* Content */}
                   <div className="border-t border-gray-200 pt-4">
-                    <p className="text-gray-700 leading-relaxed">
+                    <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
                       {notice.content}
                     </p>
                   </div>
@@ -201,9 +186,9 @@ const NoticesPage = () => {
                   {/* Footer */}
                   <div className="mt-4 flex items-center justify-between">
                     <span className="text-xs text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-                      For: {notice.targetAudience === 'all' ? 'Everyone' : notice.targetAudience.charAt(0).toUpperCase() + notice.targetAudience.slice(1)}
+                      For: {notice.target_audience === 'all' ? 'Everyone' : notice.target_audience.charAt(0).toUpperCase() + notice.target_audience.slice(1)}
                     </span>
-                    {notice.isActive && (
+                    {notice.status === 'published' && (
                       <span className="text-xs text-green-600 bg-green-50 px-3 py-1 rounded-full font-semibold">
                         ● Active
                       </span>

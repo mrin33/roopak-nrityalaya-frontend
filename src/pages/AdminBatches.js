@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import BatchCapacityBar from '../components/BatchCapacityBar';
 import StatusBadge from '../components/StatusBadge';
-import EmptyState from '../components/EmptyState';
+// import EmptyState from '../components/EmptyState';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const AdminBatches = () => {
   const [batches, setBatches] = useState([]);
+  const [teachers, setTeachers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     levelId: '',
@@ -18,68 +22,90 @@ const AdminBatches = () => {
   });
 
   useEffect(() => {
-    // TODO: Fetch batches from API
-    setBatches([
-      {
-        id: 1,
-        name: 'Morning Batch A',
-        level: 'Praveshika Pratham',
-        teacher: 'Priya Sharma',
-        schedule: 'Mon, Wed, Fri',
-        time: '8:00 AM - 9:30 AM',
-        room: 'Studio 1',
-        current_enrolled: 12, // UPDATED Phase 1
-        max_students: 15, // UPDATED Phase 1
-        isActive: true
-      },
-      {
-        id: 2,
-        name: 'Evening Batch B',
-        level: 'Madhyama Pratham',
-        teacher: 'Rajesh Kumar',
-        schedule: 'Tue, Thu, Sat',
-        time: '5:00 PM - 6:30 PM',
-        room: 'Studio 2',
-        totalStudents: 15,
-        maxStudents: 20,
-        isActive: true
-      },
-      {
-        id: 3,
-        name: 'Advanced Batch',
-        level: 'Visharad Pratham',
-        teacher: 'Meera Iyer',
-        schedule: 'Mon, Wed, Fri',
-        time: '6:00 PM - 7:30 PM',
-        room: 'Main Hall',
-        totalStudents: 10,
-        maxStudents: 12,
-        isActive: true
-      },
-    ]);
+    fetchBatchesAndTeachers();
   }, []);
 
+  const fetchBatchesAndTeachers = async () => {
+    try {
+      setLoading(true);
+      const adminService = require('../services/adminService').default;
+      const [batchesData, teachersData] = await Promise.all([
+        adminService.getAllBatches(),
+        adminService.getAllTeachers()
+      ]);
+
+      setBatches(batchesData.map(b => ({
+        id: b.batch_id,
+        name: b.batch_name,
+        level: b.level_name,
+        teacher: b.full_name || 'Unassigned',
+        schedule: b.schedule,
+        time: b.time,
+        room: b.room,
+        current_enrolled: b.current_enrolled || 0,
+        max_students: b.max_students || parseInt(b.maxStudents) || 15,
+        isActive: b.is_active
+      })));
+      setTeachers(teachersData || []);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError('Failed to load batches');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredBatches = batches.filter(batch =>
-    batch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    batch.teacher.toLowerCase().includes(searchTerm.toLowerCase())
+    (batch.name && batch.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (batch.teacher && batch.teacher.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    alert('Batch created! (API integration pending)');
-    setShowAddModal(false);
-    setFormData({ name: '', levelId: '', teacherId: '', schedule: '', time: '', room: '', maxStudents: '' });
-  };
-
-  const handleDelete = (id) => {
-    if (window.confirm('Delete this batch?')) {
-      setBatches(batches.filter(b => b.id !== id));
+    try {
+      setLoading(true);
+      const adminService = require('../services/adminService').default;
+      await adminService.createBatch({
+        batch_name: formData.name,
+        level_id: formData.levelId,
+        teacher_id: formData.teacherId,
+        schedule: formData.schedule,
+        time: formData.time,
+        room: formData.room,
+        max_students: formData.maxStudents,
+        start_date: new Date().toISOString().split('T')[0]
+      });
+      alert('Batch created successfully!');
+      fetchBatchesAndTeachers();
+      setShowAddModal(false);
+      setFormData({ name: '', levelId: '', teacherId: '', schedule: '', time: '', room: '', maxStudents: '' });
+    } catch (err) {
+      console.error('Error creating batch:', err);
+      alert('Failed to create batch');
+    } finally {
+      setLoading(false);
     }
   };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Delete this batch?')) {
+      try {
+        const adminService = require('../services/adminService').default;
+        await adminService.deleteBatch(id);
+        setBatches(batches.filter(b => b.id !== id));
+      } catch (err) {
+        console.error('Error deleting batch:', err);
+        alert('Failed to delete batch');
+      }
+    }
+  };
+
+  if (loading && batches.length === 0) return <LoadingSpinner fullScreen={true} text="Loading batches..." size="lg" />;
+  if (error) return <div className="min-h-screen flex items-center justify-center"><div className="text-red-600">{error}</div></div>;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
@@ -215,9 +241,9 @@ const AdminBatches = () => {
                     <label className="block text-sm font-semibold text-accent mb-2">Teacher *</label>
                     <select name="teacherId" value={formData.teacherId} onChange={handleChange} className="input-field" required>
                       <option value="">Select teacher</option>
-                      <option value="1">Priya Sharma</option>
-                      <option value="2">Rajesh Kumar</option>
-                      <option value="3">Meera Iyer</option>
+                      {teachers.map(t => (
+                        <option key={t.teacher_id} value={t.teacher_id}>{t.full_name}</option>
+                      ))}
                     </select>
                   </div>
                   <div>

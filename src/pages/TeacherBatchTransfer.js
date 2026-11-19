@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
 
 const TeacherBatchTransfer = () => {
-  const { user } = useAuth();
+  // unused useAuth
   const [myBatches, setMyBatches] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [transfers, setTransfers] = useState([]);
@@ -109,7 +108,6 @@ const TeacherBatchTransfer = () => {
   };
 
   const activeTransfers = transfers.filter(t => t.status === 'active');
-  const completedTransfers = transfers.filter(t => t.status === 'completed');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">

@@ -1,31 +1,83 @@
-import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import React, { useState, useEffect } from 'react';
+
+import teacherService from '../services/teacherService';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const TeacherProfile = () => {
-  const { user } = useAuth();
+  // const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [stats, setStats] = useState({});
   const [formData, setFormData] = useState({
-    fullName: 'Priya Sharma',
-    email: user?.email || 'teacher@test.com',
-    phone: '9876543210',
-    specialization: 'Lucknow Gharana',
-    experienceYears: 15,
-    qualifications: 'MA in Kathak, Visharad',
-    bio: 'Expert Kathak teacher with 15 years of experience in Lucknow Gharana style.',
-    address: 'Pune, Maharashtra'
+    fullName: '',
+    email: '',
+    phone: '',
+    specialization: '',
+    experienceYears: 0,
+    qualifications: '',
+    bio: '',
+    address: ''
   });
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const fetchProfile = async () => {
+    try {
+      setLoading(true);
+      const profile = await teacherService.getProfile();
+      setFormData({
+        fullName: profile.full_name || '',
+        email: profile.email || '',
+        phone: profile.phone || '',
+        specialization: profile.specialization || '',
+        experienceYears: profile.experience_years || 0,
+        qualifications: '', // Add mapping if available
+        bio: profile.bio || '',
+        address: '' // Add mapping if available
+      });
+      setStats({
+        totalStudents: profile.total_students || 0,
+        avgRating: profile.avg_rating || 0
+      });
+    } catch (err) {
+      console.error('Error fetching profile:', err);
+      setError('Failed to load profile');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // TODO: Update profile via API
-    alert('Profile updated successfully!');
-    setIsEditing(false);
+    try {
+      setLoading(true);
+      await teacherService.updateProfile({
+        phone: formData.phone,
+        bio: formData.bio,
+        photo_url: null, // Handle if we add photo upload
+      });
+      // Note: Backend might need to be adjusted if UI allows editing specialization/etc.
+      // Current backend only allows updating phone, bio, photo_url.
+      alert('Profile updated successfully!');
+      setIsEditing(false);
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      alert('Failed to update profile');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (loading && !isEditing) return <LoadingSpinner fullScreen={true} />;
+  if (error) return <div className="p-8 text-red-600 text-center">{error}</div>;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
@@ -80,11 +132,11 @@ const TeacherProfile = () => {
               <div className="mt-6 pt-6 border-t">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-2xl font-bold text-primary">4</p>
+                    <p className="text-2xl font-bold text-primary">N/A</p>
                     <p className="text-xs text-gray-600">Batches</p>
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-green-600">45</p>
+                    <p className="text-2xl font-bold text-green-600">{stats.totalStudents}</p>
                     <p className="text-xs text-gray-600">Students</p>
                   </div>
                   <div>
@@ -92,8 +144,8 @@ const TeacherProfile = () => {
                     <p className="text-xs text-gray-600">Years Exp.</p>
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-purple-600">92%</p>
-                    <p className="text-xs text-gray-600">Avg. Attendance</p>
+                    <p className="text-2xl font-bold text-purple-600">{parseFloat(stats.avgRating).toFixed(1)}</p>
+                    <p className="text-xs text-gray-600">Avg. Rating</p>
                   </div>
                 </div>
               </div>

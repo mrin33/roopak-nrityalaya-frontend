@@ -96,7 +96,7 @@ const StudentDashboard = () => {
         {/* Welcome Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-heading font-bold text-primary mb-2">
-            Welcome back, {user?.profile?.full_name || user?.email}!
+            Welcome back, {dashboardData.full_name || user?.profile?.full_name || user?.email}!
           </h1>
           <p className="text-gray-600">Here's what's happening with your Kathak journey</p>
         </div>

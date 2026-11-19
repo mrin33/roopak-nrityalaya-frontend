@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
 import StarRating from '../components/StarRating';
 import EmptyState from '../components/EmptyState';
 
 const StudentReviews = () => {
-  const { user } = useAuth();
   const [reviews, setReviews] = useState([]);
   const [filterMonth, setFilterMonth] = useState('all');
 

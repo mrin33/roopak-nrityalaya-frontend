@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 
 const AdminSidebar = () => {
   const location = useLocation();
-  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(true);
 
   const menuItems = [

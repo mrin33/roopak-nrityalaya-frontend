@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const AdminFees = () => {
   const [payments, setPayments] = useState([]);
+  const [students, setStudents] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [showRecordModal, setShowRecordModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
     studentId: '',
     month: '',
@@ -14,19 +18,39 @@ const AdminFees = () => {
   });
 
   useEffect(() => {
-    // TODO: Fetch fee payments from API
-    setPayments([
-      { id: 1, studentName: 'Riya Sharma', roll_number: 'PP1', payment_window: 'monthly', discount: 0, base_amount: 1000, late_fee: 0, total_amount: 1000, month: 'February 2026', amount: 1000, status: 'paid', paidDate: '2026-02-01', paymentId: 'PAY001' },
-      { id: 2, studentName: 'Amit Kumar', rollNo: 'RN002', month: 'February 2026', amount: 1000, status: 'pending', dueDate: '2026-02-05', paymentId: null },
-      { id: 3, studentName: 'Priya Patel', rollNo: 'RN003', month: 'February 2026', amount: 1000, status: 'paid', paidDate: '2026-02-02', paymentId: 'PAY002' },
-      { id: 4, studentName: 'Rahul Singh', rollNo: 'RN004', month: 'February 2026', amount: 1000, status: 'overdue', dueDate: '2026-02-05', paymentId: null },
-      { id: 5, studentName: 'Sneha Gupta', rollNo: 'RN005', month: 'February 2026', amount: 1000, status: 'paid', paidDate: '2026-01-31', paymentId: 'PAY003' },
-    ]);
+    fetchData();
   }, []);
 
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const adminService = require('../services/adminService').default;
+      const [feesData, studentsData] = await Promise.all([
+        adminService.getAllFees(),
+        adminService.getAllStudents()
+      ]);
+      setPayments(feesData.map(f => ({
+        id: f.payment_id,
+        studentName: f.full_name || 'Unknown',
+        rollNo: f.roll_number || 'N/A',
+        month: f.payment_date ? new Date(f.payment_date).toLocaleString('default', { month: 'long', year: 'numeric' }) : 'N/A',
+        amount: Number(f.amount_paid) || 0,
+        status: f.status || 'paid',
+        paidDate: f.payment_date ? f.payment_date.split('T')[0] : null,
+        paymentId: f.transaction_reference || `PAY-${f.payment_id}`
+      })));
+      setStudents(studentsData || []);
+    } catch (err) {
+      console.error('Error fetching fees data:', err);
+      setError('Failed to load fees data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredPayments = payments.filter(payment => {
-    const matchesSearch = payment.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         payment.rollNo.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (payment.studentName && payment.studentName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                         (payment.rollNo && payment.rollNo.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = filterStatus === 'all' || payment.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
@@ -35,19 +59,40 @@ const AdminFees = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    alert('Payment recorded! (API integration pending)');
-    setShowRecordModal(false);
-    setFormData({ studentId: '', month: '', amount: '', paymentMethod: '', transactionId: '' });
+    try {
+      setLoading(true);
+      const adminService = require('../services/adminService').default;
+      await adminService.recordFeePayment({
+        student_id: formData.studentId,
+        amount_paid: formData.amount,
+        payment_method: formData.paymentMethod,
+        transaction_reference: formData.transactionId || null,
+        status: 'completed',
+        notes: `Fee for ${formData.month}`
+      });
+      alert('Payment recorded successfully!');
+      fetchData();
+      setShowRecordModal(false);
+      setFormData({ studentId: '', month: '', amount: '', paymentMethod: '', transactionId: '' });
+    } catch (err) {
+      console.error('Error recording payment:', err);
+      alert('Failed to record payment');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const stats = {
-    totalCollected: payments.filter(p => p.status === 'paid').reduce((sum, p) => sum + p.amount, 0),
+    totalCollected: payments.filter(p => p.status === 'paid' || p.status === 'completed').reduce((sum, p) => sum + p.amount, 0),
     pending: payments.filter(p => p.status === 'pending').reduce((sum, p) => sum + p.amount, 0),
     overdue: payments.filter(p => p.status === 'overdue').reduce((sum, p) => sum + p.amount, 0),
-    collectionRate: Math.round((payments.filter(p => p.status === 'paid').length / payments.length) * 100)
+    collectionRate: payments.length > 0 ? Math.round((payments.filter(p => p.status === 'paid' || p.status === 'completed').length / payments.length) * 100) : 0
   };
+
+  if (loading && payments.length === 0) return <LoadingSpinner fullScreen={true} text="Loading fees data..." size="lg" />;
+  if (error) return <div className="min-h-screen flex items-center justify-center"><div className="text-red-600">{error}</div></div>;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
@@ -164,9 +209,11 @@ const AdminFees = () => {
                     <label className="block text-sm font-semibold text-accent mb-2">Student *</label>
                     <select name="studentId" value={formData.studentId} onChange={handleChange} className="input-field" required>
                       <option value="">Select student</option>
-                      <option value="1">RN001 - Riya Sharma</option>
-                      <option value="2">RN002 - Amit Kumar</option>
-                      <option value="3">RN003 - Priya Patel</option>
+                      {students.map(s => (
+                        <option key={s.student_id} value={s.student_id}>
+                          {s.roll_number} - {s.full_name}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div className="grid grid-cols-2 gap-4">

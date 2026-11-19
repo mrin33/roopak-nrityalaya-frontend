@@ -1,87 +1,84 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import galleryRequestService from '../services/galleryRequestService';
 import StatusBadge from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
 
 const StudentGalleryUpload = () => {
-  const { user } = useAuth();
   const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [filterStatus, setFilterStatus] = useState('all');
+  const [submitting, setSubmitting] = useState(false);
+  
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     mediaType: 'photo',
-    category: 'Performances',
-    fileUrl: ''
+    category: 'Performances'
   });
+  const [selectedFile, setSelectedFile] = useState(null);
+
+  const fetchRequests = async () => {
+    try {
+      setLoading(true);
+      const data = await galleryRequestService.getStudentRequests();
+      setRequests(data || []);
+    } catch (error) {
+      console.error('Failed to fetch requests:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // TODO: Fetch gallery requests from API
-    setRequests([
-      {
-        id: 1,
-        title: 'My First Performance',
-        description: 'Annual Day 2025 performance photo',
-        media_type: 'photo',
-        category: 'Performances',
-        status: 'pending',
-        requested_at: '2026-02-03T10:30:00',
-        file_url: '/uploads/performance1.jpg'
-      },
-      {
-        id: 2,
-        title: 'Practice Session Video',
-        description: 'Our batch practicing for competition',
-        media_type: 'video',
-        category: 'Practice',
-        status: 'approved',
-        requested_at: '2026-02-02T14:20:00',
-        reviewed_at: '2026-02-03T09:00:00',
-        file_url: '/uploads/practice1.mp4'
-      },
-      {
-        id: 3,
-        title: 'Workshop Photo',
-        description: 'Photo from the recent workshop',
-        media_type: 'photo',
-        category: 'Workshops',
-        status: 'rejected',
-        requested_at: '2026-01-28T09:15:00',
-        reviewed_at: '2026-01-29T10:00:00',
-        rejection_reason: 'Image quality is too low. Please upload HD version.',
-        file_url: '/uploads/workshop1.jpg'
-      }
-    ]);
+    fetchRequests();
   }, []);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // TODO: API call to submit upload request
-    const newRequest = {
-      id: requests.length + 1,
-      title: formData.title,
-      description: formData.description,
-      media_type: formData.mediaType,
-      category: formData.category,
-      status: 'pending',
-      requested_at: new Date().toISOString(),
-      file_url: formData.fileUrl
-    };
-    setRequests([newRequest, ...requests]);
-    setShowUploadModal(false);
-    setFormData({
-      title: '',
-      description: '',
-      mediaType: 'photo',
-      category: 'Performances',
-      fileUrl: ''
-    });
-    alert('Upload request submitted successfully! Admin will review it soon.');
+    if (!selectedFile) {
+      alert("Please select a file to upload.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const uploadData = new FormData();
+      uploadData.append('title', formData.title);
+      uploadData.append('description', formData.description);
+      uploadData.append('media_type', formData.mediaType);
+      uploadData.append('category', formData.category);
+      uploadData.append('file', selectedFile);
+
+      await galleryRequestService.createRequest(uploadData);
+      
+      setShowUploadModal(false);
+      setFormData({
+        title: '',
+        description: '',
+        mediaType: 'photo',
+        category: 'Performances'
+      });
+      setSelectedFile(null);
+      
+      alert('Upload request submitted successfully! Admin will review it soon.');
+      fetchRequests();
+    } catch (error) {
+      console.error('Submission failed:', error);
+      alert('Failed to submit upload request.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const filteredRequests = filterStatus === 'all' 
@@ -94,6 +91,18 @@ const StudentGalleryUpload = () => {
     approved: requests.filter(r => r.status === 'approved').length,
     rejected: requests.filter(r => r.status === 'rejected').length
   };
+
+  // Create an absolute URL for media files since the backend serves them at /uploads
+  const API_BASE = process.env.REACT_APP_API_URL ? process.env.REACT_APP_API_URL.replace('/api', '') : 'http://localhost:5000';
+  const getMediaUrl = (url) => url ? `${API_BASE}${url}` : '';
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-xl text-gray-500 text-center py-20">Loading requests...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
@@ -155,20 +164,34 @@ const StudentGalleryUpload = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredRequests.map((request) => (
             <div key={request.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
-              <div className={`h-48 flex items-center justify-center ${
-                request.media_type === 'photo' ? 'bg-gradient-to-br from-blue-100 to-blue-50' : 'bg-gradient-to-br from-red-100 to-red-50'
-              }`}>
-                <div className={request.media_type === 'photo' ? 'text-blue-400' : 'text-red-400'}>
-                  {request.media_type === 'photo' ? (
-                    <svg className="w-20 h-20" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-                    </svg>
+              <div className="relative h-48 bg-gray-100 flex items-center justify-center overflow-hidden">
+                {request.file_url ? (
+                  request.media_type === 'photo' ? (
+                    <img src={getMediaUrl(request.file_url)} alt="preview" className="object-cover w-full h-full" />
                   ) : (
-                    <svg className="w-20 h-20" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
-                    </svg>
-                  )}
-                </div>
+                    <video src={getMediaUrl(request.file_url)} className="object-cover w-full h-full" controls={false} />
+                  )
+                ) : (
+                  <div className={request.media_type === 'photo' ? 'text-blue-400' : 'text-red-400'}>
+                    {request.media_type === 'photo' ? (
+                      <svg className="w-20 h-20" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <svg className="w-20 h-20" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+                      </svg>
+                    )}
+                  </div>
+                )}
+                
+                {request.media_type === 'video' && request.file_url && (
+                   <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                     <svg className="w-12 h-12 text-white opacity-80" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
+                     </svg>
+                   </div>
+                )}
               </div>
 
               <div className="p-6">
@@ -177,7 +200,7 @@ const StudentGalleryUpload = () => {
                   <StatusBadge status={request.status} type="request" />
                 </div>
 
-                <p className="text-sm text-gray-600 mb-4">{request.description}</p>
+                <p className="text-sm text-gray-600 mb-4 h-10 line-clamp-2">{request.description}</p>
 
                 <div className="space-y-2 mb-4 pb-4 border-b">
                   <div className="flex items-center justify-between text-sm">
@@ -312,20 +335,27 @@ const StudentGalleryUpload = () => {
 
                   <div>
                     <label className="block text-sm font-semibold text-accent mb-2">Upload File *</label>
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                      <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                      </svg>
-                      <p className="text-gray-600 mb-2">Click to upload or drag and drop</p>
-                      <p className="text-xs text-gray-500">
-                        {formData.mediaType === 'photo' ? 'PNG, JPG up to 10MB' : 'MP4, MOV up to 100MB'}
-                      </p>
+                    <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:bg-gray-50 transition-colors">
                       <input
                         type="file"
                         accept={formData.mediaType === 'photo' ? 'image/*' : 'video/*'}
-                        className="hidden"
+                        onChange={handleFileChange}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         required
                       />
+                      <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      {selectedFile ? (
+                        <p className="text-primary font-semibold truncate px-4">{selectedFile.name}</p>
+                      ) : (
+                        <>
+                          <p className="text-gray-600 mb-2">Click to upload or drag and drop</p>
+                          <p className="text-xs text-gray-500">
+                            {formData.mediaType === 'photo' ? 'PNG, JPG up to 10MB' : 'MP4, MOV up to 100MB'}
+                          </p>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -344,8 +374,8 @@ const StudentGalleryUpload = () => {
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="btn-primary">
-                    Submit Request
+                  <button type="submit" disabled={submitting} className="btn-primary disabled:opacity-50">
+                    {submitting ? 'Uploading...' : 'Submit Request'}
                   </button>
                 </div>
               </form>

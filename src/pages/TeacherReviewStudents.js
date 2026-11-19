@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
 import StarRating from '../components/StarRating';
 import RollNumberBadge from '../components/RollNumberBadge';
 
 const TeacherReviewStudents = () => {
-  const { user } = useAuth();
   const [students, setStudents] = useState([]);
   const [myReviews, setMyReviews] = useState([]);
   const [showReviewModal, setShowReviewModal] = useState(false);

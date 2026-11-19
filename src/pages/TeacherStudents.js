@@ -1,37 +1,55 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+
 import RollNumberBadge from '../components/RollNumberBadge';
 import StatusBadge from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const TeacherStudents = () => {
-  const { user } = useAuth();
+  // const { user } = useAuth();
   const [students, setStudents] = useState([]);
   const [filterBatch, setFilterBatch] = useState('all');
   const [filterLevel, setFilterLevel] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [batches, setBatches] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // TODO: Fetch teacher's batches and students from API
-    setBatches([
-      { id: 'all', name: 'All Batches' },
-      { id: 1, name: 'Morning Batch A' },
-      { id: 2, name: 'Evening Batch B' },
-      { id: 3, name: 'Advanced Batch' },
-      { id: 4, name: 'Weekend Special' },
-    ]);
+    const fetchStudentsAndBatches = async () => {
+      try {
+        setLoading(true);
+        const teacherService = require('../services/teacherService').default;
+        
+        const [studentsData, batchesData] = await Promise.all([
+          teacherService.getStudents(),
+          teacherService.getBatches()
+        ]);
 
-    setStudents([
-      { id: 1, name: 'Riya Sharma', rollNo: 'PP1', batch: 'Morning Batch A', level: 'Praveshika Pratham', attendance: 92, phone: '9876543210', email: 'riya@test.com' },
-      { id: 2, name: 'Amit Kumar', rollNo: 'PP2', batch: 'Morning Batch A', level: 'Praveshika Pratham', attendance: 88, phone: '9876543211', email: 'amit@test.com' },
-      { id: 3, name: 'Priya Patel', rollNo: 'MP1', batch: 'Evening Batch B', level: 'Madhyama Pratham', attendance: 95, phone: '9876543212', email: 'priya@test.com' },
-      { id: 4, name: 'Rahul Singh', rollNo: 'MP2', batch: 'Evening Batch B', level: 'Madhyama Pratham', attendance: 85, phone: '9876543213', email: 'rahul@test.com' },
-      { id: 5, name: 'Sneha Gupta', rollNo: 'VP1', batch: 'Advanced Batch', level: 'Visharad Pratham', attendance: 97, phone: '9876543214', email: 'sneha@test.com' },
-      { id: 6, name: 'Arjun Reddy', rollNo: 'VP2', batch: 'Advanced Batch', level: 'Visharad Pratham', attendance: 90, phone: '9876543215', email: 'arjun@test.com' },
-      { id: 7, name: 'Ananya Iyer', rollNo: 'PD1', batch: 'Weekend Special', level: 'Praveshika Dwitiya', attendance: 93, phone: '9876543216', email: 'ananya@test.com' },
-      { id: 8, name: 'Karan Mehta', rollNo: 'PD2', batch: 'Weekend Special', level: 'Praveshika Dwitiya', attendance: 87, phone: '9876543217', email: 'karan@test.com' },
-    ]);
+        setBatches([
+          { id: 'all', name: 'All Batches' },
+          ...batchesData.map(b => ({ id: b.batch_name, name: b.batch_name }))
+        ]);
+
+        setStudents(studentsData.map(s => ({
+          id: s.student_id,
+          name: s.full_name,
+          rollNo: s.roll_number,
+          batch: s.batch_name,
+          level: s.level_name,
+          attendance: Math.round(Number(s.attendance_percentage) || 0),
+          phone: s.phone,
+          email: s.email
+        })));
+      } catch (err) {
+        console.error('Error fetching students:', err);
+        setError('Failed to load students');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStudentsAndBatches();
   }, []);
 
   const filteredStudents = students.filter(student => {
@@ -41,6 +59,9 @@ const TeacherStudents = () => {
                          student.rollNo.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesBatch && matchesLevel && matchesSearch;
   });
+
+  if (loading) return <LoadingSpinner fullScreen={true} text="Loading students..." size="lg" />;
+  if (error) return <div className="min-h-screen flex items-center justify-center"><div className="text-red-600">{error}</div></div>;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">

@@ -1,0 +1,16 @@
+﻿
+D:\Mrinmayi\In_House_Internship\roopak-nrityalaya\frontend\src\components\AdminSidebar.js
+  7:11  warning  'user' is assigned a value but never used  no-unused-vars
+
+D:\Mrinmayi\In_House_Internship\roopak-nrityalaya\frontend\src\pages\AdminAnalytics.js
+  48:9  warning  'avgEnrollment' is assigned a value but never used  no-unused-vars
+
+D:\Mrinmayi\In_House_Internship\roopak-nrityalaya\frontend\src\pages\StudentMakeupClasses.js
+  7:9  warning  Unexpected empty object pattern  no-empty-pattern
+
+D:\Mrinmayi\In_House_Internship\roopak-nrityalaya\frontend\src\pages\TeacherBatchTransfer.js
+    2:10  warning  'useAuth' is defined but never used                      no-unused-vars
+  112:9   warning  'completedTransfers' is assigned a value but never used  no-unused-vars
+
+Γ£û 5 problems (0 errors, 5 warnings)
+

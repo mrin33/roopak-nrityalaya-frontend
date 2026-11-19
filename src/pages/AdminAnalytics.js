@@ -44,11 +44,6 @@ const AdminAnalytics = () => {
   }, []);
 
   
-  const totalEnrollments = analytics.enrollmentTrends.reduce((sum, t) => sum + t.enrolled, 0);
-  const avgEnrollment = analytics.enrollmentTrends.length > 0 
-    ? (totalEnrollments / analytics.enrollmentTrends.length).toFixed(0)
-    : 0;
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
