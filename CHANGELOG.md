@@ -49,3 +49,12 @@
 - **Online fee payment** needs payment-gateway credentials (e.g. Razorpay). Students are told to pay at the office; admins record payments.
 - **Email delivery** (invitation/reset links, contact-form alerts) needs SMTP or an email API; links are shown to the admin to share manually.
 - **Social media links** on the Contact page point to generic sites until the academy's real profile URLs are provided.
+
+### Code quality, testing and deployment (phases 8–10)
+- **Build tooling:** Create React App replaced by **Vite 6**, Vitest 5 and ESLint 9 (flat config). Production build 2.6 s (was 16 s). `npm audit`: 0 vulnerabilities (CRA brought 62, 3 critical; axios and react-router upgraded to patched releases, React Router 7).
+- Environment variable renamed `REACT_APP_API_URL` → `VITE_API_URL`. A production build no longer falls back to `localhost`; with no value it calls its own origin. Output directory is now `dist`.
+- Pages are **lazy-loaded** per route (main bundle 309 kB / ~100 kB gzip; each page its own chunk), with skeleton fallbacks inside both layouts.
+- Fees, Messages and Status-history pages load 100–200 records at a time with a **Load more** control (`X-Total-Count` header).
+- Removed the unused `LoadingSpinner` component and redundant try/catch wrappers in two service modules; JSX files are now `.jsx`.
+- `vercel.json` (SPA rewrites, immutable asset caching, security headers) and `public/_redirects`.
+- Scripts: `npm run dev | build | preview | test | lint`.
