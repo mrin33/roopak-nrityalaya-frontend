@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { PageSkeleton } from '../components/ui/Skeleton';
 import StarRating from '../components/StarRating';
 import RollNumberBadge from '../components/RollNumberBadge';
-import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorState from '../components/ErrorState';
 import teacherService from '../services/teacherService';
 import { useToast } from '../context/ToastContext';
@@ -122,16 +122,16 @@ const TeacherReviewStudents = () => {
 
   const studentsNeedingReview = students.filter(needsReview);
 
-  if (loading) return <LoadingSpinner fullScreen={true} text="Loading your students..." size="lg" />;
+  if (loading) return <PageSkeleton label="Loading your students..." />;
   if (error) return <ErrorState message={error} onRetry={loadData} />;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="page">
+      <div>
         
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-heading font-bold text-primary mb-2">
+          <h1 className="page-title">
             Review Students
           </h1>
           <p className="text-gray-600">Provide monthly feedback to help students improve</p>
@@ -139,15 +139,15 @@ const TeacherReviewStudents = () => {
 
         {/* Alert for pending reviews */}
         {studentsNeedingReview.length > 0 && (
-          <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-8 rounded-r-lg">
+          <div className="bg-yellow-50 border-l-4 border-amber-500 p-4 mb-8 rounded-r-lg">
             <div className="flex">
               <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="h-5 w-5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
               </div>
               <div className="ml-3">
-                <p className="text-sm text-yellow-700">
+                <p className="text-sm text-amber-700">
                   <strong>{studentsNeedingReview.length} student{studentsNeedingReview.length > 1 ? 's' : ''} need{studentsNeedingReview.length === 1 ? 's' : ''} a review this month!</strong> Regular feedback helps students track their progress.
                 </p>
               </div>
@@ -157,43 +157,43 @@ const TeacherReviewStudents = () => {
 
         {/* Statistics */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Total Students</p>
-            <p className="text-3xl font-bold text-primary">{students.length}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-primary">{students.length}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Need Review</p>
-            <p className="text-3xl font-bold text-yellow-600">{studentsNeedingReview.length}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-amber-700">{studentsNeedingReview.length}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Reviews This Month</p>
-            <p className="text-3xl font-bold text-green-600">
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-green-700">
               {myReviews.filter(r => 
                 r.review_month === new Date().getMonth() + 1 && 
                 r.review_year === new Date().getFullYear()
               ).length}
             </p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Total Reviews</p>
-            <p className="text-3xl font-bold text-blue-600">{myReviews.length}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-blue-700">{myReviews.length}</p>
           </div>
         </div>
 
         {/* My Students */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-          <h2 className="text-2xl font-bold text-accent mb-6 pb-2 border-b">My Students</h2>
+        <div className="card mb-6">
+          <h2 className="section-title mb-5 border-b border-sand-200 pb-3">My Students</h2>
           
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b-2">
+              <thead className="bg-sand-50 border-b-2">
                 <tr>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Roll No</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Student Name</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Level</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Batch</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Last Review</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Actions</th>
+                  <th className="th">Roll No</th>
+                  <th className="th">Student Name</th>
+                  <th className="th">Level</th>
+                  <th className="th">Batch</th>
+                  <th className="th">Last Review</th>
+                  <th className="th">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -205,13 +205,13 @@ const TeacherReviewStudents = () => {
                   </tr>
                 )}
                 {students.map((student) => (
-                  <tr key={student.id} className="border-b hover:bg-gray-50">
+                  <tr key={student.id} className="border-b hover:bg-sand-50">
                     <td>
                       <RollNumberBadge rollNumber={student.roll_number} />
                     </td>
                     <td className="px-6 py-4 font-semibold text-accent">{student.full_name}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{student.level_name}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{student.batch_name}</td>
+                    <td className="td text-gray-600">{student.level_name}</td>
+                    <td className="td text-gray-600">{student.batch_name}</td>
                     <td className="px-6 py-4 text-sm">
                       {student.last_review_date ? (
                         <span className="text-gray-600">
@@ -221,10 +221,10 @@ const TeacherReviewStudents = () => {
                           })}
                         </span>
                       ) : (
-                        <span className="text-yellow-600 font-semibold">Never reviewed</span>
+                        <span className="text-amber-600 font-semibold">Never reviewed</span>
                       )}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="td">
                       <button
                         onClick={() => handleOpenReview(student)}
                         className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
@@ -244,8 +244,8 @@ const TeacherReviewStudents = () => {
         </div>
 
         {/* Recent Reviews */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-2xl font-bold text-accent mb-6 pb-2 border-b">Recent Reviews</h2>
+        <div className="card">
+          <h2 className="section-title mb-5 border-b border-sand-200 pb-3">Recent Reviews</h2>
           
           {myReviews.length === 0 ? (
             <div className="text-center py-12">
@@ -257,7 +257,7 @@ const TeacherReviewStudents = () => {
           ) : (
             <div className="space-y-4">
               {myReviews.map((review) => (
-                <div key={review.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div key={review.id} className="border border-sand-200 rounded-lg p-4 hover:shadow-lift transition-shadow">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                       <div className="w-16 h-16 bg-primary/10 rounded-lg flex flex-col items-center justify-center">
@@ -316,7 +316,7 @@ const TeacherReviewStudents = () => {
                   {/* Month and Year */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-semibold text-accent mb-2">Review Month *</label>
+                      <label className="form-label">Review Month *</label>
                       <select
                         name="reviewMonth"
                         value={formData.reviewMonth}
@@ -332,7 +332,7 @@ const TeacherReviewStudents = () => {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-accent mb-2">Year *</label>
+                      <label className="form-label">Year *</label>
                       <select
                         name="reviewYear"
                         value={formData.reviewYear}
@@ -353,11 +353,11 @@ const TeacherReviewStudents = () => {
                   </div>
 
                   {/* Rating Categories */}
-                  <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="space-y-4 p-4 bg-sand-50 rounded-lg">
                     <h3 className="font-semibold text-accent mb-4">Rate Student Performance (1-5 Stars)</h3>
                     
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      <label className="form-label">
                         Technique Progress *
                       </label>
                       {renderStarSelector('techniqueRating')}
@@ -365,7 +365,7 @@ const TeacherReviewStudents = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      <label className="form-label">
                         Rhythm Understanding *
                       </label>
                       {renderStarSelector('rhythmRating')}
@@ -373,7 +373,7 @@ const TeacherReviewStudents = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      <label className="form-label">
                         Creativity & Expression *
                       </label>
                       {renderStarSelector('creativityRating')}
@@ -381,7 +381,7 @@ const TeacherReviewStudents = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      <label className="form-label">
                         Discipline & Attendance *
                       </label>
                       {renderStarSelector('disciplineRating')}
@@ -392,7 +392,7 @@ const TeacherReviewStudents = () => {
                   {/* Overall Rating Display */}
                   <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                     <p className="text-sm font-semibold text-blue-900 mb-1">Overall Rating</p>
-                    <p className="text-3xl font-bold text-blue-600">
+                    <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-blue-700">
                       {((parseInt(formData.techniqueRating) + 
                          parseInt(formData.rhythmRating) + 
                          parseInt(formData.creativityRating) + 
@@ -402,7 +402,7 @@ const TeacherReviewStudents = () => {
 
                   {/* Written Feedback */}
                   <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">
+                    <label className="form-label">
                       Written Feedback *
                     </label>
                     <textarea

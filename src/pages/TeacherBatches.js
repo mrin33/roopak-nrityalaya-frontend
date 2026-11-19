@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { PageSkeleton } from '../components/ui/Skeleton';
 import { Link } from 'react-router-dom';
 import StatusBadge from '../components/StatusBadge';
-import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorState from '../components/ErrorState';
 import teacherService from '../services/teacherService';
 
@@ -55,16 +55,16 @@ const TeacherBatches = () => {
     fetchBatchesAndStudents();
   }, []);
 
-  if (loading) return <LoadingSpinner fullScreen={true} text="Loading batches..." size="lg" />;
+  if (loading) return <PageSkeleton label="Loading batches..." />;
   if (error) return <ErrorState message={error} onRetry={() => window.location.reload()} />;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="page">
+      <div>
         
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-heading font-bold text-primary mb-2">
+          <h1 className="page-title">
             My Batches
           </h1>
           <p className="text-gray-600">View and manage all your assigned batches</p>
@@ -72,32 +72,32 @@ const TeacherBatches = () => {
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Total Batches</p>
-            <p className="text-3xl font-bold text-primary">{batches.length}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-primary">{batches.length}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Total Students</p>
-            <p className="text-3xl font-bold text-green-600">
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-green-700">
               {batches.reduce((sum, b) => sum + b.totalStudents, 0)}
             </p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Average Attendance</p>
-            <p className="text-3xl font-bold text-blue-600">
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-blue-700">
               {batches.length > 0 ? Math.round(batches.reduce((sum, b) => sum + b.averageAttendance, 0) / batches.length) : 0}%
             </p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Active Batches</p>
-            <p className="text-3xl font-bold text-purple-600">{batches.length}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-purple-700">{batches.length}</p>
           </div>
         </div>
 
         {/* Batches Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {batches.map((batch) => (
-            <div key={batch.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all">
+            <div key={batch.id} className="surface overflow-hidden hover:shadow-lift transition-all">
               
               {/* Batch Header */}
               <div className="bg-gradient-to-r from-primary to-primary-dark text-white p-6">
@@ -128,7 +128,7 @@ const TeacherBatches = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
+                <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-sand-50 rounded-lg">
                   <div className="text-center">
                     <p className="text-2xl font-bold text-primary">{batch.totalStudents}</p>
                     <p className="text-xs text-gray-600">Students</p>
@@ -144,7 +144,7 @@ const TeacherBatches = () => {
                   <h4 className="font-semibold text-accent mb-3">Students</h4>
                   <div className="space-y-2 max-h-40 overflow-y-auto">
                     {batch.students.slice(0, 3).map((student) => (
-                      <div key={student.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg text-sm">
+                      <div key={student.id} className="flex items-center justify-between p-2 bg-sand-50 rounded-lg text-sm">
                         <span className="font-medium text-accent">{student.name}</span>
                         <span className="text-gray-600">{student.rollNo}</span>
                       </div>
@@ -203,7 +203,7 @@ const TeacherBatches = () => {
               {/* Modal Body */}
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
                 <table className="w-full">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-sand-50">
                     <tr>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-accent">Roll No</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-accent">Name</th>
@@ -212,7 +212,7 @@ const TeacherBatches = () => {
                   </thead>
                   <tbody>
                     {selectedBatch.students.map((student) => (
-                      <tr key={student.id} className="border-b hover:bg-gray-50">
+                      <tr key={student.id} className="border-b hover:bg-sand-50">
                         <td className="px-4 py-3 font-mono text-sm">{student.rollNo}</td>
                         <td className="px-4 py-3 font-medium text-accent">{student.name}</td>
                         <td className="px-4 py-3">

@@ -88,36 +88,36 @@ const AdminGalleryRequests = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="page">
+      <div>
         
         <div className="mb-8">
-          <h1 className="text-4xl font-heading font-bold text-primary mb-2">
+          <h1 className="page-title">
             Gallery Upload Requests
           </h1>
           <p className="text-gray-600">Review and approve student gallery uploads</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Total Requests</p>
-            <p className="text-3xl font-bold text-primary">{stats.total}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-primary">{stats.total}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Pending Review</p>
-            <p className="text-3xl font-bold text-yellow-600">{stats.pending}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-amber-700">{stats.pending}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Approved</p>
-            <p className="text-3xl font-bold text-green-600">{stats.approved}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-green-700">{stats.approved}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Rejected</p>
-            <p className="text-3xl font-bold text-red-600">{stats.rejected}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-red-700">{stats.rejected}</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+        <div className="card mb-6">
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-600">
               Showing {filteredRequests.length} of {requests.length} requests
@@ -137,8 +137,8 @@ const AdminGalleryRequests = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredRequests.map((request) => (
-            <div key={request.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col">
-              <div className="relative h-48 bg-gray-100 flex items-center justify-center overflow-hidden">
+            <div key={request.id} className="surface overflow-hidden flex flex-col">
+              <div className="relative h-48 bg-sand-100 flex items-center justify-center overflow-hidden">
                 {request.file_url ? (
                   <ProtectedMedia
                     requestId={request.id}
@@ -198,7 +198,7 @@ const AdminGalleryRequests = () => {
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Category:</span>
-                    <span className="px-2 py-1 bg-gray-100 rounded text-xs">{request.category}</span>
+                    <span className="px-2 py-1 bg-sand-100 rounded text-xs">{request.category}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Type:</span>
@@ -276,14 +276,14 @@ const AdminGalleryRequests = () => {
               </div>
 
               <form onSubmit={handleRejectSubmit} className="p-6">
-                <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                <div className="mb-6 p-4 bg-sand-50 rounded-lg">
                   <p className="text-sm text-gray-600 mb-1">Request:</p>
                   <p className="font-bold text-accent">{selectedRequest.title}</p>
                   <p className="text-sm text-gray-600 mt-1">From: {selectedRequest.student_name}</p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-accent mb-2">
+                  <label className="form-label">
                     Reason for Rejection *
                   </label>
                   <textarea

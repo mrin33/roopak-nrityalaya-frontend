@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { PageSkeleton } from '../components/ui/Skeleton';
 import { Link } from 'react-router-dom';
-import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorState from '../components/ErrorState';
 import studentService from '../services/studentService';
 import noticeService from '../services/noticeService';
@@ -45,7 +45,7 @@ const StudentSchedule = () => {
     load();
   }, [load]);
 
-  if (loading) return <LoadingSpinner fullScreen={true} text="Loading schedule..." size="lg" />;
+  if (loading) return <PageSkeleton label="Loading schedule..." />;
   if (error) return <ErrorState message={error} onRetry={load} />;
 
   const batch = schedule.batchInfo;
@@ -53,15 +53,15 @@ const StudentSchedule = () => {
   const today = DAYS[(new Date().getDay() + 6) % 7];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="page">
+      <div>
         <div className="mb-8">
-          <h1 className="text-3xl sm:text-4xl font-heading font-bold text-primary mb-2">My Schedule</h1>
+          <h1 className="page-title">My Schedule</h1>
           <p className="text-gray-600">Your class timetable and upcoming academy events</p>
         </div>
 
         {!batch ? (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-yellow-800 mb-8">
+          <div className="bg-yellow-50 border border-amber-200 rounded-xl p-6 text-amber-800 mb-8">
             You have not been assigned to a batch yet. The academy office will assign you to one soon.
           </div>
         ) : (
@@ -84,7 +84,7 @@ const StudentSchedule = () => {
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <div className="card mb-6">
               <h2 className="text-2xl font-bold text-accent mb-6 pb-4 border-b">Weekly Schedule</h2>
               {days.size === 0 ? (
                 <p className="text-gray-600">Class days: {batch.schedule}</p>
@@ -95,7 +95,7 @@ const StudentSchedule = () => {
                     return (
                       <div
                         key={day}
-                        className={`border-2 rounded-xl p-4 ${hasClass ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200 opacity-60'} ${
+                        className={`border-2 rounded-xl p-4 ${hasClass ? 'bg-green-50 border-green-200' : 'bg-sand-50 border-sand-200 opacity-60'} ${
                           day === today ? 'ring-2 ring-primary' : ''
                         }`}
                       >
@@ -117,9 +117,9 @@ const StudentSchedule = () => {
           </>
         )}
 
-        <div className="bg-white rounded-xl shadow-lg p-6">
+        <div className="card">
           <div className="flex items-center justify-between mb-6 pb-4 border-b">
-            <h2 className="text-2xl font-bold text-accent">Upcoming Events</h2>
+            <h2 className="section-title">Upcoming Events</h2>
             <Link to="/notices" className="text-sm text-primary hover:underline">All notices →</Link>
           </div>
           {events.length === 0 ? (
@@ -127,7 +127,7 @@ const StudentSchedule = () => {
           ) : (
             <div className="space-y-4">
               {events.map((e) => (
-                <div key={e.id} className="flex flex-col sm:flex-row sm:items-start gap-3 p-4 bg-gray-50 rounded-xl">
+                <div key={e.id} className="flex flex-col sm:flex-row sm:items-start gap-3 p-4 bg-sand-50 rounded-xl">
                   <div className="flex-1">
                     <h3 className="font-semibold text-accent mb-1">{e.title}</h3>
                     <p className="text-sm text-gray-600 line-clamp-2">{e.content}</p>

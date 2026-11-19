@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import LoadingSpinner from '../components/LoadingSpinner';
+import { PageSkeleton } from '../components/ui/Skeleton';
 import ErrorState from '../components/ErrorState';
 import teacherService from '../services/teacherService';
 import { useToast } from '../context/ToastContext';
@@ -106,15 +106,15 @@ const TeacherBatchTransfer = () => {
 
   const activeTransfers = transfers.filter(t => t.status === 'active');
 
-  if (loading) return <LoadingSpinner fullScreen={true} text="Loading batch transfers..." size="lg" />;
+  if (loading) return <PageSkeleton label="Loading batch transfers..." />;
   if (error) return <ErrorState message={error} onRetry={loadData} />;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="page">
+      <div>
         
         <div className="mb-8">
-          <h1 className="text-4xl font-heading font-bold text-primary mb-2">
+          <h1 className="page-title">
             Batch Transfers
           </h1>
           <p className="text-gray-600">Transfer your batch to another teacher for a day</p>
@@ -136,27 +136,27 @@ const TeacherBatchTransfer = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">My Batches</p>
-            <p className="text-3xl font-bold text-primary">{myBatches.length}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-primary">{myBatches.length}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Active Transfers</p>
-            <p className="text-3xl font-bold text-green-600">{activeTransfers.length}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-green-700">{activeTransfers.length}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Total Transfers</p>
-            <p className="text-3xl font-bold text-blue-600">{transfers.length}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-blue-700">{transfers.length}</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-          <h2 className="text-2xl font-bold text-accent mb-6 pb-2 border-b">My Batches</h2>
+        <div className="card mb-6">
+          <h2 className="section-title mb-5 border-b border-sand-200 pb-3">My Batches</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {myBatches.length === 0 && <p className="text-gray-500">You have no active batches to transfer.</p>}
             {myBatches.map((batch) => (
-              <div key={batch.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+              <div key={batch.id} className="border border-sand-200 rounded-lg p-6 hover:shadow-lift transition-shadow">
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <h3 className="text-xl font-bold text-accent mb-1">{batch.batch_name}</h3>
@@ -193,8 +193,8 @@ const TeacherBatchTransfer = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-2xl font-bold text-accent mb-6 pb-2 border-b">Transfer History</h2>
+        <div className="card">
+          <h2 className="section-title mb-5 border-b border-sand-200 pb-3">Transfer History</h2>
           
           {transfers.length === 0 ? (
             <div className="text-center py-12">
@@ -203,7 +203,7 @@ const TeacherBatchTransfer = () => {
           ) : (
             <div className="space-y-4">
               {transfers.map((transfer) => (
-                <div key={transfer.id} className="border border-gray-200 rounded-lg p-6">
+                <div key={transfer.id} className="border border-sand-200 rounded-lg p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div>
                       <div className="flex items-center space-x-3 mb-2">
@@ -230,7 +230,7 @@ const TeacherBatchTransfer = () => {
                     </div>
                   </div>
 
-                  <div className="p-3 bg-gray-50 rounded-lg">
+                  <div className="p-3 bg-sand-50 rounded-lg">
                     <p className="text-sm text-gray-700">
                       <strong>Reason:</strong> {transfer.reason || '—'}
                     </p>
@@ -274,7 +274,7 @@ const TeacherBatchTransfer = () => {
               <form onSubmit={handleSubmit} className="p-6">
                 <div className="space-y-6">
                   <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">
+                    <label className="form-label">
                       Select Substitute Teacher *
                     </label>
                     <select
@@ -294,7 +294,7 @@ const TeacherBatchTransfer = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">
+                    <label className="form-label">
                       Transfer Date *
                     </label>
                     <input
@@ -316,7 +316,7 @@ const TeacherBatchTransfer = () => {
                     Permanent transfer (the batch is reassigned to this teacher)
                   </label>
                   <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">
+                    <label className="form-label">
                       Reason for Transfer *
                     </label>
                     <textarea
@@ -330,8 +330,8 @@ const TeacherBatchTransfer = () => {
                     ></textarea>
                   </div>
 
-                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <p className="text-sm text-yellow-800">
+                  <div className="p-4 bg-yellow-50 border border-amber-200 rounded-lg">
+                    <p className="text-sm text-amber-800">
                       <strong>Note:</strong> Students will be automatically notified about the substitute teacher via email/SMS.
                     </p>
                   </div>

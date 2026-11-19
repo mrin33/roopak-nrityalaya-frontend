@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { PageSkeleton } from '../components/ui/Skeleton';
 import StatusBadge from '../components/StatusBadge';
-import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
 import teacherService from '../services/teacherService';
@@ -56,17 +56,17 @@ const TeacherMakeupRequests = () => {
     }
   };
 
-  if (loading) return <LoadingSpinner fullScreen={true} text="Loading makeup requests..." size="lg" />;
+  if (loading) return <PageSkeleton label="Loading makeup requests..." />;
   if (error) return <ErrorState message={error} onRetry={load} />;
 
   const shown = requests.filter((r) => filter === 'all' || r.status === filter);
   const count = (s) => requests.filter((r) => r.status === s).length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
+    <div className="page">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
-          <h1 className="text-3xl sm:text-4xl font-heading font-bold text-primary mb-2">Makeup Class Requests</h1>
+          <h1 className="page-title">Makeup Class Requests</h1>
           <p className="text-gray-600">Students who missed a class and want to join one of your batches</p>
         </div>
 
@@ -90,7 +90,7 @@ const TeacherMakeupRequests = () => {
         </div>
 
         {shown.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-lg">
+          <div className="surface">
             <EmptyState icon="calendar" title="No requests here" description="Makeup requests for your batches will appear here." />
           </div>
         ) : (
@@ -106,7 +106,7 @@ const TeacherMakeupRequests = () => {
                   </div>
                   <StatusBadge status={r.status} />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg mb-4 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-sand-50 rounded-lg mb-4 text-sm">
                   <div>
                     <p className="text-xs text-gray-500 mb-1">MISSED</p>
                     <p className="font-semibold">{formatDate(r.original_class_date)}</p>

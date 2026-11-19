@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { PageSkeleton } from '../components/ui/Skeleton';
 import { useToast } from '../context/ToastContext';
 
 import teacherService from '../services/teacherService';
-import LoadingSpinner from '../components/LoadingSpinner';
 
 const TeacherProfile = () => {
   const toast = useToast();
@@ -76,17 +76,17 @@ const TeacherProfile = () => {
     }
   };
 
-  if (loading && !isEditing) return <LoadingSpinner fullScreen={true} />;
+  if (loading && !isEditing) return <PageSkeleton label="Loading…" />;
   if (error) return <div className="p-8 text-red-600 text-center">{error}</div>;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
+    <div className="page">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-4xl font-heading font-bold text-primary mb-2">
+            <h1 className="page-title">
               My Profile
             </h1>
             <p className="text-gray-600">Manage your personal information</p>
@@ -105,7 +105,7 @@ const TeacherProfile = () => {
           
           {/* Left Column - Profile Card */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-lg p-6 text-center">
+            <div className="card text-center">
               
               {/* Profile Photo */}
               <div className="mb-6">
@@ -153,7 +153,7 @@ const TeacherProfile = () => {
 
             {/* Change Password Card */}
             {!isEditing && (
-              <div className="bg-white rounded-xl shadow-lg p-6 mt-6">
+              <div className="card mt-6">
                 <h3 className="font-bold text-accent mb-4">Security</h3>
                 <button className="w-full btn-secondary">
                   Change Password
@@ -164,7 +164,7 @@ const TeacherProfile = () => {
 
           {/* Right Column - Profile Details */}
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl shadow-lg p-8">
+            <div className="card sm:p-8">
               <h3 className="text-2xl font-bold text-accent mb-6 pb-4 border-b">
                 {isEditing ? 'Edit Information' : 'Personal Information'}
               </h3>
@@ -173,7 +173,7 @@ const TeacherProfile = () => {
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-sm font-semibold text-accent mb-2">
+                      <label className="form-label">
                         Full Name *
                       </label>
                       <input
@@ -187,21 +187,21 @@ const TeacherProfile = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-accent mb-2">
+                      <label className="form-label">
                         Email *
                       </label>
                       <input
                         type="email"
                         name="email"
                         value={formData.email}
-                        className="input-field bg-gray-100"
+                        className="input-field bg-sand-100"
                         disabled
                       />
                       <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-accent mb-2">
+                      <label className="form-label">
                         Phone *
                       </label>
                       <input
@@ -215,7 +215,7 @@ const TeacherProfile = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-accent mb-2">
+                      <label className="form-label">
                         Specialization *
                       </label>
                       <input
@@ -229,7 +229,7 @@ const TeacherProfile = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-accent mb-2">
+                      <label className="form-label">
                         Years of Experience *
                       </label>
                       <input
@@ -244,7 +244,7 @@ const TeacherProfile = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-accent mb-2">
+                      <label className="form-label">
                         Qualifications
                       </label>
                       <input
@@ -258,7 +258,7 @@ const TeacherProfile = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">
+                    <label className="form-label">
                       Bio
                     </label>
                     <textarea
@@ -271,7 +271,7 @@ const TeacherProfile = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">
+                    <label className="form-label">
                       Address
                     </label>
                     <textarea

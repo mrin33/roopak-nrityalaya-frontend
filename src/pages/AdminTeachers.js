@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import LoadingSpinner from '../components/LoadingSpinner';
+import { PageSkeleton } from '../components/ui/Skeleton';
 import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
 import InviteLinkDialog from '../components/InviteLinkDialog';
@@ -150,16 +150,16 @@ const AdminTeachers = () => {
     }
   };
 
-  if (loading && !teachers.length) return <LoadingSpinner fullScreen={true} text="Loading teachers..." size="lg" />;
+  if (loading && !teachers.length) return <PageSkeleton label="Loading teachers..." />;
   if (error) return <ErrorState message={error} onRetry={fetchTeachers} />;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="page">
+      <div>
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-heading font-bold text-primary mb-2">Manage Teachers</h1>
+            <h1 className="page-title">Manage Teachers</h1>
             <p className="text-gray-600">Add, edit, and manage teaching staff</p>
           </div>
           <button onClick={openAdd} className="btn-primary">
@@ -175,7 +175,7 @@ const AdminTeachers = () => {
             ['Total Batches', teachers.reduce((s, t) => s + (t.total_batches || 0), 0), 'text-blue-600'],
             ['Total Students', teachers.reduce((s, t) => s + (t.total_students || 0), 0), 'text-purple-600'],
           ].map(([label, value, color]) => (
-            <div key={label} className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+            <div key={label} className="card">
               <p className="text-sm text-gray-600 mb-1">{label}</p>
               <p className={`text-3xl font-bold ${color}`}>{value}</p>
             </div>
@@ -183,7 +183,7 @@ const AdminTeachers = () => {
         </div>
 
         {/* Search */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+        <div className="card mb-6">
           <input
             type="search"
             placeholder="Search by name, email, or specialization..."
@@ -199,7 +199,7 @@ const AdminTeachers = () => {
 
         {/* Teachers Table */}
         {filteredTeachers.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-lg">
+          <div className="surface">
             <EmptyState
               icon="user"
               title={teachers.length ? 'No teachers match your search' : 'No teachers yet'}
@@ -209,10 +209,10 @@ const AdminTeachers = () => {
             />
           </div>
         ) : (
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+          <div className="surface overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b-2">
+                <thead className="bg-sand-50 border-b-2">
                   <tr>
                     {['Teacher', 'Specialization', 'Experience', 'Batches', 'Students', 'Status', 'Actions'].map((h) => (
                       <th key={h} className="px-6 py-4 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">
@@ -221,15 +221,15 @@ const AdminTeachers = () => {
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-sand-200">
                   {filteredTeachers.map((teacher) => (
-                    <tr key={teacher.teacher_id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
+                    <tr key={teacher.teacher_id} className="hover:bg-sand-50">
+                      <td className="td">
                         <p className="font-semibold text-accent">{teacher.full_name}</p>
                         <p className="text-sm text-gray-600">{teacher.email}</p>
                         {teacher.phone && <p className="text-sm text-gray-500">{teacher.phone}</p>}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{teacher.specialization || '—'}</td>
+                      <td className="td text-gray-600">{teacher.specialization || '—'}</td>
                       <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">{teacher.experience_years ?? 0} years</td>
                       <td className="px-6 py-4 text-sm font-semibold text-primary">{teacher.total_batches}</td>
                       <td className="px-6 py-4 text-sm font-semibold text-green-600">{teacher.total_students}</td>
@@ -242,12 +242,12 @@ const AdminTeachers = () => {
                           {teacher.is_active ? 'Active' : 'Inactive'}
                         </span>
                         {teacher.invite_pending && (
-                          <span className="ml-2 px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                          <span className="ml-2 px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
                             Invite pending
                           </span>
                         )}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="td">
                         <div className="flex flex-wrap gap-x-3 gap-y-1">
                           <button onClick={() => openEdit(teacher)} className="text-blue-600 hover:text-blue-800 text-sm font-semibold">
                             Edit
@@ -255,7 +255,7 @@ const AdminTeachers = () => {
                           <button
                             onClick={() => handleToggleStatus(teacher)}
                             disabled={busyId === teacher.teacher_id}
-                            className="text-yellow-600 hover:text-yellow-800 text-sm font-semibold disabled:opacity-50"
+                            className="text-amber-600 hover:text-amber-800 text-sm font-semibold disabled:opacity-50"
                           >
                             {teacher.is_active ? 'Deactivate' : 'Activate'}
                           </button>
@@ -293,7 +293,7 @@ const AdminTeachers = () => {
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
             <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-accent">{modal.mode === 'add' ? 'Add New Teacher' : 'Edit Teacher'}</h2>
+                <h2 className="section-title">{modal.mode === 'add' ? 'Add New Teacher' : 'Edit Teacher'}</h2>
                 <button onClick={() => setModal(null)} className="text-gray-400 hover:text-gray-600 text-2xl" aria-label="Close">
                   ×
                 </button>
@@ -313,7 +313,7 @@ const AdminTeachers = () => {
                     ['experienceYears', 'Experience (years)', 'number', false],
                   ].map(([name, label, type, required]) => (
                     <div key={name}>
-                      <label htmlFor={`t-${name}`} className="block text-sm font-semibold text-gray-700 mb-2">
+                      <label htmlFor={`t-${name}`} className="form-label">
                         {label}
                       </label>
                       <input
@@ -334,13 +334,13 @@ const AdminTeachers = () => {
                     Senior teacher
                   </label>
                   <div className="md:col-span-2">
-                    <label htmlFor="t-qualifications" className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label htmlFor="t-qualifications" className="form-label">
                       Qualifications
                     </label>
                     <input id="t-qualifications" name="qualifications" value={formData.qualifications} onChange={handleChange} className="input-field" />
                   </div>
                   <div className="md:col-span-2">
-                    <label htmlFor="t-bio" className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label htmlFor="t-bio" className="form-label">
                       Bio
                     </label>
                     <textarea id="t-bio" name="bio" value={formData.bio} onChange={handleChange} rows="3" className="input-field" />

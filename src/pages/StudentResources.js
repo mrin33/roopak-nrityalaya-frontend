@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import LoadingSpinner from '../components/LoadingSpinner';
+import { PageSkeleton } from '../components/ui/Skeleton';
 import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
 import studentService from '../services/studentService';
@@ -57,27 +57,27 @@ const StudentResources = () => {
     }
   };
 
-  if (loading) return <LoadingSpinner fullScreen={true} text="Loading resources..." size="lg" />;
+  if (loading) return <PageSkeleton label="Loading resources..." />;
   if (error) return <ErrorState message={error} onRetry={load} />;
 
   const filtered = resources.filter((r) => filter === 'all' || r.resource_type === filter);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="page">
+      <div>
         <div className="mb-8">
-          <h1 className="text-3xl sm:text-4xl font-heading font-bold text-primary mb-2">Learning Resources</h1>
+          <h1 className="page-title">Learning Resources</h1>
           <p className="text-gray-600">Videos, audio and documents shared by your teachers for your level</p>
         </div>
 
-        <div className="bg-white rounded-xl shadow-md p-2 mb-8 flex flex-wrap gap-2" role="group" aria-label="Filter by type">
+        <div className="surface mb-6 flex flex-wrap gap-1.5 p-1.5" role="group" aria-label="Filter by type">
           {TYPES.map(([value, label, active]) => (
             <button
               key={value}
               onClick={() => setFilter(value)}
               aria-pressed={filter === value}
               className={`px-4 sm:px-6 py-2 rounded-lg font-medium transition-all ${
-                filter === value ? `${active} text-white` : 'text-gray-600 hover:bg-gray-100'
+                filter === value ? `${active} text-white` : 'text-gray-600 hover:bg-sand-100'
               }`}
             >
               {label} ({value === 'all' ? resources.length : resources.filter((r) => r.resource_type === value).length})
@@ -86,7 +86,7 @@ const StudentResources = () => {
         </div>
 
         {filtered.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-lg">
+          <div className="surface">
             <EmptyState
               icon="document"
               title={resources.length ? 'Nothing of this type yet' : 'No resources yet'}
@@ -98,7 +98,7 @@ const StudentResources = () => {
             {filtered.map((r) => {
               const style = TYPE_STYLE[r.resource_type] || TYPE_STYLE.document;
               return (
-                <article key={r.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all flex flex-col">
+                <article key={r.id} className="surface overflow-hidden hover:shadow-lift transition-all flex flex-col">
                   <div className={`h-28 bg-gradient-to-br ${style.gradient} flex items-center justify-center text-white text-lg font-semibold capitalize`}>
                     {r.resource_type}
                   </div>

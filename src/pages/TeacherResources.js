@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import LoadingSpinner from '../components/LoadingSpinner';
+import { PageSkeleton } from '../components/ui/Skeleton';
 import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
 import teacherService from '../services/teacherService';
@@ -119,15 +119,15 @@ const TeacherResources = () => {
     }
   };
 
-  if (loading && !resources.length) return <LoadingSpinner fullScreen={true} text="Loading resources..." size="lg" />;
+  if (loading && !resources.length) return <PageSkeleton label="Loading resources..." />;
   if (error) return <ErrorState message={error} onRetry={loadResources} />;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="page">
+      <div>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-heading font-bold text-primary mb-2">Learning Resources</h1>
+            <h1 className="page-title">Learning Resources</h1>
             <p className="text-gray-600">Share videos, audio, documents and links with your students</p>
           </div>
           <button onClick={() => setShowUploadForm(true)} className="btn-primary">
@@ -142,7 +142,7 @@ const TeacherResources = () => {
             ['Audio', resources.filter((r) => r.resource_type === 'audio').length, 'text-blue-600'],
             ['Documents', resources.filter((r) => r.resource_type === 'document').length, 'text-green-600'],
           ].map(([label, value, color]) => (
-            <div key={label} className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+            <div key={label} className="card">
               <p className="text-sm text-gray-600 mb-1">{label}</p>
               <p className={`text-3xl font-bold ${color}`}>{value}</p>
             </div>
@@ -150,7 +150,7 @@ const TeacherResources = () => {
         </div>
 
         {resources.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-lg">
+          <div className="surface">
             <EmptyState
               icon="upload"
               title="No resources yet"
@@ -164,7 +164,7 @@ const TeacherResources = () => {
             {resources.map((r) => {
               const style = TYPE_STYLE[r.resource_type] || TYPE_STYLE.document;
               return (
-                <div key={r.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition-all flex flex-col">
+                <div key={r.id} className="surface overflow-hidden hover:shadow-lift transition-all flex flex-col">
                   <button
                     type="button"
                     onClick={() => openResource(r)}
@@ -217,11 +217,11 @@ const TeacherResources = () => {
               </div>
               <form onSubmit={handleSubmit} className="p-6 space-y-6">
                 <div>
-                  <label htmlFor="r-title" className="block text-sm font-semibold text-accent mb-2">Title *</label>
+                  <label htmlFor="r-title" className="form-label">Title *</label>
                   <input id="r-title" name="title" value={formData.title} onChange={handleChange} className="input-field" placeholder="E.g., Basic Footwork Techniques" required />
                 </div>
                 <div>
-                  <label htmlFor="r-level" className="block text-sm font-semibold text-accent mb-2">Level</label>
+                  <label htmlFor="r-level" className="form-label">Level</label>
                   <select id="r-level" name="level_id" value={formData.level_id} onChange={handleChange} className="input-field">
                     <option value="">All levels</option>
                     {levels.map((l) => (
@@ -232,7 +232,7 @@ const TeacherResources = () => {
                   </select>
                 </div>
                 <fieldset>
-                  <legend className="block text-sm font-semibold text-accent mb-2">Source *</legend>
+                  <legend className="form-label">Source *</legend>
                   <div className="flex gap-6 text-sm">
                     {[
                       ['file', 'Upload a file'],
@@ -247,7 +247,7 @@ const TeacherResources = () => {
                 </fieldset>
                 {formData.source === 'file' ? (
                   <div>
-                    <label htmlFor="r-file" className="block text-sm font-semibold text-accent mb-2">File *</label>
+                    <label htmlFor="r-file" className="form-label">File *</label>
                     <input
                       id="r-file"
                       type="file"
@@ -261,7 +261,7 @@ const TeacherResources = () => {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="sm:col-span-2">
-                      <label htmlFor="r-url" className="block text-sm font-semibold text-accent mb-2">Link (https) *</label>
+                      <label htmlFor="r-url" className="form-label">Link (https) *</label>
                       <input
                         id="r-url"
                         type="url"
@@ -275,7 +275,7 @@ const TeacherResources = () => {
                       />
                     </div>
                     <div>
-                      <label htmlFor="r-type" className="block text-sm font-semibold text-accent mb-2">Type</label>
+                      <label htmlFor="r-type" className="form-label">Type</label>
                       <select id="r-type" name="resource_type" value={formData.resource_type} onChange={handleChange} className="input-field">
                         <option value="video">Video</option>
                         <option value="audio">Audio</option>
@@ -286,7 +286,7 @@ const TeacherResources = () => {
                   </div>
                 )}
                 <div>
-                  <label htmlFor="r-desc" className="block text-sm font-semibold text-accent mb-2">Description</label>
+                  <label htmlFor="r-desc" className="form-label">Description</label>
                   <textarea id="r-desc" name="description" value={formData.description} onChange={handleChange} rows="3" className="input-field" />
                 </div>
                 <div className="flex justify-end gap-4">

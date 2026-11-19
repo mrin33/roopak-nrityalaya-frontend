@@ -104,13 +104,13 @@ const StudentGalleryUpload = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="page">
+      <div>
         
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-4xl font-heading font-bold text-primary mb-2">
+            <h1 className="page-title">
               Gallery Upload
             </h1>
             <p className="text-gray-600">Upload your performance photos and videos</p>
@@ -122,26 +122,26 @@ const StudentGalleryUpload = () => {
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Total Requests</p>
-            <p className="text-3xl font-bold text-primary">{stats.total}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-primary">{stats.total}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Pending</p>
-            <p className="text-3xl font-bold text-yellow-600">{stats.pending}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-amber-700">{stats.pending}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Approved</p>
-            <p className="text-3xl font-bold text-green-600">{stats.approved}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-green-700">{stats.approved}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Rejected</p>
-            <p className="text-3xl font-bold text-red-600">{stats.rejected}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-red-700">{stats.rejected}</p>
           </div>
         </div>
 
         {/* Filter */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+        <div className="card mb-6">
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-600">
               Showing {filteredRequests.length} of {requests.length} requests
@@ -162,8 +162,8 @@ const StudentGalleryUpload = () => {
         {/* Requests Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredRequests.map((request) => (
-            <div key={request.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
-              <div className="relative h-48 bg-gray-100 flex items-center justify-center overflow-hidden">
+            <div key={request.id} className="surface overflow-hidden hover:shadow-lift transition-shadow">
+              <div className="relative h-48 bg-sand-100 flex items-center justify-center overflow-hidden">
                 {request.file_url ? (
                   <ProtectedMedia
                     requestId={request.id}
@@ -205,7 +205,7 @@ const StudentGalleryUpload = () => {
                 <div className="space-y-2 mb-4 pb-4 border-b">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Category:</span>
-                    <span className="px-2 py-1 bg-gray-100 rounded text-xs font-semibold">{request.category}</span>
+                    <span className="px-2 py-1 bg-sand-100 rounded text-xs font-semibold">{request.category}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Type:</span>
@@ -234,7 +234,7 @@ const StudentGalleryUpload = () => {
 
                 {request.status === 'pending' && (
                   <div className="p-3 bg-yellow-50 rounded-lg">
-                    <p className="text-xs text-yellow-700">
+                    <p className="text-xs text-amber-700">
                       ⏳ Waiting for admin review...
                     </p>
                   </div>
@@ -277,7 +277,7 @@ const StudentGalleryUpload = () => {
               <form onSubmit={handleSubmit} className="p-6">
                 <div className="space-y-6">
                   <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">Title *</label>
+                    <label className="form-label">Title *</label>
                     <input
                       type="text"
                       name="title"
@@ -290,7 +290,7 @@ const StudentGalleryUpload = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">Description *</label>
+                    <label className="form-label">Description *</label>
                     <textarea
                       name="description"
                       value={formData.description}
@@ -304,7 +304,7 @@ const StudentGalleryUpload = () => {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-semibold text-accent mb-2">Media Type *</label>
+                      <label className="form-label">Media Type *</label>
                       <select
                         name="mediaType"
                         value={formData.mediaType}
@@ -317,7 +317,7 @@ const StudentGalleryUpload = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-accent mb-2">Category *</label>
+                      <label className="form-label">Category *</label>
                       <select
                         name="category"
                         value={formData.category}
@@ -334,8 +334,8 @@ const StudentGalleryUpload = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">Upload File *</label>
-                    <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:bg-gray-50 transition-colors">
+                    <label className="form-label">Upload File *</label>
+                    <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:bg-sand-50 transition-colors">
                       <input
                         type="file"
                         accept={formData.mediaType === 'photo' ? 'image/jpeg,image/png,image/webp,image/gif' : 'video/mp4,video/webm,video/quicktime'}

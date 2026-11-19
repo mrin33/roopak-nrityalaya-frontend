@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { PageSkeleton } from '../components/ui/Skeleton';
 import BatchCapacityBar from '../components/BatchCapacityBar';
 import StatusBadge from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
-import LoadingSpinner from '../components/LoadingSpinner';
 import adminService from '../services/adminService';
 import useLevels from '../hooks/useLevels';
 import { useToast } from '../context/ToastContext';
@@ -118,18 +118,18 @@ const AdminBatches = () => {
     }
   };
 
-  if (loading && !batches.length) return <LoadingSpinner fullScreen={true} text="Loading batches..." size="lg" />;
+  if (loading && !batches.length) return <PageSkeleton label="Loading batches..." />;
   if (error) return <ErrorState message={error} onRetry={fetchData} />;
 
   const totalSeats = batches.reduce((s, b) => s + (b.max_students || 0), 0);
   const enrolled = batches.reduce((s, b) => s + (b.active_students || 0), 0);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="page">
+      <div>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-heading font-bold text-primary mb-2">Manage Batches</h1>
+            <h1 className="page-title">Manage Batches</h1>
             <p className="text-gray-600">Create and manage class batches</p>
           </div>
           <button onClick={openAdd} className="btn-primary">
@@ -144,14 +144,14 @@ const AdminBatches = () => {
             ['Students Enrolled', enrolled, 'text-blue-600'],
             ['Seats Available', Math.max(totalSeats - enrolled, 0), 'text-purple-600'],
           ].map(([label, value, color]) => (
-            <div key={label} className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+            <div key={label} className="card">
               <p className="text-sm text-gray-600 mb-1">{label}</p>
               <p className={`text-3xl font-bold ${color}`}>{value}</p>
             </div>
           ))}
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+        <div className="card mb-6">
           <input
             type="search"
             placeholder="Search by batch, teacher or level…"
@@ -163,7 +163,7 @@ const AdminBatches = () => {
         </div>
 
         {filteredBatches.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-lg">
+          <div className="surface">
             <EmptyState
               icon="calendar"
               title={batches.length ? 'No batches match your search' : 'No batches yet'}
@@ -173,7 +173,7 @@ const AdminBatches = () => {
             />
           </div>
         ) : (
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+          <div className="surface overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gradient-to-r from-primary/10 to-secondary/10">
@@ -187,11 +187,11 @@ const AdminBatches = () => {
                 </thead>
                 <tbody>
                   {filteredBatches.map((b) => (
-                    <tr key={b.batch_id} className="border-b hover:bg-gray-50">
+                    <tr key={b.batch_id} className="border-b hover:bg-sand-50">
                       <td className="px-6 py-4 font-semibold text-accent">{b.batch_name}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{b.level_name}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">{b.teacher_name || 'Unassigned'}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
+                      <td className="td text-gray-600">{b.level_name}</td>
+                      <td className="td text-gray-600">{b.teacher_name || 'Unassigned'}</td>
+                      <td className="td text-gray-600">
                         <div>{b.schedule}</div>
                         <div className="text-xs text-gray-500">
                           {b.time}
@@ -204,10 +204,10 @@ const AdminBatches = () => {
                           {b.active_students}/{b.max_students}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="td">
                         <StatusBadge status={b.is_active ? 'active' : 'inactive'} type="batch" />
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="td">
                         <div className="flex flex-wrap gap-x-3 gap-y-1">
                           <button onClick={() => openEdit(b)} className="text-blue-600 hover:text-blue-800 text-sm font-semibold">
                             Edit
@@ -215,7 +215,7 @@ const AdminBatches = () => {
                           <button
                             onClick={() => toggleActive(b)}
                             disabled={busyId === b.batch_id}
-                            className="text-yellow-600 hover:text-yellow-800 text-sm font-semibold disabled:opacity-50"
+                            className="text-amber-600 hover:text-amber-800 text-sm font-semibold disabled:opacity-50"
                           >
                             {b.is_active ? 'Deactivate' : 'Activate'}
                           </button>
@@ -248,11 +248,11 @@ const AdminBatches = () => {
               <form onSubmit={handleSubmit} className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label htmlFor="b-name" className="block text-sm font-semibold text-accent mb-2">Batch Name *</label>
+                    <label htmlFor="b-name" className="form-label">Batch Name *</label>
                     <input id="b-name" name="batch_name" value={formData.batch_name} onChange={handleChange} className="input-field" required />
                   </div>
                   <div>
-                    <label htmlFor="b-level" className="block text-sm font-semibold text-accent mb-2">Level *</label>
+                    <label htmlFor="b-level" className="form-label">Level *</label>
                     <select id="b-level" name="level_id" value={formData.level_id} onChange={handleChange} className="input-field" required>
                       <option value="">Select level</option>
                       {levels.map((l) => (
@@ -263,7 +263,7 @@ const AdminBatches = () => {
                     </select>
                   </div>
                   <div>
-                    <label htmlFor="b-teacher" className="block text-sm font-semibold text-accent mb-2">Teacher *</label>
+                    <label htmlFor="b-teacher" className="form-label">Teacher *</label>
                     <select id="b-teacher" name="teacher_id" value={formData.teacher_id} onChange={handleChange} className="input-field" required>
                       <option value="">Select teacher</option>
                       {teachers
@@ -277,23 +277,23 @@ const AdminBatches = () => {
                     </select>
                   </div>
                   <div>
-                    <label htmlFor="b-max" className="block text-sm font-semibold text-accent mb-2">Max Students (1–15)</label>
+                    <label htmlFor="b-max" className="form-label">Max Students (1–15)</label>
                     <input id="b-max" type="number" min="1" max="15" name="max_students" value={formData.max_students} onChange={handleChange} className="input-field" />
                   </div>
                   <div>
-                    <label htmlFor="b-schedule" className="block text-sm font-semibold text-accent mb-2">Days *</label>
+                    <label htmlFor="b-schedule" className="form-label">Days *</label>
                     <input id="b-schedule" name="schedule" value={formData.schedule} onChange={handleChange} className="input-field" placeholder="e.g. Mon, Wed, Fri" required />
                   </div>
                   <div>
-                    <label htmlFor="b-time" className="block text-sm font-semibold text-accent mb-2">Time *</label>
+                    <label htmlFor="b-time" className="form-label">Time *</label>
                     <input id="b-time" name="time" value={formData.time} onChange={handleChange} className="input-field" placeholder="e.g. 5:00 PM - 6:30 PM" required />
                   </div>
                   <div>
-                    <label htmlFor="b-room" className="block text-sm font-semibold text-accent mb-2">Room</label>
+                    <label htmlFor="b-room" className="form-label">Room</label>
                     <input id="b-room" name="room" value={formData.room} onChange={handleChange} className="input-field" placeholder="e.g. Studio 1" />
                   </div>
                   <div>
-                    <label htmlFor="b-start" className="block text-sm font-semibold text-accent mb-2">Start Date</label>
+                    <label htmlFor="b-start" className="form-label">Start Date</label>
                     <input id="b-start" type="date" name="start_date" value={formData.start_date} onChange={handleChange} className="input-field" />
                   </div>
                 </div>

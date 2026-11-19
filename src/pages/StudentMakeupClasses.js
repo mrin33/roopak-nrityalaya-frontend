@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { PageSkeleton } from '../components/ui/Skeleton';
 import StatusBadge from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
-import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorState from '../components/ErrorState';
 import studentService from '../services/studentService';
 import { useToast } from '../context/ToastContext';
@@ -92,16 +92,16 @@ const StudentMakeupClasses = () => {
     requestsRejected: requests.filter(r => r.status === 'rejected').length
   };
 
-  if (loading) return <LoadingSpinner fullScreen={true} text="Loading makeup classes..." size="lg" />;
+  if (loading) return <PageSkeleton label="Loading makeup classes..." />;
   if (error) return <ErrorState message={error} onRetry={load} />;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="page">
+      <div>
         
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-heading font-bold text-primary mb-2">
+          <h1 className="page-title">
             Makeup Classes
           </h1>
           <p className="text-gray-600">Request makeup classes for missed sessions</p>
@@ -109,27 +109,27 @@ const StudentMakeupClasses = () => {
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Missed Classes</p>
-            <p className="text-3xl font-bold text-red-600">{stats.missedTotal}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-red-700">{stats.missedTotal}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Pending Requests</p>
-            <p className="text-3xl font-bold text-yellow-600">{stats.requestsPending}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-amber-700">{stats.requestsPending}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Approved</p>
-            <p className="text-3xl font-bold text-green-600">{stats.requestsApproved}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-green-700">{stats.requestsApproved}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Rejected</p>
             <p className="text-3xl font-bold text-gray-600">{stats.requestsRejected}</p>
           </div>
         </div>
 
         {/* Missed Classes Section */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-          <h2 className="text-2xl font-bold text-accent mb-6 pb-2 border-b">Missed Classes</h2>
+        <div className="card mb-6">
+          <h2 className="section-title mb-5 border-b border-sand-200 pb-3">Missed Classes</h2>
           
           <div className="space-y-4">
             {missedClasses.map((cls) => (
@@ -173,12 +173,12 @@ const StudentMakeupClasses = () => {
         </div>
 
         {/* Makeup Requests Section */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-2xl font-bold text-accent mb-6 pb-2 border-b">Your Makeup Requests</h2>
+        <div className="card">
+          <h2 className="section-title mb-5 border-b border-sand-200 pb-3">Your Makeup Requests</h2>
           
           <div className="space-y-4">
             {requests.map((request) => (
-              <div key={request.id} className="border rounded-lg p-6 hover:shadow-md transition-shadow">
+              <div key={request.id} className="border rounded-lg p-6 hover:shadow-lift transition-shadow">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-2">
@@ -226,8 +226,8 @@ const StudentMakeupClasses = () => {
                 )}
 
                 {request.status === 'pending' && (
-                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <p className="text-sm text-yellow-700">
+                  <div className="mt-4 p-3 bg-yellow-50 border border-amber-200 rounded-lg">
+                    <p className="text-sm text-amber-700">
                       ⏳ Pending teacher/admin approval...
                     </p>
                   </div>
@@ -276,7 +276,7 @@ const StudentMakeupClasses = () => {
 
                 <div className="space-y-6">
                   <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">
+                    <label className="form-label">
                       Select Makeup Batch *
                     </label>
                     <select
@@ -296,7 +296,7 @@ const StudentMakeupClasses = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">
+                    <label className="form-label">
                       Makeup Class Date *
                     </label>
                     <input
@@ -311,7 +311,7 @@ const StudentMakeupClasses = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">
+                    <label className="form-label">
                       Additional Notes (Optional)
                     </label>
                     <textarea

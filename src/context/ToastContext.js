@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useRef, useState } from 'react';
+import Icon from '../components/ui/Icon';
 
 /**
  * Lightweight, accessible toast notifications.
@@ -9,9 +10,9 @@ import React, { createContext, useCallback, useContext, useRef, useState } from 
 const ToastContext = createContext(null);
 
 const STYLES = {
-  success: 'bg-green-50 border-green-500 text-green-800',
-  error: 'bg-red-50 border-red-500 text-red-800',
-  info: 'bg-blue-50 border-blue-500 text-blue-800',
+  success: ['text-green-700', 'checkCircle'],
+  error: ['text-red-700', 'xCircle'],
+  info: ['text-sky-700', 'info'],
 };
 
 export const ToastProvider = ({ children }) => {
@@ -43,28 +44,32 @@ export const ToastProvider = ({ children }) => {
     <ToastContext.Provider value={api}>
       {children}
       <div
-        className="fixed z-[100] right-4 left-4 sm:left-auto sm:w-96 flex flex-col gap-2"
-        style={{ top: 'calc(env(safe-area-inset-top, 0px) + 5.5rem)' }}
+        className="pointer-events-none fixed inset-x-4 z-[100] flex flex-col items-end gap-2 sm:left-auto sm:right-6 sm:w-96"
+        style={{ top: 'calc(env(safe-area-inset-top, 0px) + 4.75rem)' }}
         aria-live="polite"
         aria-atomic="false"
       >
-        {toasts.map((t) => (
-          <div
-            key={t.id}
-            role={t.type === 'error' ? 'alert' : 'status'}
-            className={`border-l-4 rounded-lg shadow-lg px-4 py-3 flex items-start gap-3 ${STYLES[t.type]}`}
-          >
-            <p className="flex-1 text-sm font-medium">{t.message}</p>
-            <button
-              type="button"
-              onClick={() => dismiss(t.id)}
-              className="text-current opacity-60 hover:opacity-100"
-              aria-label="Dismiss notification"
+        {toasts.map((t) => {
+          const [tone, icon] = STYLES[t.type];
+          return (
+            <div
+              key={t.id}
+              role={t.type === 'error' ? 'alert' : 'status'}
+              className="pointer-events-auto flex w-full items-start gap-3 rounded-xl border border-sand-200 bg-white px-4 py-3 shadow-lift animate-rise-in"
             >
-              ×
-            </button>
-          </div>
-        ))}
+              <Icon name={icon} className={`mt-0.5 h-5 w-5 shrink-0 ${tone}`} />
+              <p className="flex-1 text-sm font-medium text-accent">{t.message}</p>
+              <button
+                type="button"
+                onClick={() => dismiss(t.id)}
+                className="-mr-1 rounded p-0.5 text-gray-400 hover:text-accent"
+                aria-label="Dismiss notification"
+              >
+                <Icon name="x" className="h-4 w-4" />
+              </button>
+            </div>
+          );
+        })}
       </div>
     </ToastContext.Provider>
   );

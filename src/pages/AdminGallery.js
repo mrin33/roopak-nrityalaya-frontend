@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import LoadingSpinner from '../components/LoadingSpinner';
+import { PageSkeleton } from '../components/ui/Skeleton';
 import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
 import ProtectedMedia from '../components/ProtectedMedia';
@@ -121,15 +121,15 @@ const AdminGallery = () => {
     }
   };
 
-  if (loading && !media.length) return <LoadingSpinner fullScreen={true} text="Loading gallery..." size="lg" />;
+  if (loading && !media.length) return <PageSkeleton label="Loading gallery..." />;
   if (error) return <ErrorState message={error} onRetry={fetchGallery} />;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="page">
+      <div>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-heading font-bold text-primary mb-2">Gallery Management</h1>
+            <h1 className="page-title">Gallery Management</h1>
             <p className="text-gray-600">Upload and manage photos & videos shown on the public gallery</p>
           </div>
           <button onClick={openAdd} className="btn-primary">
@@ -144,14 +144,14 @@ const AdminGallery = () => {
             ['Photos', media.filter((m) => m.media_type === 'photo').length, 'text-blue-600'],
             ['Videos', media.filter((m) => m.media_type === 'video').length, 'text-purple-600'],
           ].map(([label, value, color]) => (
-            <div key={label} className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+            <div key={label} className="card">
               <p className="text-sm text-gray-600 mb-1">{label}</p>
               <p className={`text-3xl font-bold ${color}`}>{value}</p>
             </div>
           ))}
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-8">
+        <div className="card mb-6">
           <div className="flex flex-wrap gap-3" role="group" aria-label="Filter by type">
             {[
               ['all', 'All'],
@@ -162,7 +162,7 @@ const AdminGallery = () => {
                 key={v}
                 onClick={() => setFilterType(v)}
                 aria-pressed={filterType === v}
-                className={`px-4 py-2 rounded-lg font-semibold ${filterType === v ? 'bg-primary text-white' : 'bg-gray-100'}`}
+                className={`px-4 py-2 rounded-lg font-semibold ${filterType === v ? 'bg-primary text-white' : 'bg-sand-100'}`}
               >
                 {l}
               </button>
@@ -174,7 +174,7 @@ const AdminGallery = () => {
         </div>
 
         {filteredMedia.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-lg">
+          <div className="surface">
             <EmptyState
               icon="image"
               title={media.length ? 'Nothing of this type yet' : 'The gallery is empty'}
@@ -186,8 +186,8 @@ const AdminGallery = () => {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredMedia.map((item) => (
-              <div key={item.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col">
-                <div className="relative h-48 bg-gray-100">
+              <div key={item.id} className="surface overflow-hidden flex flex-col">
+                <div className="relative h-48 bg-sand-100">
                   <ProtectedMedia
                     path={`/admin/gallery/${item.id}/file`}
                     mediaType={item.media_type}
@@ -204,7 +204,7 @@ const AdminGallery = () => {
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${item.media_type === 'photo' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
                       {item.media_type}
                     </span>
-                    {item.category && <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">{item.category}</span>}
+                    {item.category && <span className="px-3 py-1 rounded-full text-xs font-semibold bg-sand-100 text-gray-700">{item.category}</span>}
                     {item.uploader_role === 'student' && (
                       <span className="px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
                         by {item.uploaded_by_name || 'student'}
@@ -221,7 +221,7 @@ const AdminGallery = () => {
                     <button
                       onClick={() => toggleVisible(item)}
                       disabled={busyId === item.id}
-                      className="bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-semibold px-2 py-2 disabled:opacity-50"
+                      className="bg-sand-100 hover:bg-gray-200 rounded-lg text-sm font-semibold px-2 py-2 disabled:opacity-50"
                     >
                       {item.is_visible ? 'Hide' : 'Show'}
                     </button>
@@ -250,17 +250,17 @@ const AdminGallery = () => {
               </div>
               <form onSubmit={handleSubmit} className="p-6 space-y-6">
                 <div>
-                  <label htmlFor="g-title" className="block text-sm font-semibold text-accent mb-2">Title *</label>
+                  <label htmlFor="g-title" className="form-label">Title *</label>
                   <input id="g-title" type="text" name="title" value={formData.title} onChange={handleChange} className="input-field" required />
                 </div>
                 <div>
-                  <label htmlFor="g-desc" className="block text-sm font-semibold text-accent mb-2">Description</label>
+                  <label htmlFor="g-desc" className="form-label">Description</label>
                   <textarea id="g-desc" name="description" value={formData.description} onChange={handleChange} rows="3" className="input-field" />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {modal.mode === 'add' && (
                     <div>
-                      <label htmlFor="g-type" className="block text-sm font-semibold text-accent mb-2">Type *</label>
+                      <label htmlFor="g-type" className="form-label">Type *</label>
                       <select id="g-type" name="type" value={formData.type} onChange={handleChange} className="input-field">
                         <option value="photo">Photo</option>
                         <option value="video">Video</option>
@@ -268,13 +268,13 @@ const AdminGallery = () => {
                     </div>
                   )}
                   <div>
-                    <label htmlFor="g-cat" className="block text-sm font-semibold text-accent mb-2">Category / Event</label>
+                    <label htmlFor="g-cat" className="form-label">Category / Event</label>
                     <input id="g-cat" type="text" name="category" value={formData.category} onChange={handleChange} className="input-field" placeholder="e.g. Annual Day 2026" />
                   </div>
                 </div>
                 {modal.mode === 'add' && (
                   <div>
-                    <label htmlFor="g-file" className="block text-sm font-semibold text-accent mb-2">File *</label>
+                    <label htmlFor="g-file" className="form-label">File *</label>
                     <input
                       id="g-file"
                       type="file"

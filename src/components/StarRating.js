@@ -1,119 +1,80 @@
-import React from 'react';
+import React, { useState } from 'react';
+
+const STAR =
+  'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z';
+
+const SIZES = { sm: 'h-4 w-4', md: 'h-5 w-5', lg: 'h-6 w-6', xl: 'h-8 w-8' };
+
+/** One star filled to `fill` (0–1). */
+const Star = ({ fill, size }) => (
+  <span className={`relative inline-block ${size}`}>
+    <svg className={`absolute inset-0 ${size} text-sand-300`} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d={STAR} />
+    </svg>
+    <span className="absolute inset-0 overflow-hidden" style={{ width: `${fill * 100}%` }}>
+      <svg className={`${size} text-secondary-500`} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d={STAR} />
+      </svg>
+    </span>
+  </span>
+);
 
 /**
- * StarRating Component
- * 
- * Display star ratings (read-only or interactive)
- * 
- * Props:
- * - rating (number, required): Rating value (0-5)
- * - maxRating (number): Maximum rating - Default: 5
- * - size (string): "sm", "md", "lg", "xl" - Default: "md"
- * - showNumber (boolean): Show numeric value - Default: false
- * - interactive (boolean): Allow clicking to rate - Default: false
- * - onChange (function): Callback when rating changes (interactive mode)
- * - color (string): "yellow", "gold", "orange", "red" - Default: "yellow"
+ * Read-only star display, or (with `interactive` + `onChange`) a keyboard
+ * accessible 1–5 rating input.
  */
+const StarRating = ({ rating = 0, maxRating = 5, size = 'md', showNumber = false, interactive = false, onChange, label = 'Rating' }) => {
+  const [hover, setHover] = useState(0);
+  const value = Number(rating) || 0;
+  const sizeClass = SIZES[size] || SIZES.md;
 
-const StarRating = ({ 
-  rating, 
-  maxRating = 5,
-  size = 'md', 
-  showNumber = false,
-  interactive = false,
-  onChange,
-  color = 'yellow'
-}) => {
-  const [hoverRating, setHoverRating] = React.useState(0);
-  
-  // Size classes
-  const sizeClasses = {
-    sm: 'w-4 h-4',
-    md: 'w-5 h-5',
-    lg: 'w-6 h-6',
-    xl: 'w-8 h-8'
-  };
+  if (!interactive) {
+    const shown = Math.round(value * 2) / 2;
+    return (
+      <span className="inline-flex items-center gap-2">
+        <span className="inline-flex gap-0.5" role="img" aria-label={`${label}: ${value.toFixed(1)} out of ${maxRating}`}>
+          {Array.from({ length: maxRating }).map((_, i) => (
+            <Star key={i} size={sizeClass} fill={Math.max(0, Math.min(1, shown - i))} />
+          ))}
+        </span>
+        {showNumber && <span className="text-sm font-medium tabular-nums text-gray-700">{value.toFixed(1)}</span>}
+      </span>
+    );
+  }
 
-  // Color classes
-  const colorClasses = {
-    yellow: 'text-yellow-400',
-    gold: 'text-yellow-500',
-    orange: 'text-orange-400',
-    red: 'text-red-400'
-  };
-
-  const sizeClass = sizeClasses[size] || sizeClasses.md;
-  const colorClass = colorClasses[color] || colorClasses.yellow;
-
-  const handleClick = (value) => {
-    if (interactive && onChange) {
-      onChange(value);
-    }
-  };
-
-  const handleMouseEnter = (value) => {
-    if (interactive) {
-      setHoverRating(value);
-    }
-  };
-
-  const handleMouseLeave = () => {
-    if (interactive) {
-      setHoverRating(0);
-    }
-  };
-
-  const displayRating = hoverRating || rating;
-
+  const display = hover || value;
   return (
-    <div className="inline-flex items-center space-x-2">
-      <div className="flex items-center space-x-1">
-        {[...Array(maxRating)].map((_, index) => {
-          const starValue = index + 1;
-          const isFilled = starValue <= displayRating;
-          const isHalfFilled = starValue - 0.5 === displayRating;
-
+    <span className="inline-flex items-center gap-2">
+      <span className="inline-flex gap-0.5" role="radiogroup" aria-label={label} onMouseLeave={() => setHover(0)}>
+        {Array.from({ length: maxRating }).map((_, i) => {
+          const v = i + 1;
           return (
             <button
-              key={index}
+              key={v}
               type="button"
-              className={`focus:outline-none ${interactive ? 'cursor-pointer hover:scale-110' : 'cursor-default'} transition-transform`}
-              onClick={() => handleClick(starValue)}
-              onMouseEnter={() => handleMouseEnter(starValue)}
-              onMouseLeave={handleMouseLeave}
-              disabled={!interactive}
+              role="radio"
+              aria-checked={value === v}
+              aria-label={`${v} star${v > 1 ? 's' : ''}`}
+              className="rounded transition-transform hover:scale-110"
+              onClick={() => onChange && onChange(v)}
+              onMouseEnter={() => setHover(v)}
+              onKeyDown={(e) => {
+                if ((e.key === 'ArrowRight' || e.key === 'ArrowUp') && onChange) {
+                  e.preventDefault();
+                  onChange(Math.min(maxRating, (value || 0) + 1));
+                } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowDown') && onChange) {
+                  e.preventDefault();
+                  onChange(Math.max(1, (value || 1) - 1));
+                }
+              }}
             >
-              <svg
-                className={`${sizeClass} ${isFilled || isHalfFilled ? colorClass : 'text-gray-300'}`}
-                fill={isFilled || isHalfFilled ? 'currentColor' : 'none'}
-                stroke="currentColor"
-                strokeWidth={isFilled || isHalfFilled ? 0 : 2}
-                viewBox="0 0 24 24"
-              >
-                {isHalfFilled ? (
-                  <defs>
-                    <linearGradient id={`half-${index}`}>
-                      <stop offset="50%" stopColor="currentColor" />
-                      <stop offset="50%" stopColor="transparent" />
-                    </linearGradient>
-                  </defs>
-                ) : null}
-                <path 
-                  fill={isHalfFilled ? `url(#half-${index})` : undefined}
-                  d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" 
-                />
-              </svg>
+              <Star size={sizeClass} fill={v <= display ? 1 : 0} />
             </button>
           );
         })}
-      </div>
-      
-      {showNumber && (
-        <span className="text-sm font-semibold text-gray-700">
-          {rating.toFixed(1)} / {maxRating}
-        </span>
-      )}
-    </div>
+      </span>
+      {showNumber && <span className="text-sm font-medium tabular-nums text-gray-700">{value ? `${value}/${maxRating}` : '—'}</span>}
+    </span>
   );
 };
 

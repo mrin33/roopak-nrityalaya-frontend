@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import LoadingSpinner from '../components/LoadingSpinner';
+import { PageSkeleton } from '../components/ui/Skeleton';
 import ErrorState from '../components/ErrorState';
 import adminService from '../services/adminService';
 
@@ -62,40 +62,40 @@ const AdminStatusChanges = () => {
     batchSwitches: statusChanges.filter(c => c.change_type === 'batch_switch').length
   };
 
-  if (loading) return <LoadingSpinner fullScreen={true} text="Loading status history..." size="lg" />;
+  if (loading) return <PageSkeleton label="Loading status history..." />;
   if (error) return <ErrorState message={error} onRetry={fetchChanges} />;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="page">
+      <div>
         
         <div className="mb-8">
-          <h1 className="text-4xl font-heading font-bold text-primary mb-2">
+          <h1 className="page-title">
             Student Status Changes
           </h1>
           <p className="text-gray-600">Track all student enrollment and status changes</p>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">New Enrollments</p>
-            <p className="text-3xl font-bold text-green-600">{stats.enrollments}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-green-700">{stats.enrollments}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Discontinuations</p>
-            <p className="text-3xl font-bold text-red-600">{stats.discontinuations}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-red-700">{stats.discontinuations}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Rejoining</p>
-            <p className="text-3xl font-bold text-blue-600">{stats.rejoining}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-blue-700">{stats.rejoining}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Batch Switches</p>
-            <p className="text-3xl font-bold text-purple-600">{stats.batchSwitches}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-purple-700">{stats.batchSwitches}</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+        <div className="card mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <p className="text-sm text-gray-600">
               Showing {filteredChanges.length} of {statusChanges.length} changes
@@ -115,10 +115,10 @@ const AdminStatusChanges = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-6">
+        <div className="card">
           <div className="space-y-4">
             {filteredChanges.map((change) => (
-              <div key={change.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+              <div key={change.id} className="border border-sand-200 rounded-lg p-6 hover:shadow-lift transition-shadow">
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <div className="flex items-center space-x-3 mb-2">
@@ -140,7 +140,7 @@ const AdminStatusChanges = () => {
                 </div>
 
                 {change.change_type === 'batch_switch' && (
-                  <div className="grid grid-cols-2 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="grid grid-cols-2 gap-4 mb-4 p-4 bg-sand-50 rounded-lg">
                     <div>
                       <p className="text-xs text-gray-500 mb-1">FROM:</p>
                       <p className="font-semibold text-red-700">{change.from_batch}</p>
@@ -153,7 +153,7 @@ const AdminStatusChanges = () => {
                 )}
 
                 {(change.change_type === 'discontinuation' || change.change_type === 'rejoining') && (
-                  <div className="grid grid-cols-2 gap-4 mb-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="grid grid-cols-2 gap-4 mb-4 p-4 bg-sand-50 rounded-lg">
                     <div>
                       <p className="text-xs text-gray-500 mb-1">FROM:</p>
                       <p className="font-semibold capitalize">{change.from_status || 'N/A'}</p>

@@ -1,10 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import authService from '../services/authService';
+import Icon from '../components/ui/Icon';
+import { Skeleton } from '../components/ui/Skeleton';
+import { AuthShell, PasswordInput, PasswordRules, passwordValid } from '../components/public/AuthShell';
+import { usePageTitle } from '../components/public/Sections';
 
 // Landing page for one-time invitation / password-reset links:
 //   /set-password?token=...
 const SetPasswordPage = () => {
+  usePageTitle('Set your password');
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const token = searchParams.get('token') || '';
@@ -32,10 +37,16 @@ const SetPasswordPage = () => {
       .catch(() => setStatus('invalid'));
   }, [token]);
 
+  useEffect(() => {
+    if (status !== 'done') return undefined;
+    const t = setTimeout(() => navigate('/login'), 2500);
+    return () => clearTimeout(t);
+  }, [status, navigate]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+    if (!passwordValid(password)) {
       setError('Password must be at least 8 characters and contain a letter and a number.');
       return;
     }
@@ -47,7 +58,6 @@ const SetPasswordPage = () => {
     try {
       await authService.setPassword(token, password);
       setStatus('done');
-      setTimeout(() => navigate('/login'), 2500);
     } catch (err) {
       setError(err.message || 'Could not set your password. The link may have expired.');
     } finally {
@@ -56,77 +66,65 @@ const SetPasswordPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background to-secondary/10 flex items-center justify-center py-12 px-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
-        <h1 className="text-3xl font-heading font-bold text-primary text-center mb-2">
-          {purpose === 'reset' ? 'Reset your password' : 'Welcome to Roopak Nrityalaya'}
-        </h1>
+    <AuthShell
+      title={purpose === 'reset' ? 'Reset your password' : 'Set up your account'}
+      subtitle={status === 'ready' ? `Choose a password for ${email}.` : undefined}
+    >
+      {status === 'checking' && (
+        <div className="space-y-4" role="status" aria-label="Checking your link">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-11 w-full" />
+        </div>
+      )}
 
-        {status === 'checking' && <p className="text-center text-gray-600 mt-6">Checking your link…</p>}
-
-        {status === 'invalid' && (
-          <div className="mt-6 text-center">
-            <p className="text-red-700 bg-red-50 border-l-4 border-red-500 p-4 rounded text-left">
-              This link is invalid or has expired. Please ask the academy administrator for a new one.
-            </p>
-            <Link to="/login" className="inline-block mt-6 text-primary font-semibold hover:underline">
-              Go to login
-            </Link>
+      {status === 'invalid' && (
+        <div>
+          <div className="callout-danger" role="alert">
+            This link is invalid or has expired. Please ask the academy administrator for a new one.
           </div>
-        )}
+          <Link to="/login" className="btn-secondary mt-6">
+            Go to login
+          </Link>
+        </div>
+      )}
 
-        {status === 'done' && (
-          <p className="mt-6 text-green-800 bg-green-50 border-l-4 border-green-500 p-4 rounded">
-            Your password has been set. Redirecting you to the login page…
-          </p>
-        )}
+      {status === 'done' && (
+        <div className="rounded-xl border border-green-200 bg-green-50 p-6 text-center" role="status">
+          <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-green-700">
+            <Icon name="check" className="h-6 w-6" />
+          </span>
+          <p className="mt-3 font-semibold text-green-900">Your password has been set.</p>
+          <p className="mt-1 text-sm text-green-800">Taking you to the login page…</p>
+        </div>
+      )}
 
-        {status === 'ready' && (
-          <form onSubmit={handleSubmit} className="mt-6 space-y-5" noValidate>
-            <p className="text-center text-gray-600">
-              Choose a password for <span className="font-semibold">{email}</span>
+      {status === 'ready' && (
+        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+          {error && (
+            <p role="alert" className="callout-danger">
+              {error}
             </p>
-            {error && (
-              <p role="alert" className="text-sm text-red-700 bg-red-50 border-l-4 border-red-500 p-3 rounded">
-                {error}
-              </p>
-            )}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                New password
-              </label>
-              <input
-                id="password"
-                type="password"
-                autoComplete="new-password"
-                className="input-field"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="At least 8 characters, letters and numbers"
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="confirm" className="block text-sm font-medium text-gray-700 mb-1">
-                Confirm password
-              </label>
-              <input
-                id="confirm"
-                type="password"
-                autoComplete="new-password"
-                className="input-field"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                required
-              />
-            </div>
-            <button type="submit" disabled={submitting} className="w-full btn-primary disabled:opacity-50">
-              {submitting ? 'Saving…' : 'Set password'}
-            </button>
-          </form>
-        )}
-      </div>
-    </div>
+          )}
+          <div>
+            <label htmlFor="password" className="form-label">
+              New password
+            </label>
+            <PasswordInput id="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <PasswordRules password={password} />
+          </div>
+          <div>
+            <label htmlFor="confirm" className="form-label">
+              Confirm password
+            </label>
+            <PasswordInput id="confirm" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
+          </div>
+          <button type="submit" disabled={submitting} className="btn-primary btn-lg w-full">
+            {submitting ? 'Saving…' : 'Set password'}
+          </button>
+        </form>
+      )}
+    </AuthShell>
   );
 };
 

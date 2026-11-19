@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { PageSkeleton } from '../components/ui/Skeleton';
 import StarRating from '../components/StarRating';
 import RollNumberBadge from '../components/RollNumberBadge';
 import PerformanceGraph from '../components/PerformanceGraph';
-import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorState from '../components/ErrorState';
 import adminService from '../services/adminService';
 
@@ -43,7 +43,7 @@ const AdminAnalytics = () => {
     fetchAnalytics();
   }, [fetchAnalytics]);
 
-  if (loading) return <LoadingSpinner fullScreen={true} text="Loading analytics..." size="lg" />;
+  if (loading) return <PageSkeleton label="Loading analytics..." />;
   if (error) return <ErrorState message={error} onRetry={fetchAnalytics} />;
 
   const maxEnrolled = Math.max(5, ...analytics.enrollmentTrends.map((t) => t.enrolled));
@@ -51,32 +51,32 @@ const AdminAnalytics = () => {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="page">
+      <div>
         
         <div className="mb-8">
-          <h1 className="text-4xl font-heading font-bold text-primary mb-2">
+          <h1 className="page-title">
             Analytics Dashboard
           </h1>
           <p className="text-gray-600">Insights and performance metrics</p>
         </div>
 
         {/* Best Teachers */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-          <h2 className="text-2xl font-bold text-accent mb-6 pb-2 border-b">🏆 Top Performing Teachers</h2>
+        <div className="card mb-6">
+          <h2 className="section-title mb-5 border-b border-sand-200 pb-3">🏆 Top Performing Teachers</h2>
           {analytics.bestTeachers.length === 0 && (
             <p className="text-gray-500 text-center py-6">No active teachers yet.</p>
           )}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {analytics.bestTeachers.map((teacher, index) => (
               <div key={teacher.id} className={`p-6 rounded-xl border-2 ${
-                index === 0 ? 'border-yellow-400 bg-yellow-50' :
-                index === 1 ? 'border-gray-400 bg-gray-50' :
+                index === 0 ? 'border-amber-400 bg-yellow-50' :
+                index === 1 ? 'border-gray-400 bg-sand-50' :
                 'border-orange-400 bg-orange-50'
               }`}>
                 <div className="flex items-center justify-between mb-4">
                   <span className={`text-4xl font-bold ${
-                    index === 0 ? 'text-yellow-600' :
+                    index === 0 ? 'text-amber-600' :
                     index === 1 ? 'text-gray-600' :
                     'text-orange-600'
                   }`}>
@@ -96,8 +96,8 @@ const AdminAnalytics = () => {
         </div>
 
         {/* Best Students */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-          <h2 className="text-2xl font-bold text-accent mb-6 pb-2 border-b">⭐ Top Performing Students</h2>
+        <div className="card mb-6">
+          <h2 className="section-title mb-5 border-b border-sand-200 pb-3">⭐ Top Performing Students</h2>
           <p className="text-sm text-gray-500 mb-4">
             Score = average teacher review × 20; attendance over the last 90 days.
           </p>
@@ -106,22 +106,22 @@ const AdminAnalytics = () => {
           )}
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b-2">
+              <thead className="bg-sand-50 border-b-2">
                 <tr>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Rank</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Roll No</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Student Name</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Performance Score</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Attendance</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Practice Hours</th>
+                  <th className="th">Rank</th>
+                  <th className="th">Roll No</th>
+                  <th className="th">Student Name</th>
+                  <th className="th">Performance Score</th>
+                  <th className="th">Attendance</th>
+                  <th className="th">Practice Hours</th>
                 </tr>
               </thead>
               <tbody>
                 {analytics.bestStudents.map((student, index) => (
-                  <tr key={student.roll_number} className={`border-b hover:bg-gray-50 ${index < 3 ? 'bg-yellow-50/30' : ''}`}>
-                    <td className="px-6 py-4">
+                  <tr key={student.roll_number} className={`border-b hover:bg-sand-50 ${index < 3 ? 'bg-yellow-50/30' : ''}`}>
+                    <td className="td">
                       <span className={`text-lg font-bold ${
-                        index === 0 ? 'text-yellow-600' :
+                        index === 0 ? 'text-amber-600' :
                         index === 1 ? 'text-gray-600' :
                         index === 2 ? 'text-orange-600' :
                         'text-gray-400'
@@ -129,11 +129,11 @@ const AdminAnalytics = () => {
                         #{index + 1}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="td">
                       <RollNumberBadge rollNumber={student.roll_number} />
                     </td>
                     <td className="px-6 py-4 font-semibold text-accent">{student.name}</td>
-                    <td className="px-6 py-4">
+                    <td className="td">
                       <div className="flex items-center space-x-2">
                         <span className="text-lg font-bold text-purple-600">{student.performance_score}</span>
                         <div className="w-24 bg-gray-200 rounded-full h-2">
@@ -144,7 +144,7 @@ const AdminAnalytics = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="td">
                       <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
                         {student.attendance}%
                       </span>
@@ -171,12 +171,12 @@ const AdminAnalytics = () => {
           />
 
           {/* Discontinuation Reasons */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-accent mb-6 pb-2 border-b">📊 Discontinuation Reasons</h2>
+          <div className="card">
+            <h2 className="section-title mb-5 border-b border-sand-200 pb-3">📊 Discontinuation Reasons</h2>
             
             <div className="mb-6">
               <p className="text-sm text-gray-600">Total Discontinuations</p>
-              <p className="text-3xl font-bold text-red-600">
+              <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-red-700">
                 {analytics.discontinuationReasons.reduce((sum, r) => sum + r.count, 0)}
               </p>
             </div>

@@ -29,10 +29,10 @@ const ProtectedMedia = ({ requestId, path, mediaType, className = '', alt = 'Upl
   }, [filePath]);
 
   if (failed) {
-    return <div className="text-sm text-gray-500 p-4 text-center">Preview unavailable</div>;
+    return <div className="flex h-full w-full items-center justify-center bg-sand-100 p-4 text-center text-sm text-gray-500">Preview unavailable</div>;
   }
   if (!src) {
-    return <div className="w-full h-full animate-pulse bg-gray-200" aria-label="Loading preview" />;
+    return <div className="skeleton h-full w-full rounded-none" role="status" aria-label="Loading preview" />;
   }
   return mediaType === 'video' ? (
     <video src={src} className={className} controls={controls} />

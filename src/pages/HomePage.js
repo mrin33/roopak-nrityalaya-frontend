@@ -1,187 +1,295 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import publicService from '../services/publicService';
+import noticeService from '../services/noticeService';
+import academy from '../config/academy';
+import Icon from '../components/ui/Icon';
+import ImagePlaceholder from '../components/ui/ImagePlaceholder';
+import { Skeleton } from '../components/ui/Skeleton';
+import { Ornament, SectionHeading, TeacherAvatar, usePageTitle } from '../components/public/Sections';
+import { formatDate } from '../utils/date';
+
+const PILLARS = [
+  {
+    icon: 'book',
+    title: 'Structured curriculum',
+    text: 'Eight progressive levels, from Praveshika to Alankar, so every student knows where they are and what comes next.',
+  },
+  {
+    icon: 'users',
+    title: 'Guru–shishya tradition',
+    text: 'Learning under a guru’s guidance, with teachers who correct, encourage and review each student’s progress every month.',
+  },
+  {
+    icon: 'sparkles',
+    title: 'Technique and expression',
+    text: 'Footwork, rhythm and hand gestures are taught alongside abhinaya — the storytelling at the heart of Kathak.',
+  },
+];
+
+const absolutePhoto = (url) => (url && /^https?:\/\//.test(url) ? url : null);
+
+/** Fetch helper: keeps each home-page section independent of the others. */
+const useLoad = (loader) => {
+  const [state, setState] = useState({ loading: true, data: [], error: false });
+  useEffect(() => {
+    let alive = true;
+    loader()
+      .then((data) => alive && setState({ loading: false, data: Array.isArray(data) ? data : [], error: false }))
+      .catch(() => alive && setState({ loading: false, data: [], error: true }));
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return state;
+};
 
 const HomePage = () => {
+  usePageTitle(null);
+  const levels = useLoad(publicService.getLevels);
+  const teachers = useLoad(publicService.getTeachers);
+  const gallery = useLoad(publicService.getGallery);
+  const notices = useLoad(() => noticeService.getNotices());
+
+  const photos = gallery.data.filter((g) => g.media_type === 'photo');
+  const heroPhoto = photos[0];
+  const featuredTeachers = teachers.data.slice(0, 4);
+  const latestNotices = notices.data.slice(0, 3);
+
   return (
-    <div className="bg-background">
-      {/* Hero Section */}
-      <section className="relative bg-gradient-to-r from-primary/10 to-secondary/10 py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            {/* Left side - Institute Info */}
-            <div className="text-center md:text-left">
-              <div className="mb-6">
-                {/* Logo Placeholder - Replace with actual logo */}
-                <div className="inline-block w-32 h-32 bg-primary rounded-full flex items-center justify-center mb-4">
-                  <span className="text-white font-bold text-5xl">RN</span>
-                </div>
-              </div>
-              <h1 className="text-5xl md:text-6xl font-heading font-bold text-primary mb-4">
-                Roopak Nrityalaya
-              </h1>
-              <p className="text-2xl text-accent mb-6 font-medium">
-                Kathak Dance Academy
-              </p>
-              <p className="text-lg text-gray-700 leading-relaxed mb-8">
-                Preserving the ancient art of Kathak through traditional teaching methods
-                while nurturing the next generation of classical dancers.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
-                <button className="btn-primary">
-                  Enroll Now
-                </button>
-                <button className="btn-secondary">
-                  Learn More
-                </button>
-              </div>
+    <>
+      {/* Hero ----------------------------------------------------------- */}
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-y-0 right-0 hidden w-1/2 bg-sand-100 lg:block" aria-hidden="true" />
+        <div className="container-site relative grid items-center gap-10 py-12 sm:py-16 lg:grid-cols-2 lg:gap-16 lg:py-24">
+          <div className="animate-rise-in">
+            <p className="eyebrow">Kathak · {academy.city.split(',')[0]}</p>
+            <h1 className="mt-4 font-heading text-4xl font-semibold leading-[1.1] text-accent sm:text-5xl lg:text-6xl">
+              The classical art of Kathak, <span className="italic text-primary">taught with devotion</span>
+            </h1>
+            <p className="mt-6 max-w-xl text-lg leading-relaxed text-gray-600">
+              {academy.name} trains students in Kathak through a structured eight-level curriculum — building rhythm,
+              grace and expression, one step at a time.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link to="/register" className="btn-primary btn-lg">
+                Enrol now
+                <Icon name="arrowRight" className="h-5 w-5" />
+              </Link>
+              <Link to="/about" className="btn-secondary btn-lg">
+                Explore the curriculum
+              </Link>
             </div>
+            <dl className="mt-10 grid max-w-md grid-cols-3 gap-4 border-t border-sand-200 pt-6">
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-gray-500">Levels</dt>
+                <dd className="mt-1 font-heading text-2xl font-semibold text-accent">
+                  {levels.loading ? <Skeleton className="h-7 w-8" /> : levels.data.length || 8}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-gray-500">Teachers</dt>
+                <dd className="mt-1 font-heading text-2xl font-semibold text-accent">
+                  {teachers.loading ? <Skeleton className="h-7 w-8" /> : teachers.error ? '—' : teachers.data.length}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-gray-500">Style</dt>
+                <dd className="mt-1 font-heading text-2xl font-semibold text-accent">Kathak</dd>
+              </div>
+            </dl>
+          </div>
 
-            {/* Right side - Founder Photo */}
-            <div className="flex justify-center">
-              <div className="relative">
-                {/* Decorative circle behind */}
-                <div className="absolute -inset-4 bg-secondary/20 rounded-full blur-2xl"></div>
-                
-                {/* Founder Photo - Placeholder */}
-                <div className="relative w-80 h-80 rounded-full overflow-hidden border-8 border-white shadow-2xl">
-                  <div className="w-full h-full bg-gradient-to-br from-primary/30 to-secondary/30 flex items-center justify-center">
-                    <div className="text-center">
-                      <svg className="w-32 h-32 mx-auto text-white/50" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                      </svg>
-                      <p className="text-white text-lg mt-4">Founder Photo</p>
-                      <p className="text-white/70 text-sm">(Upload your image)</p>
-                    </div>
+          <div className="relative mx-auto w-full max-w-md lg:max-w-none">
+            <div className="absolute -left-4 -top-4 h-full w-full rounded-[2rem] border border-secondary-400/60" aria-hidden="true" />
+            <div className="relative aspect-[4/5] overflow-hidden rounded-[2rem] shadow-lift">
+              {gallery.loading ? (
+                <Skeleton className="h-full w-full rounded-none" />
+              ) : heroPhoto ? (
+                <img
+                  src={publicService.mediaUrl(heroPhoto.media_url)}
+                  alt={heroPhoto.title || 'Students of Roopak Nrityalaya'}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <ImagePlaceholder className="h-full w-full" label="Academy performance photograph" />
+              )}
+            </div>
+            {heroPhoto?.title && (
+              <p className="relative mt-3 text-right text-xs italic text-gray-500">{heroPhoto.title}</p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Pillars -------------------------------------------------------- */}
+      <section className="section border-y border-sand-200 bg-white">
+        <div className="container-site">
+          <SectionHeading
+            eyebrow="Why study with us"
+            title="Rooted in tradition, taught with care"
+            description="Kathak — from katha, “story” — joins precise rhythm and footwork with expressive storytelling. Our teaching keeps both in balance."
+          />
+          <div className="grid gap-6 md:grid-cols-3">
+            {PILLARS.map((p) => (
+              <div key={p.title} className="rounded-2xl border border-sand-200 bg-sand-50 p-6 sm:p-8">
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-sand-50">
+                  <Icon name={p.icon} className="h-5 w-5" />
+                </span>
+                <h3 className="mt-5 text-xl font-semibold text-accent">{p.title}</h3>
+                <p className="mt-2 leading-relaxed text-gray-600">{p.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Curriculum path ------------------------------------------------ */}
+      <section className="section">
+        <div className="container-site">
+          <SectionHeading
+            eyebrow="The path"
+            title="Eight levels of training"
+            description="Each level builds on the last, from first steps to performance mastery."
+          />
+          {levels.loading ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} className="h-24" />
+              ))}
+            </div>
+          ) : levels.error || !levels.data.length ? (
+            <p className="text-center text-gray-500">The curriculum could not be loaded right now.</p>
+          ) : (
+            <ol className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {levels.data.map((l) => (
+                <li key={l.level_id} className="group relative rounded-xl border border-sand-200 bg-white p-5 transition-shadow hover:shadow-lift">
+                  <span className="font-heading text-3xl font-semibold text-secondary-500/70">
+                    {String(l.level_number).padStart(2, '0')}
+                  </span>
+                  <p className="mt-2 font-semibold text-accent">{l.level_name}</p>
+                  {l.description && <p className="mt-1 text-sm text-gray-500">{l.description}</p>}
+                </li>
+              ))}
+            </ol>
+          )}
+          <div className="mt-8 text-center">
+            <Link to="/about" className="inline-flex items-center gap-1.5 font-semibold text-primary hover:text-primary-700">
+              Learn about each level and fees <Icon name="arrowRight" className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Teachers ------------------------------------------------------- */}
+      {(teachers.loading || featuredTeachers.length > 0) && (
+        <section className="section border-y border-sand-200 bg-white">
+          <div className="container-site">
+            <SectionHeading eyebrow="Faculty" title="Learn from our teachers" />
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {teachers.loading
+                ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-56" />)
+                : featuredTeachers.map((t) => (
+                    <article key={t.id} className="rounded-2xl border border-sand-200 bg-sand-50 p-6 text-center">
+                      <TeacherAvatar name={t.full_name} photoUrl={absolutePhoto(t.photo_url)} className="mx-auto h-24 w-24 text-2xl" />
+                      <h3 className="mt-4 text-lg font-semibold text-accent">{t.full_name}</h3>
+                      <p className="text-sm text-secondary-700">{t.specialization || 'Kathak'}</p>
+                      {t.experience_years > 0 && (
+                        <p className="mt-2 text-xs text-gray-500">
+                          {t.experience_years} year{t.experience_years === 1 ? '' : 's'} of teaching
+                        </p>
+                      )}
+                    </article>
+                  ))}
+            </div>
+            <div className="mt-8 text-center">
+              <Link to="/teachers" className="btn-secondary">
+                Meet all teachers
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Gallery strip -------------------------------------------------- */}
+      {photos.length > 0 && (
+        <section className="section">
+          <div className="container-site">
+            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <SectionHeading eyebrow="Gallery" title="Moments from the studio and stage" align="left" className="" />
+              <Link to="/gallery" className="inline-flex items-center gap-1.5 font-semibold text-primary hover:text-primary-700">
+                View gallery <Icon name="arrowRight" className="h-4 w-4" />
+              </Link>
+            </div>
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {photos.slice(0, 6).map((p, i) => (
+                <li key={p.id} className={`overflow-hidden rounded-xl bg-sand-100 ${i === 0 ? 'sm:col-span-2 sm:row-span-2' : ''}`}>
+                  <img
+                    src={publicService.mediaUrl(p.media_url)}
+                    alt={p.title || 'Gallery photo'}
+                    loading="lazy"
+                    className="aspect-square h-full w-full object-cover transition-transform duration-500 hover:scale-[1.03]"
+                  />
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
+
+      {/* Notices -------------------------------------------------------- */}
+      {latestNotices.length > 0 && (
+        <section className={`section ${photos.length ? 'border-t border-sand-200 bg-white' : ''}`}>
+          <div className="container-site">
+            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <SectionHeading eyebrow="Notice board" title="Latest announcements" align="left" className="" />
+              <Link to="/notices" className="inline-flex items-center gap-1.5 font-semibold text-primary hover:text-primary-700">
+                All notices <Icon name="arrowRight" className="h-4 w-4" />
+              </Link>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              {latestNotices.map((n) => (
+                <article key={n.id} className="flex flex-col rounded-xl border border-sand-200 bg-sand-50 p-6">
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="badge-gold capitalize">{n.category || 'general'}</span>
+                    {n.is_important && <span className="badge-danger">Important</span>}
                   </div>
-                </div>
-
-                {/* Founder Name */}
-                <div className="text-center mt-6">
-                  <h3 className="text-2xl font-heading font-bold text-accent">
-                    [Founder Name]
-                  </h3>
-                  <p className="text-gray-600">Founder & Chief Instructor</p>
-                </div>
-              </div>
+                  <h3 className="mt-3 text-lg font-semibold leading-snug text-accent">{n.title}</h3>
+                  <p className="mt-2 line-clamp-3 flex-1 text-sm text-gray-600">{n.content}</p>
+                  <p className="mt-4 text-xs text-gray-500">{formatDate(n.created_at)}</p>
+                </article>
+              ))}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
-      {/* About Institute Section */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-heading font-bold text-primary mb-4">
-              About Our Institute
-            </h2>
-            <div className="w-24 h-1 bg-secondary mx-auto mb-6"></div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-            <div className="card text-center">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-heading font-bold text-accent mb-3">
-                Traditional Learning
-              </h3>
-              <p className="text-gray-600">
-                Authentic Kathak training following the Guru-Shishya parampara with 8 levels
-                of systematic progression from Praveshika to Alankar.
-              </p>
-            </div>
-
-            <div className="card text-center">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-heading font-bold text-accent mb-3">
-                Expert Faculty
-              </h3>
-              <p className="text-gray-600">
-                Learn from experienced gurus who are dedicated to preserving and
-                promoting the rich heritage of Kathak dance.
-              </p>
-            </div>
-
-            <div className="card text-center">
-              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-heading font-bold text-accent mb-3">
-                Performance Opportunities
-              </h3>
-              <p className="text-gray-600">
-                Regular performances, competitions, and cultural events to showcase
-                student talent and build confidence.
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-r from-primary/5 to-secondary/5 rounded-2xl p-8 md:p-12">
-            <p className="text-lg text-gray-700 leading-relaxed text-center max-w-4xl mx-auto">
-              <span className="font-semibold text-primary">Roopak Nrityalaya</span> was established
-              with the vision of creating a nurturing environment where students can immerse themselves
-              in the classical dance form of Kathak. Our structured curriculum spans eight progressive
-              levels, ensuring comprehensive training from foundational techniques to advanced performances.
-              We believe in holistic development, combining rigorous technical training with creative
-              expression and cultural appreciation.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Senior Teachers Section - Placeholder */}
-      <section className="py-20 bg-background-gray">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-heading font-bold text-primary mb-4">
-              Our Senior Teachers
-            </h2>
-            <div className="w-24 h-1 bg-secondary mx-auto mb-6"></div>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Learn from experienced masters who bring decades of expertise and passion for Kathak
-            </p>
-          </div>
-
-          {/* Teacher Carousel - We'll implement this next */}
-          <div className="bg-white rounded-xl shadow-lg p-8 text-center">
-            <p className="text-gray-500 text-lg">
-              Teacher Carousel will be implemented here
-            </p>
-            <p className="text-gray-400 text-sm mt-2">
-              (Featuring 10 senior teachers with photos, names, experience, and bio)
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Call to Action */}
-      <section className="py-20 bg-gradient-to-r from-primary to-primary-dark text-white">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-4xl font-heading font-bold mb-6">
-            Begin Your Kathak Journey Today
+      {/* Call to action ------------------------------------------------- */}
+      <section className="relative overflow-hidden bg-accent text-sand-100">
+        <div
+          className="pointer-events-none absolute -right-20 -top-20 h-80 w-80 rounded-full border-[40px] border-secondary-500/10"
+          aria-hidden="true"
+        />
+        <div className="container-site relative py-16 text-center sm:py-20">
+          <Ornament className="justify-center" />
+          <h2 className="mx-auto mt-5 max-w-2xl font-heading text-3xl font-semibold text-sand-50 sm:text-4xl">
+            Begin your Kathak journey
           </h2>
-          <p className="text-xl mb-8 text-white/90">
-            Join our community of passionate dancers and experience the joy of classical dance
+          <p className="mx-auto mt-4 max-w-xl text-sand-300">
+            Register online in a few minutes, or write to us with any questions about batches, levels and fees.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button className="bg-white text-primary px-8 py-4 rounded-lg font-bold text-lg hover:bg-gray-100 transition-colors">
-              Register Now
-            </button>
-            <button className="border-2 border-white text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-white/10 transition-colors">
-              Contact Us
-            </button>
+          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+            <Link to="/register" className="btn-gold btn-lg">
+              Register now
+            </Link>
+            <Link to="/contact" className="btn btn-lg border border-sand-300/40 text-sand-50 hover:bg-white/10">
+              Contact us
+            </Link>
           </div>
         </div>
       </section>
-    </div>
+    </>
   );
 };
 

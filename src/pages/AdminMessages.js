@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import LoadingSpinner from '../components/LoadingSpinner';
+import { PageSkeleton } from '../components/ui/Skeleton';
 import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
 import adminService from '../services/adminService';
@@ -56,17 +56,17 @@ const AdminMessages = () => {
     }
   };
 
-  if (loading && !messages.length) return <LoadingSpinner fullScreen={true} text="Loading messages..." size="lg" />;
+  if (loading && !messages.length) return <PageSkeleton label="Loading messages..." />;
   if (error) return <ErrorState message={error} onRetry={fetchMessages} />;
 
   const shown = messages.filter((m) => filter === 'all' || (filter === 'unread' ? !m.is_read : m.is_read));
   const unread = messages.filter((m) => !m.is_read).length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
+    <div className="page">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
-          <h1 className="text-3xl sm:text-4xl font-heading font-bold text-primary mb-2">Contact Messages</h1>
+          <h1 className="page-title">Contact Messages</h1>
           <p className="text-gray-600">
             Enquiries sent from the website contact form · {unread} unread
           </p>
@@ -90,7 +90,7 @@ const AdminMessages = () => {
         </div>
 
         {shown.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-lg">
+          <div className="surface">
             <EmptyState icon="document" title="No messages here" description="New enquiries from the Contact page will appear here." />
           </div>
         ) : (
@@ -98,7 +98,7 @@ const AdminMessages = () => {
             {shown.map((m) => (
               <article
                 key={m.message_id}
-                className={`bg-white rounded-xl shadow p-6 border-l-4 ${m.is_read ? 'border-gray-200' : 'border-primary'}`}
+                className={`bg-white rounded-xl shadow p-6 border-l-4 ${m.is_read ? 'border-sand-200' : 'border-primary'}`}
               >
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-3">
                   <div>

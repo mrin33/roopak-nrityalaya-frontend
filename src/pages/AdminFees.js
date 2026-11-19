@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import LoadingSpinner from '../components/LoadingSpinner';
+import { PageSkeleton } from '../components/ui/Skeleton';
 import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
 import adminService from '../services/adminService';
@@ -12,10 +12,10 @@ const formatMonth = (f) =>
 
 const STATUS_STYLE = {
   paid: 'bg-green-100 text-green-800',
-  pending: 'bg-yellow-100 text-yellow-800',
+  pending: 'bg-amber-100 text-amber-800',
   overdue: 'bg-red-100 text-red-800',
   failed: 'bg-red-100 text-red-800',
-  refunded: 'bg-gray-100 text-gray-700',
+  refunded: 'bg-sand-100 text-gray-700',
 };
 
 const EMPTY_FORM = { studentId: '', month: '', amount: '', paymentMethod: '', transactionId: '', dueDate: '' };
@@ -106,15 +106,15 @@ const AdminFees = () => {
     collectionRate: payments.length ? Math.round((payments.filter((p) => p.status === 'paid').length / payments.length) * 100) : 0,
   };
 
-  if (loading && !payments.length) return <LoadingSpinner fullScreen={true} text="Loading fees data..." size="lg" />;
+  if (loading && !payments.length) return <PageSkeleton label="Loading fees data..." />;
   if (error) return <ErrorState message={error} onRetry={fetchData} />;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="page">
+      <div>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-heading font-bold text-primary mb-2">Fee Management</h1>
+            <h1 className="page-title">Fee Management</h1>
             <p className="text-gray-600">Track and manage student fee payments</p>
           </div>
           <button onClick={() => setShowRecordModal(true)} className="btn-primary">
@@ -125,18 +125,18 @@ const AdminFees = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-8">
           {[
             ['Total Collected', inr(stats.totalCollected), 'text-green-600'],
-            ['Pending', inr(stats.pending), 'text-yellow-600'],
+            ['Pending', inr(stats.pending), 'text-amber-600'],
             ['Overdue', inr(stats.overdue), 'text-red-600'],
             ['Collection Rate', `${stats.collectionRate}%`, 'text-blue-600'],
           ].map(([label, value, color]) => (
-            <div key={label} className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+            <div key={label} className="card">
               <p className="text-sm text-gray-600 mb-1">{label}</p>
               <p className={`text-2xl sm:text-3xl font-bold ${color}`}>{value}</p>
             </div>
           ))}
         </div>
 
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+        <div className="card mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input
               type="search"
@@ -160,7 +160,7 @@ const AdminFees = () => {
         </div>
 
         {filteredPayments.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-lg">
+          <div className="surface">
             <EmptyState
               icon="document"
               title={payments.length ? 'No payments match your filters' : 'No fee records yet'}
@@ -170,10 +170,10 @@ const AdminFees = () => {
             />
           </div>
         ) : (
-          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+          <div className="surface overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b-2">
+                <thead className="bg-sand-50 border-b-2">
                   <tr>
                     {['Roll No', 'Student Name', 'Month', 'Amount', 'Status', 'Paid / Due', 'Method', 'Payment ID'].map((h) => (
                       <th key={h} className="px-6 py-4 text-left text-sm font-semibold text-accent whitespace-nowrap">
@@ -184,12 +184,12 @@ const AdminFees = () => {
                 </thead>
                 <tbody>
                   {filteredPayments.map((p) => (
-                    <tr key={p.id} className="border-b hover:bg-gray-50">
+                    <tr key={p.id} className="border-b hover:bg-sand-50">
                       <td className="px-6 py-4 font-mono text-sm">{p.rollNo}</td>
                       <td className="px-6 py-4 font-semibold text-accent">{p.studentName}</td>
                       <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">{p.month}</td>
                       <td className="px-6 py-4 text-sm font-semibold">{inr(p.amount)}</td>
-                      <td className="px-6 py-4">
+                      <td className="td">
                         <span className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${STATUS_STYLE[p.status] || STATUS_STYLE.refunded}`}>
                           {p.status}
                         </span>
@@ -219,7 +219,7 @@ const AdminFees = () => {
               <form onSubmit={handleSubmit} className="p-6">
                 <div className="space-y-6">
                   <div>
-                    <label htmlFor="f-student" className="block text-sm font-semibold text-accent mb-2">Student *</label>
+                    <label htmlFor="f-student" className="form-label">Student *</label>
                     <select id="f-student" name="studentId" value={formData.studentId} onChange={handleChange} className="input-field" required>
                       <option value="">Select student</option>
                       {students.map((s) => (
@@ -231,17 +231,17 @@ const AdminFees = () => {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="f-month" className="block text-sm font-semibold text-accent mb-2">Fee Month *</label>
+                      <label htmlFor="f-month" className="form-label">Fee Month *</label>
                       <input id="f-month" type="month" name="month" value={formData.month} onChange={handleChange} className="input-field" required />
                     </div>
                     <div>
-                      <label htmlFor="f-amount" className="block text-sm font-semibold text-accent mb-2">Amount (₹) *</label>
+                      <label htmlFor="f-amount" className="form-label">Amount (₹) *</label>
                       <input id="f-amount" type="number" name="amount" value={formData.amount} onChange={handleChange} className="input-field" min="1" step="0.01" required />
                     </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="f-method" className="block text-sm font-semibold text-accent mb-2">Payment Method *</label>
+                      <label htmlFor="f-method" className="form-label">Payment Method *</label>
                       <select id="f-method" name="paymentMethod" value={formData.paymentMethod} onChange={handleChange} className="input-field" required>
                         <option value="">Select method</option>
                         <option value="cash">Cash</option>
@@ -252,12 +252,12 @@ const AdminFees = () => {
                       </select>
                     </div>
                     <div>
-                      <label htmlFor="f-due" className="block text-sm font-semibold text-accent mb-2">Due Date</label>
+                      <label htmlFor="f-due" className="form-label">Due Date</label>
                       <input id="f-due" type="date" name="dueDate" value={formData.dueDate} onChange={handleChange} className="input-field" />
                     </div>
                   </div>
                   <div>
-                    <label htmlFor="f-tx" className="block text-sm font-semibold text-accent mb-2">Transaction ID</label>
+                    <label htmlFor="f-tx" className="form-label">Transaction ID</label>
                     <input id="f-tx" type="text" name="transactionId" value={formData.transactionId} onChange={handleChange} className="input-field" placeholder="Optional" />
                   </div>
                 </div>

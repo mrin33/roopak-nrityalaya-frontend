@@ -1,43 +1,32 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { dashboardPath } from '../config/navigation';
+import { LogoMark } from './ui/Logo';
 
-const ProtectedRoute = ({ children, allowedRoles }) => {
+/**
+ * Guards portal routes. Visitors who are not logged in go to /login (and
+ * come back afterwards); a logged-in user with another role is sent to
+ * their own dashboard.
+ */
+const ProtectedRoute = ({ role, children }) => {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
-  // Show loading state while checking authentication
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+      <div className="flex min-h-screen items-center justify-center bg-sand-50" role="status" aria-live="polite">
+        <div className="flex flex-col items-center gap-3 text-gray-500">
+          <LogoMark className="h-12 w-12 animate-pulse" />
+          <p className="text-sm">Checking your session…</p>
         </div>
       </div>
     );
   }
 
-  // Not authenticated - redirect to login
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
+  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  if (role && user.role !== role) return <Navigate to={dashboardPath(user.role)} replace />;
 
-  // Check if user has required role
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-red-600 mb-4">Access Denied</h1>
-          <p className="text-gray-600 mb-8">You don't have permission to access this page.</p>
-          <a href="/" className="btn-primary">
-            Go to Home
-          </a>
-        </div>
-      </div>
-    );
-  }
-
-  // Authenticated and authorized - show the page
   return children;
 };
 

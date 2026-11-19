@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { PageSkeleton } from '../components/ui/Skeleton';
 import EmptyState from '../components/EmptyState';
-import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorState from '../components/ErrorState';
 import PerformanceGraph from '../components/PerformanceGraph';
 import studentService from '../services/studentService';
@@ -123,10 +123,10 @@ const StudentActivityLog = () => {
     switch(mood) {
       case 'great': return 'bg-green-100 text-green-800';
       case 'good': return 'bg-blue-100 text-blue-800';
-      case 'okay': return 'bg-yellow-100 text-yellow-800';
+      case 'okay': return 'bg-amber-100 text-amber-800';
       case 'tired': return 'bg-purple-100 text-purple-800';
       case 'frustrated': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      default: return 'bg-sand-100 text-gray-800';
     }
   };
 
@@ -150,18 +150,18 @@ const StudentActivityLog = () => {
 
   // LOADING STATE - Using LoadingSpinner Component
   if (loading) {
-    return <LoadingSpinner fullScreen={true} text="Loading activity logs..." size="lg" />;
+    return <PageSkeleton label="Loading activity logs..." />;
   }
   if (error) return <ErrorState message={error} onRetry={load} />;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="page">
+      <div>
         
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-4xl font-heading font-bold text-primary mb-2">
+            <h1 className="page-title">
               Activity Log
             </h1>
             <p className="text-gray-600">Track your practice sessions and progress</p>
@@ -173,26 +173,26 @@ const StudentActivityLog = () => {
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Total Hours</p>
-            <p className="text-3xl font-bold text-primary">{totalPracticeHours}h</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-primary">{totalPracticeHours}h</p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Average Hours</p>
-            <p className="text-3xl font-bold text-green-600">{avgPracticeHours}h</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-green-700">{avgPracticeHours}h</p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Total Sessions</p>
-            <p className="text-3xl font-bold text-blue-600">{logs.length}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-blue-700">{logs.length}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">This Week</p>
-            <p className="text-3xl font-bold text-purple-600">{thisWeekLogs}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-purple-700">{thisWeekLogs}</p>
           </div>
         </div>
 
         {/* Practice Hours Graph - Using PerformanceGraph Component */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+        <div className="card mb-6">
           <PerformanceGraph 
             data={last7DaysData}
             title="Practice Hours - Last 7 Days"
@@ -206,11 +206,11 @@ const StudentActivityLog = () => {
         {/* Activity Logs List */}
         <div className="space-y-6">
           {logs.map((log) => (
-            <div key={log.id} className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
+            <div key={log.id} className="card hover:shadow-lift transition-shadow">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
                   <div className="flex flex-wrap items-center gap-3 mb-2">
-                    <h3 className="text-xl font-bold text-accent">
+                    <h3 className="section-title">
                       {formatDate(log.log_date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     </h3>
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getMoodColor(log.mood)}`}>
@@ -219,7 +219,7 @@ const StudentActivityLog = () => {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-3xl font-bold text-primary">{log.practice_hours}h</p>
+                  <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-primary">{log.practice_hours}h</p>
                   <p className="text-xs text-gray-500">Practice Time</p>
                 </div>
               </div>
@@ -240,7 +240,7 @@ const StudentActivityLog = () => {
                 {log.notes && (
                   <div>
                     <p className="text-sm font-semibold text-gray-700 mb-1">Notes:</p>
-                    <div className="p-3 bg-gray-50 rounded-lg">
+                    <div className="p-3 bg-sand-50 rounded-lg">
                       <p className="text-gray-700 italic">"{log.notes}"</p>
                     </div>
                   </div>
@@ -287,7 +287,7 @@ const StudentActivityLog = () => {
               <form onSubmit={handleSubmit} className="p-6">
                 <div className="space-y-6">
                   <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">Date *</label>
+                    <label className="form-label">Date *</label>
                     <input
                       type="date"
                       max={todayISO()}
@@ -300,7 +300,7 @@ const StudentActivityLog = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">Activities Done *</label>
+                    <label className="form-label">Activities Done *</label>
                     <textarea
                       name="activitiesDone"
                       value={formData.activitiesDone}
@@ -313,7 +313,7 @@ const StudentActivityLog = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">Performances</label>
+                    <label className="form-label">Performances</label>
                     <input
                       type="text"
                       name="performances"
@@ -325,7 +325,7 @@ const StudentActivityLog = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">Practice Hours *</label>
+                    <label className="form-label">Practice Hours *</label>
                     <input
                       type="number"
                       name="practiceHours"
@@ -341,7 +341,7 @@ const StudentActivityLog = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">Mood</label>
+                    <label className="form-label">Mood</label>
                     <select
                       name="mood"
                       value={formData.mood}
@@ -357,7 +357,7 @@ const StudentActivityLog = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">Notes</label>
+                    <label className="form-label">Notes</label>
                     <textarea
                       name="notes"
                       value={formData.notes}

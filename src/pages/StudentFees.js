@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { PageSkeleton } from '../components/ui/Skeleton';
 import PaymentWindowBadge from '../components/PaymentWindowBadge';
 import LateFeeWarning from '../components/LateFeeWarning';
-import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
 import studentService from '../services/studentService';
@@ -17,10 +17,10 @@ const inr = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '—');
 const STATUS_STYLE = {
   paid: 'bg-green-100 text-green-800',
-  pending: 'bg-yellow-100 text-yellow-800',
+  pending: 'bg-amber-100 text-amber-800',
   overdue: 'bg-red-100 text-red-800',
   failed: 'bg-red-100 text-red-800',
-  refunded: 'bg-gray-100 text-gray-700',
+  refunded: 'bg-sand-100 text-gray-700',
 };
 
 const StudentFees = () => {
@@ -65,7 +65,7 @@ const StudentFees = () => {
     }
   };
 
-  if (loading) return <LoadingSpinner fullScreen={true} text="Loading fee details..." size="lg" />;
+  if (loading) return <PageSkeleton label="Loading fee details..." />;
   if (error) return <ErrorState message={error} onRetry={load} />;
 
   const { student, currentPayment } = info;
@@ -74,10 +74,10 @@ const StudentFees = () => {
   const daysUntilDue = due ? Math.ceil((new Date(due.due_date) - new Date()) / 86400000) : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="page">
+      <div>
         <div className="mb-8">
-          <h1 className="text-3xl sm:text-4xl font-heading font-bold text-primary mb-2">Fee Management</h1>
+          <h1 className="page-title">Fee Management</h1>
           <p className="text-gray-600">Your fee plan, dues and payment history</p>
         </div>
 
@@ -94,7 +94,7 @@ const StudentFees = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           {/* Student & plan */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <h2 className="text-xl font-bold text-accent mb-4 pb-2 border-b">My Fee Plan</h2>
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between gap-4"><dt className="text-gray-600">Roll Number</dt><dd className="font-semibold">{student.roll_number || '—'}</dd></div>
@@ -113,7 +113,7 @@ const StudentFees = () => {
               )}
             </dl>
             <form onSubmit={changePlan} className="mt-6 pt-4 border-t">
-              <label htmlFor="plan" className="block text-sm font-semibold text-accent mb-2">Change payment plan</label>
+              <label htmlFor="plan" className="form-label">Change payment plan</label>
               <div className="flex gap-2">
                 <select id="plan" value={plan} onChange={(e) => setPlan(e.target.value)} className="input-field">
                   {PLANS.map(([v, l]) => (
@@ -137,7 +137,7 @@ const StudentFees = () => {
                 <p className="text-white/80 mb-6">Due on {fmtDate(due.due_date)}</p>
                 <div className="space-y-2 mb-6 text-lg">
                   <div className="flex justify-between"><span>Fee</span><span className="font-semibold">{inr(due.base_amount)}</span></div>
-                  {due.late_fee > 0 && <div className="flex justify-between text-yellow-200"><span>Late fee</span><span className="font-semibold">+ {inr(due.late_fee)}</span></div>}
+                  {due.late_fee > 0 && <div className="flex justify-between text-amber-200"><span>Late fee</span><span className="font-semibold">+ {inr(due.late_fee)}</span></div>}
                   <div className="flex justify-between text-2xl font-bold pt-2 border-t border-white/30"><span>Total</span><span>{inr(due.final_amount)}</span></div>
                 </div>
                 <p className="bg-white/10 rounded-lg p-4 text-sm">
@@ -158,8 +158,8 @@ const StudentFees = () => {
         </div>
 
         {/* History */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-2xl font-bold text-accent mb-6 pb-2 border-b">Payment History</h2>
+        <div className="card">
+          <h2 className="section-title mb-5 border-b border-sand-200 pb-3">Payment History</h2>
           {records.length === 0 ? (
             <EmptyState icon="document" title="No payments yet" description="Payments recorded by the academy office will be listed here." size="sm" />
           ) : (
@@ -174,7 +174,7 @@ const StudentFees = () => {
                 </thead>
                 <tbody>
                   {records.map((r) => (
-                    <tr key={r.payment_id} className="border-b hover:bg-gray-50">
+                    <tr key={r.payment_id} className="border-b hover:bg-sand-50">
                       <td className="py-3 px-4 whitespace-nowrap">
                         {r.payment_month && r.payment_year
                           ? new Date(r.payment_year, r.payment_month - 1, 1).toLocaleString('en-IN', { month: 'long', year: 'numeric' })
@@ -182,7 +182,7 @@ const StudentFees = () => {
                       </td>
                       <td className="py-3 px-4 font-semibold">{inr(r.total_amount)}</td>
                       <td className="py-3 px-4">
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${STATUS_STYLE[r.status] || 'bg-gray-100'}`}>{r.status}</span>
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${STATUS_STYLE[r.status] || 'bg-sand-100'}`}>{r.status}</span>
                       </td>
                       <td className="py-3 px-4 text-gray-600 whitespace-nowrap">{r.raw_status === 'completed' ? fmtDate(r.payment_date) : '—'}</td>
                       <td className="py-3 px-4 text-gray-600 whitespace-nowrap">{fmtDate(r.due_date)}</td>

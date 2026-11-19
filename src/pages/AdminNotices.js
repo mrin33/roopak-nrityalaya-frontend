@@ -121,19 +121,19 @@ const AdminNotices = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-sand-50 flex items-center justify-center">
         <p className="text-xl text-gray-600">Loading notices...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="page">
+      <div>
         
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-4xl font-heading font-bold text-primary mb-2">Manage Notices</h1>
+            <h1 className="page-title">Manage Notices</h1>
             <p className="text-gray-600">Post and manage announcements</p>
           </div>
           <button onClick={openAddModal} className="btn-primary">+ Post Notice</button>
@@ -141,39 +141,39 @@ const AdminNotices = () => {
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Total</p>
-            <p className="text-3xl font-bold text-primary">{notices.length}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-primary">{notices.length}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Published</p>
-            <p className="text-3xl font-bold text-green-600">{notices.filter(n => n.status === 'published').length}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-green-700">{notices.filter(n => n.status === 'published').length}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Important</p>
-            <p className="text-3xl font-bold text-red-600">{notices.filter(n => n.is_important).length}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-red-700">{notices.filter(n => n.is_important).length}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">This Month</p>
-            <p className="text-3xl font-bold text-blue-600">{notices.filter(n => new Date(n.created_at).getMonth() === new Date().getMonth()).length}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-blue-700">{notices.filter(n => new Date(n.created_at).getMonth() === new Date().getMonth()).length}</p>
           </div>
         </div>
 
         {/* Search */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+        <div className="card mb-6">
           <input type="text" placeholder="Search notices..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="input-field" />
         </div>
 
         {/* Notices */}
         <div className="space-y-4">
           {filteredNotices.length > 0 ? filteredNotices.map((notice) => (
-            <div key={notice.id} className="bg-white rounded-xl shadow-lg p-6">
+            <div key={notice.id} className="card">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-xl font-bold text-accent">{notice.title}</h3>
+                    <h3 className="section-title">{notice.title}</h3>
                     {notice.is_important && <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">Important</span>}
-                    {notice.status === 'draft' && <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-semibold">Draft</span>}
+                    {notice.status === 'draft' && <span className="px-3 py-1 bg-sand-100 text-gray-700 rounded-full text-xs font-semibold">Draft</span>}
                   </div>
                   <p className="text-gray-700 mb-3 line-clamp-2">{notice.content}</p>
                   <div className="flex items-center gap-4 text-sm text-gray-500">
@@ -213,16 +213,16 @@ const AdminNotices = () => {
               </div>
               <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
                 <div>
-                  <label className="block text-sm font-semibold text-accent mb-2">Title *</label>
+                  <label className="form-label">Title *</label>
                   <input type="text" name="title" value={formData.title} onChange={handleChange} className="input-field" required />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-accent mb-2">Content (Description) *</label>
+                  <label className="form-label">Content (Description) *</label>
                   <textarea name="content" value={formData.content} onChange={handleChange} rows="6" className="input-field" required></textarea>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">Target Audience *</label>
+                    <label className="form-label">Target Audience *</label>
                     <select name="targetAudience" value={formData.targetAudience} onChange={handleChange} className="input-field" required>
                       <option value="all">Everyone</option>
                       <option value="students">Students Only</option>
@@ -230,7 +230,7 @@ const AdminNotices = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">Category *</label>
+                    <label className="form-label">Category *</label>
                     <select name="category" value={formData.category} onChange={handleChange} className="input-field" required>
                       <option value="general">General</option>
                       <option value="event">Event</option>
@@ -248,7 +248,7 @@ const AdminNotices = () => {
                     <label htmlFor="isImportant" className="ml-2 text-sm font-semibold cursor-pointer">Mark as Important</label>
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">Status</label>
+                    <label className="form-label">Status</label>
                     <select name="status" value={formData.status} onChange={handleChange} className="input-field">
                       <option value="published">Published</option>
                       <option value="draft">Draft</option>

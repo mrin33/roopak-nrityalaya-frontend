@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { PageSkeleton } from '../components/ui/Skeleton';
 
 import RollNumberBadge from '../components/RollNumberBadge';
 import StatusBadge from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
-import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorState from '../components/ErrorState';
 import teacherService from '../services/teacherService';
 
@@ -60,15 +60,15 @@ const TeacherStudents = () => {
     return matchesBatch && matchesLevel && matchesSearch;
   });
 
-  if (loading) return <LoadingSpinner fullScreen={true} text="Loading students..." size="lg" />;
+  if (loading) return <PageSkeleton label="Loading students..." />;
   if (error) return <ErrorState message={error} onRetry={() => window.location.reload()} />;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="page">
+      <div>
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-heading font-bold text-primary mb-2">
+          <h1 className="page-title">
             My Students
           </h1>
           <p className="text-gray-600">View and manage students across all your batches</p>
@@ -76,37 +76,37 @@ const TeacherStudents = () => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Total Students</p>
-            <p className="text-3xl font-bold text-primary">{students.length}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-primary">{students.length}</p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">High Attendance (≥90%)</p>
-            <p className="text-3xl font-bold text-green-600">
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-green-700">
               {students.filter(s => s.attendance >= 90).length}
             </p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">Average Attendance</p>
-            <p className="text-3xl font-bold text-blue-600">
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-blue-700">
               {Math.round(students.reduce((sum, s) => sum + s.attendance, 0) / students.length)}%
             </p>
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-1">
               Low Attendance (&lt;75%)
             </p>            
-            <p className="text-3xl font-bold text-red-600">
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-red-700">
               {students.filter(s => s.attendance < 75).length}
             </p>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+        <div className="card mb-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-accent mb-2">Search</label>
+              <label className="form-label">Search</label>
               <input
                 type="text"
                 placeholder="Search by name or roll no..."
@@ -117,7 +117,7 @@ const TeacherStudents = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-accent mb-2">Filter by Batch</label>
+              <label className="form-label">Filter by Batch</label>
               <select
                 value={filterBatch}
                 onChange={(e) => setFilterBatch(e.target.value)}
@@ -132,7 +132,7 @@ const TeacherStudents = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-accent mb-2">Filter by Level</label>
+              <label className="form-label">Filter by Level</label>
               <select
                 value={filterLevel}
                 onChange={(e) => setFilterLevel(e.target.value)}
@@ -155,40 +155,40 @@ const TeacherStudents = () => {
         </div>
 
         {/* Students Table - USING RollNumberBadge and StatusBadge */}
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div className="surface overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b-2 border-gray-200">
+              <thead className="bg-sand-50 border-b-2 border-sand-200">
                 <tr>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Roll No</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Name</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Batch</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Level</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Attendance</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Contact</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Actions</th>
+                  <th className="th">Roll No</th>
+                  <th className="th">Name</th>
+                  <th className="th">Batch</th>
+                  <th className="th">Level</th>
+                  <th className="th">Attendance</th>
+                  <th className="th">Contact</th>
+                  <th className="th">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredStudents.map((student) => (
-                  <tr key={student.id} className="border-b hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
+                  <tr key={student.id} className="border-b hover:bg-sand-50 transition-colors">
+                    <td className="td">
                       <RollNumberBadge rollNumber={student.rollNo} size="md" />
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="td">
                       <p className="font-semibold text-accent">{student.name}</p>
                       <p className="text-sm text-gray-500">{student.email}</p>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{student.batch}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{student.level}</td>
-                    <td className="px-6 py-4">
+                    <td className="td text-gray-600">{student.batch}</td>
+                    <td className="td text-gray-600">{student.level}</td>
+                    <td className="td">
                       <StatusBadge 
                         status={student.attendance >= 90 ? 'present' : student.attendance >= 75 ? 'late' : 'absent'} 
                       />
                       <span className="ml-2 text-sm font-semibold">{student.attendance}%</span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{student.phone}</td>
-                    <td className="px-6 py-4">
+                    <td className="td text-gray-600">{student.phone}</td>
+                    <td className="td">
                       <button className="text-primary hover:text-primary-dark font-semibold text-sm">
                         View Details
                       </button>

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { PageSkeleton } from '../components/ui/Skeleton';
 import { useSearchParams } from 'react-router-dom';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorState from '../components/ErrorState';
@@ -110,25 +111,25 @@ const TeacherAttendance = () => {
     return Object.values(attendance).filter(s => s === status).length;
   };
 
-  if (loading) return <LoadingSpinner fullScreen={true} text="Loading your batches..." size="lg" />;
+  if (loading) return <PageSkeleton label="Loading your batches..." />;
   if (error) return <ErrorState message={error} onRetry={loadBatches} />;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="page">
+      <div>
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl sm:text-4xl font-heading font-bold text-primary mb-2">
+          <h1 className="page-title">
             Mark Attendance
           </h1>
           <p className="text-gray-600">Record student attendance for your classes</p>
         </div>
 
         {/* Selection Form */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+        <div className="card mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-semibold text-accent mb-2">
+              <label className="form-label">
                 Select Batch *
               </label>
               <select
@@ -147,7 +148,7 @@ const TeacherAttendance = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-accent mb-2">
+              <label className="form-label">
                 Date *
               </label>
               <input
@@ -163,7 +164,7 @@ const TeacherAttendance = () => {
         </div>
 
         {batches.length === 0 && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-yellow-800 mb-8">
+          <div className="bg-yellow-50 border border-amber-200 rounded-xl p-6 text-amber-800 mb-8">
             You have no active batches assigned yet. An administrator can assign batches to you.
           </div>
         )}
@@ -171,7 +172,7 @@ const TeacherAttendance = () => {
         {selectedBatch && loadingStudents && <LoadingSpinner text="Loading students..." />}
 
         {selectedBatch && !loadingStudents && students.length === 0 && (
-          <div className="bg-white rounded-xl shadow-lg p-8 text-center text-gray-600">
+          <div className="card sm:p-8 text-center text-gray-600">
             No active students are enrolled in this batch.
           </div>
         )}
@@ -199,12 +200,12 @@ const TeacherAttendance = () => {
               </div>
               <div className="bg-white rounded-lg shadow p-4">
                 <p className="text-sm text-gray-600">Late</p>
-                <p className="text-2xl font-bold text-yellow-600">{getStatusCount('late')}</p>
+                <p className="text-2xl font-bold text-amber-600">{getStatusCount('late')}</p>
               </div>
             </div>
 
             {/* Bulk Actions */}
-            <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <div className="card mb-6">
               <h3 className="font-bold text-accent mb-4">Quick Actions</h3>
               <div className="flex flex-wrap gap-3">
                 <button
@@ -221,7 +222,7 @@ const TeacherAttendance = () => {
                 </button>
                 <button
                   onClick={() => handleBulkMark('late')}
-                  className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+                  className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
                 >
                   Mark All Late
                 </button>
@@ -230,14 +231,14 @@ const TeacherAttendance = () => {
 
             {/* Student List */}
             <form onSubmit={handleSubmit}>
-              <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+              <div className="card mb-6">
                 <h3 className="font-bold text-accent mb-6 text-xl">Student Attendance</h3>
                 
                 <div className="space-y-3">
                   {students.map((student, index) => (
                     <div 
                       key={student.id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-sand-50 rounded-lg hover:bg-sand-100 transition-colors"
                     >
                       <div className="flex items-center space-x-4">
                         <span className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center font-semibold text-primary">
@@ -280,7 +281,7 @@ const TeacherAttendance = () => {
                           onClick={() => handleAttendanceChange(student.id, 'late')}
                           className={`px-4 py-2 rounded-lg font-medium transition-all ${
                             attendance[student.id] === 'late'
-                              ? 'bg-yellow-600 text-white shadow-lg'
+                              ? 'bg-amber-600 text-white shadow-lg'
                               : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                           }`}
                         >

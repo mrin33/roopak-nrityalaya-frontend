@@ -1,11 +1,13 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
-import Navbar from './components/Navbar';
-import LayoutWrapper from './components/LayoutWrapper';
+import { ConfirmProvider } from './context/ConfirmContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import PublicLayout from './components/layout/PublicLayout';
+import PortalLayout from './components/layout/PortalLayout';
 
-// Public Pages
+// Public pages
 import HomePage from './pages/HomePage';
 import AboutPage from './pages/AboutPage';
 import TeachersPage from './pages/TeachersPage';
@@ -15,8 +17,9 @@ import ContactPage from './pages/ContactPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import SetPasswordPage from './pages/SetPasswordPage';
+import NotFoundPage from './pages/NotFoundPage';
 
-// Student Pages
+// Student portal
 import StudentDashboard from './pages/StudentDashboard';
 import StudentAttendance from './pages/StudentAttendance';
 import StudentFees from './pages/StudentFees';
@@ -27,7 +30,7 @@ import StudentMakeupClasses from './pages/StudentMakeupClasses';
 import StudentResources from './pages/StudentResources';
 import StudentSchedule from './pages/StudentSchedule';
 
-// Teacher Pages
+// Teacher portal
 import TeacherDashboard from './pages/TeacherDashboard';
 import TeacherAttendance from './pages/TeacherAttendance';
 import TeacherStudents from './pages/TeacherStudents';
@@ -38,7 +41,7 @@ import TeacherResources from './pages/TeacherResources';
 import TeacherProfile from './pages/TeacherProfile';
 import TeacherMakeupRequests from './pages/TeacherMakeupRequests';
 
-// Admin Pages
+// Admin portal
 import AdminDashboard from './pages/AdminDashboard';
 import AdminStudents from './pages/AdminStudents';
 import AdminTeachers from './pages/AdminTeachers';
@@ -51,293 +54,86 @@ import AdminNotices from './pages/AdminNotices';
 import AdminGallery from './pages/AdminGallery';
 import AdminMessages from './pages/AdminMessages';
 
-// Protected Route Component
-const ProtectedRoute = ({ children, role }) => {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Navigate to="/login" />;
-  }
-
-  if (role && user.role !== role) {
-    return <Navigate to="/" />;
-  }
-
-  return children;
+const PORTALS = {
+  student: [
+    ['dashboard', StudentDashboard],
+    ['attendance', StudentAttendance],
+    ['fees', StudentFees],
+    ['activity-log', StudentActivityLog],
+    ['reviews', StudentReviews],
+    ['gallery-upload', StudentGalleryUpload],
+    ['makeup-classes', StudentMakeupClasses],
+    ['resources', StudentResources],
+    ['schedule', StudentSchedule],
+  ],
+  teacher: [
+    ['dashboard', TeacherDashboard],
+    ['attendance', TeacherAttendance],
+    ['students', TeacherStudents],
+    ['batches', TeacherBatches],
+    ['review-students', TeacherReviewStudents],
+    ['batch-transfer', TeacherBatchTransfer],
+    ['resources', TeacherResources],
+    ['profile', TeacherProfile],
+    ['makeup-requests', TeacherMakeupRequests],
+  ],
+  admin: [
+    ['dashboard', AdminDashboard],
+    ['students', AdminStudents],
+    ['teachers', AdminTeachers],
+    ['batches', AdminBatches],
+    ['fees', AdminFees],
+    ['gallery-requests', AdminGalleryRequests],
+    ['analytics', AdminAnalytics],
+    ['status-changes', AdminStatusChanges],
+    ['notices', AdminNotices],
+    ['gallery', AdminGallery],
+    ['messages', AdminMessages],
+  ],
 };
 
 function App() {
   return (
     <AuthProvider>
       <ToastProvider>
-      <Router>
-        <Navbar />
-        <LayoutWrapper>
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<HomePage />} />
-            <Route path="/about" element={<AboutPage />} />
-            <Route path="/teachers" element={<TeachersPage />} />
-            <Route path="/gallery" element={<GalleryPage />} />
-            <Route path="/notices" element={<NoticesPage />} />
-            <Route path="/contact" element={<ContactPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/set-password" element={<SetPasswordPage />} />
+        <ConfirmProvider>
+          <Router>
+            <Routes>
+              {/* Public website: navbar + footer, never a portal sidebar */}
+              <Route element={<PublicLayout />}>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/teachers" element={<TeachersPage />} />
+                <Route path="/gallery" element={<GalleryPage />} />
+                <Route path="/notices" element={<NoticesPage />} />
+                <Route path="/contact" element={<ContactPage />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
+                <Route path="/set-password" element={<SetPasswordPage />} />
+                <Route path="*" element={<NotFoundPage />} />
+              </Route>
 
-            {/* Student Routes */}
-            <Route
-              path="/student/dashboard"
-              element={
-                <ProtectedRoute role="student">
-                  <StudentDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/student/attendance"
-              element={
-                <ProtectedRoute role="student">
-                  <StudentAttendance />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/student/fees"
-              element={
-                <ProtectedRoute role="student">
-                  <StudentFees />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/student/activity-log"
-              element={
-                <ProtectedRoute role="student">
-                  <StudentActivityLog />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/student/reviews"
-              element={
-                <ProtectedRoute role="student">
-                  <StudentReviews />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/student/gallery-upload"
-              element={
-                <ProtectedRoute role="student">
-                  <StudentGalleryUpload />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/student/makeup-classes"
-              element={
-                <ProtectedRoute role="student">
-                  <StudentMakeupClasses />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/student/resources"
-              element={
-                <ProtectedRoute role="student">
-                  <StudentResources />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/student/schedule"
-              element={
-                <ProtectedRoute role="student">
-                  <StudentSchedule />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Teacher Routes */}
-            <Route
-              path="/teacher/dashboard"
-              element={
-                <ProtectedRoute role="teacher">
-                  <TeacherDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/teacher/attendance"
-              element={
-                <ProtectedRoute role="teacher">
-                  <TeacherAttendance />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/teacher/students"
-              element={
-                <ProtectedRoute role="teacher">
-                  <TeacherStudents />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/teacher/batches"
-              element={
-                <ProtectedRoute role="teacher">
-                  <TeacherBatches />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/teacher/review-students"
-              element={
-                <ProtectedRoute role="teacher">
-                  <TeacherReviewStudents />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/teacher/batch-transfer"
-              element={
-                <ProtectedRoute role="teacher">
-                  <TeacherBatchTransfer />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/teacher/resources"
-              element={
-                <ProtectedRoute role="teacher">
-                  <TeacherResources />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/teacher/profile"
-              element={
-                <ProtectedRoute role="teacher">
-                  <TeacherProfile />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/teacher/makeup-requests"
-              element={
-                <ProtectedRoute role="teacher">
-                  <TeacherMakeupRequests />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Admin Routes */}
-            <Route
-              path="/admin/dashboard"
-              element={
-                <ProtectedRoute role="admin">
-                  <AdminDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/students"
-              element={
-                <ProtectedRoute role="admin">
-                  <AdminStudents />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/teachers"
-              element={
-                <ProtectedRoute role="admin">
-                  <AdminTeachers />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/batches"
-              element={
-                <ProtectedRoute role="admin">
-                  <AdminBatches />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/fees"
-              element={
-                <ProtectedRoute role="admin">
-                  <AdminFees />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/gallery-requests"
-              element={
-                <ProtectedRoute role="admin">
-                  <AdminGalleryRequests />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/analytics"
-              element={
-                <ProtectedRoute role="admin">
-                  <AdminAnalytics />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/status-changes"
-              element={
-                <ProtectedRoute role="admin">
-                  <AdminStatusChanges />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/notices"
-              element={
-                <ProtectedRoute role="admin">
-                  <AdminNotices />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/gallery"
-              element={
-                <ProtectedRoute role="admin">
-                  <AdminGallery />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/admin/messages"
-              element={
-                <ProtectedRoute role="admin">
-                  <AdminMessages />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* 404 Route */}
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
-        </LayoutWrapper>
-      </Router>
+              {/* Portals: sidebar layout, role-protected */}
+              {Object.entries(PORTALS).map(([role, pages]) => (
+                <Route
+                  key={role}
+                  path={`/${role}`}
+                  element={
+                    <ProtectedRoute role={role}>
+                      <PortalLayout role={role} />
+                    </ProtectedRoute>
+                  }
+                >
+                  <Route index element={<Navigate to="dashboard" replace />} />
+                  {pages.map(([path, Page]) => (
+                    <Route key={path} path={path} element={<Page />} />
+                  ))}
+                  <Route path="*" element={<Navigate to="dashboard" replace />} />
+                </Route>
+              ))}
+            </Routes>
+          </Router>
+        </ConfirmProvider>
       </ToastProvider>
     </AuthProvider>
   );

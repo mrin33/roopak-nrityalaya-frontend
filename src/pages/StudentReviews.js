@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { PageSkeleton } from '../components/ui/Skeleton';
 import StarRating from '../components/StarRating';
 import EmptyState from '../components/EmptyState';
-import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorState from '../components/ErrorState';
 import studentService from '../services/studentService';
 import { useToast } from '../context/ToastContext';
@@ -56,16 +56,16 @@ const StudentReviews = () => {
   const avgCreativity = reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.creativity_rating, 0) / reviews.length).toFixed(1) : 0;
   const avgDiscipline = reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.discipline_rating, 0) / reviews.length).toFixed(1) : 0;
 
-  if (loading) return <LoadingSpinner fullScreen={true} text="Loading reviews..." size="lg" />;
+  if (loading) return <PageSkeleton label="Loading reviews..." />;
   if (error) return <ErrorState message={error} onRetry={load} />;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="page">
+      <div>
         
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-heading font-bold text-primary mb-2">
+          <h1 className="page-title">
             Teacher Reviews
           </h1>
           <p className="text-gray-600">See what your teacher thinks about your progress</p>
@@ -91,30 +91,30 @@ const StudentReviews = () => {
 
         {/* Overall Performance Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-2">Technique</p>
-            <p className="text-3xl font-bold text-primary mb-2">{avgTechnique}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-primary mb-2">{avgTechnique}</p>
             <StarRating rating={parseFloat(avgTechnique)} size="md" />
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-2">Rhythm</p>
-            <p className="text-3xl font-bold text-green-600 mb-2">{avgRhythm}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-green-700 mb-2">{avgRhythm}</p>
             <StarRating rating={parseFloat(avgRhythm)} size="md" color="gold" />
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-2">Creativity</p>
-            <p className="text-3xl font-bold text-purple-600 mb-2">{avgCreativity}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-purple-700 mb-2">{avgCreativity}</p>
             <StarRating rating={parseFloat(avgCreativity)} size="md" color="orange" />
           </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="card">
             <p className="text-sm text-gray-600 mb-2">Discipline</p>
-            <p className="text-3xl font-bold text-blue-600 mb-2">{avgDiscipline}</p>
+            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-blue-700 mb-2">{avgDiscipline}</p>
             <StarRating rating={parseFloat(avgDiscipline)} size="md" />
           </div>
         </div>
 
         {/* Filter */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+        <div className="card mb-6">
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-600">
               Showing {filteredReviews.length} of {reviews.length} reviews
@@ -139,7 +139,7 @@ const StudentReviews = () => {
           {filteredReviews.map((review) => (
             <div 
               key={review.id} 
-              className={`bg-white rounded-xl shadow-lg p-6 ${
+              className={`card ${
                 !review.is_viewed_by_student ? 'border-2 border-blue-300' : ''
               }`}
             >
@@ -147,7 +147,7 @@ const StudentReviews = () => {
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <div className="flex items-center space-x-3 mb-1">
-                    <h3 className="text-xl font-bold text-accent">
+                    <h3 className="section-title">
                       {getMonthName(review.review_month)} {review.review_year} Review
                     </h3>
                     {!review.is_viewed_by_student && (
@@ -159,7 +159,7 @@ const StudentReviews = () => {
                   <p className="text-sm text-gray-600">by {review.teacher_name}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-3xl font-bold text-primary">{review.overall_rating}</p>
+                  <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-primary">{review.overall_rating}</p>
                   <p className="text-xs text-gray-500">Overall Rating</p>
                 </div>
               </div>
@@ -187,7 +187,7 @@ const StudentReviews = () => {
               {/* Teacher's Comments */}
               <div className="mb-4">
                 <p className="text-sm font-semibold text-gray-700 mb-2">Teacher's Comments:</p>
-                <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="p-4 bg-sand-50 rounded-lg">
                   <p className="text-gray-700 italic">{review.review_text ? `"${review.review_text}"` : 'No written comments.'}</p>
                 </div>
               </div>
