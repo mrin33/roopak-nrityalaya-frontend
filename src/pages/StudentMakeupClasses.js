@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { PageSkeleton } from '../components/ui/Skeleton';
+import PageHeader from '../components/ui/PageHeader';
+import StatCard from '../components/ui/StatCard';
+import Modal from '../components/ui/Modal';
+import Icon from '../components/ui/Icon';
 import StatusBadge from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
@@ -7,11 +11,12 @@ import studentService from '../services/studentService';
 import { useToast } from '../context/ToastContext';
 import { formatDate, todayISO } from '../utils/date';
 
+const shortDate = (d) => formatDate(d, { weekday: 'short', day: 'numeric', month: 'short' });
+
 const StudentMakeupClasses = () => {
   const toast = useToast();
   const [missedClasses, setMissedClasses] = useState([]);
   const [requests, setRequests] = useState([]);
-  const [showRequestModal, setShowRequestModal] = useState(false);
   const [selectedClass, setSelectedClass] = useState(null);
   const [availableBatches, setAvailableBatches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -29,14 +34,7 @@ const StudentMakeupClasses = () => {
         studentService.getMakeupBatches(),
       ]);
       setMissedClasses(missed.map((m) => ({ ...m, id: m.attendance_id })));
-      setRequests(
-        mine.map((r) => ({
-          ...r,
-          id: r.booking_id,
-          requested_at: r.created_at,
-          teacher_note: r.notes,
-        }))
-      );
+      setRequests(mine.map((r) => ({ ...r, id: r.booking_id, requested_at: r.created_at, teacher_note: r.notes })));
       setAvailableBatches(
         batches.map((b) => ({
           id: b.batch_id,
@@ -55,15 +53,12 @@ const StudentMakeupClasses = () => {
     load();
   }, [load]);
 
-  const handleRequestClick = (missedClass) => {
+  const openRequest = (missedClass) => {
     setSelectedClass(missedClass);
     setFormData({ makeupBatchId: '', makeupDate: '', notes: '' });
-    setShowRequestModal(true);
   };
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const handleChange = (e) => setFormData((f) => ({ ...f, [e.target.name]: e.target.value }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -75,7 +70,7 @@ const StudentMakeupClasses = () => {
         makeup_class_date: formData.makeupDate,
         notes: formData.notes,
       });
-      setShowRequestModal(false);
+      setSelectedClass(null);
       toast.success('Makeup request sent. The teacher of that batch will review it.');
       load();
     } catch (err) {
@@ -85,263 +80,146 @@ const StudentMakeupClasses = () => {
     }
   };
 
-  const stats = {
-    missedTotal: missedClasses.length,
-    requestsPending: requests.filter(r => r.status === 'pending').length,
-    requestsApproved: requests.filter(r => r.status === 'approved').length,
-    requestsRejected: requests.filter(r => r.status === 'rejected').length
-  };
+  const count = (s) => requests.filter((r) => r.status === s).length;
 
-  if (loading) return <PageSkeleton label="Loading makeup classes..." />;
+  if (loading) return <PageSkeleton label="Loading makeup classes…" variant="cards" />;
   if (error) return <ErrorState message={error} onRetry={load} />;
 
   return (
     <div className="page">
-      <div>
-        
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="page-title">
-            Makeup Classes
-          </h1>
-          <p className="text-gray-600">Request makeup classes for missed sessions</p>
-        </div>
+      <PageHeader title="Makeup classes" description="Missed a class? Request to attend another batch at your level." />
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="card">
-            <p className="text-sm text-gray-600 mb-1">Missed Classes</p>
-            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-red-700">{stats.missedTotal}</p>
-          </div>
-          <div className="card">
-            <p className="text-sm text-gray-600 mb-1">Pending Requests</p>
-            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-amber-700">{stats.requestsPending}</p>
-          </div>
-          <div className="card">
-            <p className="text-sm text-gray-600 mb-1">Approved</p>
-            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-green-700">{stats.requestsApproved}</p>
-          </div>
-          <div className="card">
-            <p className="text-sm text-gray-600 mb-1">Rejected</p>
-            <p className="text-3xl font-bold text-gray-600">{stats.requestsRejected}</p>
-          </div>
-        </div>
-
-        {/* Missed Classes Section */}
-        <div className="card mb-6">
-          <h2 className="section-title mb-5 border-b border-sand-200 pb-3">Missed Classes</h2>
-          
-          <div className="space-y-4">
-            {missedClasses.map((cls) => (
-              <div key={cls.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-red-50 rounded-lg border border-red-200">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <h3 className="font-bold text-accent">
-                      {formatDate(cls.class_date, { weekday: 'long', month: 'long', day: 'numeric' })}
-                    </h3>
-                    <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-semibold">
-                      Absent
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    {cls.batch_name} - {cls.teacher_name}
-                  </p>
-                </div>
-                {cls.can_request_makeup ? (
-                  <button
-                    onClick={() => handleRequestClick(cls)}
-                    className="btn-primary text-sm"
-                  >
-                    Request Makeup
-                  </button>
-                ) : (
-                  <span className="text-sm text-gray-500">Already Requested</span>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Empty State - Using EmptyState Component */}
-          {missedClasses.length === 0 && (
-            <EmptyState 
-              icon="calendar"
-              title="No missed classes"
-              description="Great attendance! Keep it up!"
-              size="sm"
-            />
-          )}
-        </div>
-
-        {/* Makeup Requests Section */}
-        <div className="card">
-          <h2 className="section-title mb-5 border-b border-sand-200 pb-3">Your Makeup Requests</h2>
-          
-          <div className="space-y-4">
-            {requests.map((request) => (
-              <div key={request.id} className="border rounded-lg p-6 hover:shadow-lift transition-shadow">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="font-bold text-accent">Makeup Request #{request.id}</h3>
-                      <StatusBadge status={request.status} />
-                    </div>
-                    <p className="text-sm text-gray-500">
-                      Requested on {new Date(request.requested_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-red-50 rounded-lg p-4">
-                    <p className="text-xs font-semibold text-gray-600 mb-2">Missed Class</p>
-                    <p className="font-bold text-accent mb-1">
-                      {formatDate(request.original_class_date, { weekday: 'short', month: 'short', day: 'numeric' })}
-                    </p>
-                    <p className="text-sm text-gray-600">{request.original_batch_name}</p>
-                  </div>
-
-                  <div className="bg-green-50 rounded-lg p-4">
-                    <p className="text-xs font-semibold text-gray-600 mb-2">Makeup Class</p>
-                    <p className="font-bold text-accent mb-1">
-                      {formatDate(request.makeup_class_date, { weekday: 'short', month: 'short', day: 'numeric' })}
-                    </p>
-                    <p className="text-sm text-gray-600">{request.makeup_batch_name}</p>
-                  </div>
-                </div>
-
-                {request.status === 'approved' && (
-                  <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-sm text-green-700">
-                      ✓ Approved{request.approved_by_name ? ` by ${request.approved_by_name}` : ''}. 
-                      Please attend the makeup class on the scheduled date.
-                    </p>
-                  </div>
-                )}
-
-                {request.status === 'rejected' && request.teacher_note && (
-                  <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-xs font-semibold text-red-800 mb-1">Notes:</p>
-                    <p className="text-sm text-red-700 whitespace-pre-line">{request.teacher_note}</p>
-                  </div>
-                )}
-
-                {request.status === 'pending' && (
-                  <div className="mt-4 p-3 bg-yellow-50 border border-amber-200 rounded-lg">
-                    <p className="text-sm text-amber-700">
-                      ⏳ Pending teacher/admin approval...
-                    </p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Empty State - Using EmptyState Component */}
-          {requests.length === 0 && (
-            <EmptyState 
-              icon="calendar"
-              title="No makeup requests"
-              description="Request makeup classes for any missed sessions"
-              size="sm"
-            />
-          )}
-        </div>
-
-        {/* Request Modal */}
-        {showRequestModal && selectedClass && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="bg-primary text-white p-6 rounded-t-2xl sticky top-0">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold">Request Makeup Class</h2>
-                  <button 
-                    onClick={() => setShowRequestModal(false)}
-                    className="text-white hover:bg-white/20 rounded-full p-2"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              <form onSubmit={handleSubmit} className="p-6">
-                <div className="mb-6 p-4 bg-red-50 rounded-lg border border-red-200">
-                  <p className="text-sm font-semibold text-red-800 mb-1">Missed Class:</p>
-                  <p className="text-accent font-bold">
-                    {new Date(selectedClass.class_date).toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' })}
-                  </p>
-                  <p className="text-sm text-gray-600 mt-1">{selectedClass.batch_name}</p>
-                </div>
-
-                <div className="space-y-6">
-                  <div>
-                    <label className="form-label">
-                      Select Makeup Batch *
-                    </label>
-                    <select
-                      name="makeupBatchId"
-                      value={formData.makeupBatchId}
-                      onChange={handleChange}
-                      className="input-field"
-                      required
-                    >
-                      <option value="">{availableBatches.length ? 'Choose a batch...' : 'No batches at your level are available'}</option>
-                      {availableBatches.map(batch => (
-                        <option key={batch.id} value={batch.id}>
-                          {batch.name} - {batch.schedule}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="form-label">
-                      Makeup Class Date *
-                    </label>
-                    <input
-                      type="date"
-                      name="makeupDate"
-                      value={formData.makeupDate}
-                      onChange={handleChange}
-                      className="input-field"
-                      min={todayISO()}
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="form-label">
-                      Additional Notes (Optional)
-                    </label>
-                    <textarea
-                      name="notes"
-                      value={formData.notes}
-                      onChange={handleChange}
-                      rows="3"
-                      className="input-field"
-                      placeholder="Any additional information..."
-                    ></textarea>
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-4 mt-8">
-                  <button 
-                    type="button"
-                    onClick={() => setShowRequestModal(false)}
-                    className="btn-secondary"
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" disabled={saving} className="btn-primary disabled:opacity-50">
-                    Submit Request
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard label="Missed classes" value={missedClasses.length} icon="xCircle" tone="danger" />
+        <StatCard label="Pending" value={count('pending')} icon="clock" tone="warning" />
+        <StatCard label="Approved" value={count('approved')} icon="checkCircle" tone="success" />
+        <StatCard label="Declined" value={count('rejected')} icon="x" tone="neutral" />
       </div>
+
+      <div className="grid gap-6 lg:grid-cols-5">
+        {/* Missed */}
+        <section className="surface overflow-hidden lg:col-span-2" aria-labelledby="missed-heading">
+          <h2 id="missed-heading" className="section-title border-b border-sand-200 px-5 py-4">
+            Missed classes
+          </h2>
+          {missedClasses.length === 0 ? (
+            <EmptyState icon="checkCircle" title="No missed classes" description="Great attendance — keep it up!" size="sm" />
+          ) : (
+            <ul className="divide-y divide-sand-100">
+              {missedClasses.map((c) => (
+                <li key={c.id} className="flex items-center justify-between gap-3 px-5 py-4">
+                  <div className="min-w-0">
+                    <p className="font-medium text-accent">{formatDate(c.class_date, { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+                    <p className="truncate text-sm text-gray-600">
+                      {c.batch_name}
+                      {c.teacher_name ? ` · ${c.teacher_name}` : ''}
+                    </p>
+                  </div>
+                  {c.can_request_makeup ? (
+                    <button type="button" onClick={() => openRequest(c)} className="btn-primary btn-sm shrink-0">
+                      Request
+                    </button>
+                  ) : (
+                    <span className="badge-neutral shrink-0">Requested</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {/* Requests */}
+        <section className="lg:col-span-3" aria-labelledby="requests-heading">
+          <h2 id="requests-heading" className="section-title mb-3">
+            Your requests
+          </h2>
+          {requests.length === 0 ? (
+            <div className="surface">
+              <EmptyState icon="refresh" title="No makeup requests yet" description="Requests you make for missed classes will be tracked here." size="sm" />
+            </div>
+          ) : (
+            <ul className="space-y-3">
+              {requests.map((r) => (
+                <li key={r.id} className="card">
+                  <div className="flex items-center justify-between gap-3">
+                    <StatusBadge status={r.status} label={r.status === 'rejected' ? 'Declined' : undefined} />
+                    <span className="text-xs text-gray-500">Requested {formatDate(r.requested_at, { day: 'numeric', month: 'short' })}</span>
+                  </div>
+                  <div className="mt-4 flex items-center gap-3">
+                    <div className="min-w-0 flex-1 rounded-lg bg-sand-50 p-3">
+                      <p className="text-[0.68rem] font-semibold uppercase tracking-wide text-gray-500">Missed</p>
+                      <p className="mt-0.5 font-medium text-accent">{shortDate(r.original_class_date)}</p>
+                      <p className="truncate text-xs text-gray-600">{r.original_batch_name}</p>
+                    </div>
+                    <Icon name="arrowRight" className="h-5 w-5 shrink-0 text-secondary-600" />
+                    <div className="min-w-0 flex-1 rounded-lg bg-primary-50/60 p-3">
+                      <p className="text-[0.68rem] font-semibold uppercase tracking-wide text-gray-500">Makeup</p>
+                      <p className="mt-0.5 font-medium text-accent">{shortDate(r.makeup_class_date)}</p>
+                      <p className="truncate text-xs text-gray-600">{r.makeup_batch_name}</p>
+                    </div>
+                  </div>
+                  {r.status === 'approved' && (
+                    <p className="mt-3 text-sm text-green-800">
+                      Approved{r.approved_by_name ? ` by ${r.approved_by_name}` : ''}. Please attend on the scheduled date.
+                    </p>
+                  )}
+                  {r.status === 'pending' && <p className="mt-3 text-sm text-gray-600">Waiting for the teacher to respond.</p>}
+                  {r.status === 'rejected' && r.teacher_note && (
+                    <p className="mt-3 whitespace-pre-line rounded-lg bg-red-50 p-3 text-sm text-red-800">{r.teacher_note}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+
+      <Modal open={!!selectedClass} onClose={() => setSelectedClass(null)} title="Request a makeup class" size="md">
+        {selectedClass && (
+          <form onSubmit={handleSubmit}>
+            <div className="mb-5 rounded-lg bg-sand-50 p-4 text-sm">
+              <p className="text-gray-500">Missed class</p>
+              <p className="font-semibold text-accent">{formatDate(selectedClass.class_date, { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+              <p className="text-gray-600">{selectedClass.batch_name}</p>
+            </div>
+            <div className="space-y-5">
+              <div>
+                <label htmlFor="makeupBatchId" className="form-label">
+                  Attend with batch
+                </label>
+                <select id="makeupBatchId" name="makeupBatchId" value={formData.makeupBatchId} onChange={handleChange} className="input-field" required>
+                  <option value="">{availableBatches.length ? 'Choose a batch…' : 'No other batches at your level'}</option>
+                  {availableBatches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} — {b.schedule}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="makeupDate" className="form-label">
+                  Date
+                </label>
+                <input id="makeupDate" type="date" name="makeupDate" value={formData.makeupDate} onChange={handleChange} className="input-field" min={todayISO()} required />
+              </div>
+              <div>
+                <label htmlFor="notes" className="form-label">
+                  Note for the teacher <span className="font-normal text-gray-500">(optional)</span>
+                </label>
+                <textarea id="notes" name="notes" value={formData.notes} onChange={handleChange} rows={3} className="input-field" />
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button type="button" onClick={() => setSelectedClass(null)} className="btn-secondary">
+                Cancel
+              </button>
+              <button type="submit" disabled={saving || !availableBatches.length} className="btn-primary">
+                {saving ? 'Sending…' : 'Send request'}
+              </button>
+            </div>
+          </form>
+        )}
+      </Modal>
     </div>
   );
 };

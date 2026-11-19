@@ -1,306 +1,225 @@
-import React, { useState, useEffect } from 'react';
-import { PageSkeleton } from '../components/ui/Skeleton';
-import { useAuth } from '../context/AuthContext';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { PageSkeleton } from '../components/ui/Skeleton';
+import PageHeader from '../components/ui/PageHeader';
+import StatCard from '../components/ui/StatCard';
+import Icon from '../components/ui/Icon';
 import RollNumberBadge from '../components/RollNumberBadge';
 import PaymentWindowBadge from '../components/PaymentWindowBadge';
 import LateFeeWarning from '../components/LateFeeWarning';
 import ErrorState from '../components/ErrorState';
-import { formatDate } from '../utils/date';
+import EmptyState from '../components/EmptyState';
+import useLevels from '../hooks/useLevels';
+import { formatDate, toDate } from '../utils/date';
 import studentService from '../services/studentService';
+
+const QUICK_LINKS = [
+  { to: '/student/schedule', icon: 'calendar', label: 'Class schedule' },
+  { to: '/student/attendance', icon: 'clipboardCheck', label: 'Attendance' },
+  { to: '/student/activity-log', icon: 'clipboardList', label: 'Log practice' },
+  { to: '/student/resources', icon: 'book', label: 'Resources' },
+  { to: '/student/makeup-classes', icon: 'refresh', label: 'Makeup class' },
+  { to: '/student/reviews', icon: 'star', label: 'Reviews' },
+];
+
+const daysUntil = (date) => {
+  const d = toDate(date);
+  if (!d) return 0;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.ceil((d - today) / 86400000);
+};
 
 const StudentDashboard = () => {
   const { user } = useAuth();
-  const [dashboardData, setDashboardData] = useState(null);
+  const { levels } = useLevels();
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const levels = [
-    { number: 1, name: 'Praveshika Pratham' },
-    { number: 2, name: 'Praveshika Purna' },
-    { number: 3, name: 'Madhyama Pratham' },
-    { number: 4, name: 'Madhyama Purna' },
-    { number: 5, name: 'Visharad Pratham' },
-    { number: 6, name: 'Visharad Purna' },
-    { number: 7, name: 'Alankar Pratham' },
-    { number: 8, name: 'Alankar Purna' },
-  ];
-
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
+  const load = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await studentService.getDashboard();
-      setDashboardData(data);
       setError('');
+      setData(await studentService.getDashboard());
     } catch (err) {
       // No fabricated fallback data: show the error with a retry instead.
-      setDashboardData(null);
-      setError(err.message || 'Failed to load dashboard data. Please try again.');
+      setData(null);
+      setError(err.message || 'Failed to load your dashboard. Please try again.');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // Helper function to calculate days until due date
-  const calculateDaysUntilDue = (dueDate) => {
-    if (!dueDate) return 0;
-    const due = new Date(dueDate);
-    const today = new Date();
-    const diffTime = due - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
-  };
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  if (loading) {
-    return <PageSkeleton label="Loading dashboard..." />;
-  }
+  if (loading) return <PageSkeleton label="Loading your dashboard…" variant="cards" />;
+  if (!data) return <ErrorState message={error} onRetry={load} />;
 
-  if (!dashboardData) return <ErrorState message={error} onRetry={fetchDashboardData} />;
-
-
-  const currentLevel = dashboardData.current_level_id || user?.profile?.current_level_id || 1;
-  const currentLevelInfo = levels.find(l => l.number === currentLevel) || levels[0];
-  const progressPercentage = (currentLevel / 8) * 100;
+  const levelId = data.current_level_id || user?.profile?.current_level_id;
+  const level = levels.find((l) => l.level_id === levelId);
+  const levelNumber = level?.level_number || levelId || 1;
+  const totalLevels = levels.length || 8;
+  const progress = Math.round((levelNumber / totalLevels) * 100);
+  const firstName = (data.full_name || user?.profile?.full_name || '').split(' ')[0];
+  const batch = data.batchInfo;
+  const paid = data.feeStatus === 'paid';
 
   return (
     <div className="page">
-      <div>
-        {/* Welcome Header */}
-        <div className="mb-8">
-          <h1 className="page-title">
-            Welcome back, {dashboardData.full_name || user?.profile?.full_name || user?.email}!
-          </h1>
-          <p className="text-gray-600">Here's what's happening with your Kathak journey</p>
-        </div>
+      <PageHeader
+        eyebrow="Student portal"
+        title={firstName ? `Namaste, ${firstName}` : 'Welcome'}
+        description="Your classes, progress and fees at a glance."
+        actions={data.roll_number && <RollNumberBadge rollNumber={data.roll_number} size="lg" showFull />}
+      />
 
-        {/* Error Message */}
-        {error && (
-          <div className="bg-yellow-50 border-l-4 border-amber-500 p-4 mb-6 rounded">
-            <p className="text-amber-700">{error}</p>
-          </div>
-        )}
-
-        {/* Late Fee Warning - Using LateFeeWarning Component */}
-        {dashboardData.has_late_fee && (
-          <LateFeeWarning 
-            hasLateFee={dashboardData.has_late_fee}
-            lateFeeAmount={dashboardData.late_fee_amount}
-            daysUntilLateFee={calculateDaysUntilDue(dashboardData.next_due_date)}
-            nextDueDate={dashboardData.next_due_date}
-            variant="banner"
+      {data.has_late_fee && (
+        <div className="mb-6">
+          <LateFeeWarning
+            hasLateFee={data.has_late_fee}
+            lateFeeAmount={data.late_fee_amount}
+            daysUntilLateFee={daysUntil(data.next_due_date)}
+            nextDueDate={data.next_due_date}
           />
-        )}
+        </div>
+      )}
 
-        {/* Quick Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-          {/* Roll Number Card - Using RollNumberBadge Component */}
-          <div className="bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl shadow-lg p-6">
-            <p className="text-sm text-gray-600 mb-3">Roll Number</p>
-            <RollNumberBadge 
-              rollNumber={dashboardData.roll_number} 
-              size="lg" 
-              showFull={false} 
-            />
-            <p className="text-xs text-gray-500 mt-2">Auto-assigned</p>
+      {/* Level progress + key stats */}
+      <div className="mb-6 grid gap-4 lg:grid-cols-3">
+        <div className="relative overflow-hidden rounded-xl bg-accent p-6 text-sand-100 lg:col-span-1">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full border-[18px] border-secondary-500/15" aria-hidden="true" />
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-secondary-300">Current level</p>
+          <p className="mt-3 font-heading text-2xl font-semibold text-sand-50">{level?.level_name || `Level ${levelNumber}`}</p>
+          <p className="mt-1 text-sm text-sand-300">
+            Level {levelNumber} of {totalLevels}
+          </p>
+          <div className="mt-5 h-2 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label="Curriculum progress">
+            <div className="h-full rounded-full bg-secondary-400" style={{ width: `${progress}%` }} />
           </div>
-
-          {/* Current Level Card */}
-          <div className="card">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-gray-600">Current Level</h3>
-              <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                <span className="text-primary font-bold">{currentLevel}</span>
-              </div>
+          <p className="mt-2 text-xs text-sand-400">{progress}% of the curriculum</p>
+        </div>
+        <div className="grid grid-cols-2 gap-4 lg:col-span-2">
+          <StatCard label="Attendance" value={`${data.attendancePercentage || 0}%`} hint="Last 30 days" icon="clipboardCheck" tone="success" to="/student/attendance" />
+          <StatCard label="Performance" value={data.performance_score || '—'} hint="Out of 100 · attendance, practice &amp; exams" icon="star" tone="gold" to="/student/reviews" />
+          <div className="card col-span-2 sm:col-span-1">
+            <p className="text-sm font-medium text-gray-600">Fee plan</p>
+            <div className="mt-3">
+              <PaymentWindowBadge paymentWindow={data.payment_window} discount={data.discount} />
             </div>
-            <p className="text-lg font-bold text-accent">{currentLevelInfo.name}</p>
-            <div className="mt-3 bg-gray-200 rounded-full h-2">
-              <div 
-                className="bg-primary h-2 rounded-full transition-all duration-500"
-                style={{ width: `${progressPercentage}%` }}
-              ></div>
-            </div>
-            <p className="text-xs text-gray-500 mt-1">{Math.round(progressPercentage)}% Complete</p>
-          </div>
-
-          {/* Attendance Card */}
-          <div className="card">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-gray-600">Attendance</h3>
-              <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-accent">{dashboardData.attendancePercentage || 0}%</p>
-            <p className="text-xs text-gray-500 mt-1">This Month</p>
-          </div>
-
-          {/* Payment Plan Info - Using PaymentWindowBadge Component */}
-          <div className="card">
-            <p className="text-sm font-semibold text-gray-600 mb-3">Payment Plan</p>
-            <PaymentWindowBadge 
-              paymentWindow={dashboardData.payment_window}
-              discount={dashboardData.discount}
-              size="lg"
-            />
-            <p className="text-xs text-gray-500 mt-2">
-              {dashboardData.next_due_date 
-                ? `Next due: ${new Date(dashboardData.next_due_date).toLocaleDateString()}`
-                : 'No due date'}
+            <p className="mt-3 text-xs text-gray-500">
+              {data.next_due_date ? `Next due ${formatDate(data.next_due_date, { day: 'numeric', month: 'short', year: 'numeric' })}` : 'No upcoming due date'}
             </p>
           </div>
-
-          {/* Performance Score Card */}
-          <div className="card">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-gray-600">Performance</h3>
-              <svg className="w-10 h-10 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-              </svg>
-            </div>
-            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-accent">{dashboardData.performance_score || 0}</p>
-            <p className="text-xs text-gray-500 mt-1">Overall Score</p>
-          </div>
+          <Link to="/student/fees" className={`card card-interactive col-span-2 flex items-center gap-4 sm:col-span-1 ${paid ? '' : 'border-amber-200 bg-amber-50/60'}`}>
+            <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${paid ? 'bg-green-50 text-green-700' : 'bg-amber-100 text-amber-800'}`}>
+              <Icon name={paid ? 'checkCircle' : 'clock'} className="h-6 w-6" />
+            </span>
+            <span>
+              <span className="block font-semibold text-accent">{paid ? 'Fees up to date' : 'Payment pending'}</span>
+              <span className="block text-xs text-gray-500">{paid ? 'Nothing due right now' : 'Pay at the academy office'}</span>
+            </span>
+          </Link>
         </div>
+      </div>
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Batch Information */}
-          <div className="lg:col-span-2 space-y-8">
-            <div className="card">
-              <h2 className="text-2xl font-bold text-accent mb-4 pb-2 border-b">Your Batch</h2>
-              
-              {dashboardData.batchInfo ? (
-                <div className="space-y-4">
-                  <div className="flex items-start space-x-4">
-                    <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
-                      <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                      </svg>
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-xl font-bold text-primary mb-1">
-                        {dashboardData.batchInfo.batchName || dashboardData.batchInfo.batch_name}
-                      </h3>
-                      <p className="text-gray-600 text-sm mb-2">{dashboardData.batchInfo.schedule}</p>
-                      <p className="text-sm text-gray-500">
-                        Teacher: <span className="font-semibold text-accent">{dashboardData.batchInfo.teacherName || dashboardData.batchInfo.teacher_name}</span>
-                      </p>
-                    </div>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          {/* Batch */}
+          <section className="card" aria-labelledby="batch-heading">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 id="batch-heading" className="section-title">
+                Your batch
+              </h2>
+              {batch && (
+                <Link to="/student/schedule" className="text-sm font-semibold text-primary hover:text-primary-700">
+                  Full schedule
+                </Link>
+              )}
+            </div>
+            {batch ? (
+              <>
+                <div className="flex items-start gap-4 rounded-lg bg-sand-50 p-4">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary">
+                    <Icon name="collection" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-accent">{batch.batchName || batch.batch_name}</p>
+                    {batch.schedule && <p className="text-sm text-gray-600">{batch.schedule}</p>}
+                    <p className="mt-1 text-sm text-gray-500">
+                      Teacher: <span className="font-medium text-accent">{batch.teacherName || batch.teacher_name || '—'}</span>
+                    </p>
                   </div>
-
-                  {dashboardData.upcomingClasses && dashboardData.upcomingClasses.length > 0 && (
-                    <div className="bg-blue-50 rounded-lg p-4">
-                      <h4 className="font-semibold text-accent mb-2">Upcoming Classes</h4>
-                      <div className="space-y-2">
-                        {dashboardData.upcomingClasses.map((cls, index) => (
-                          <div key={index} className="flex items-center justify-between text-sm">
-                            <span className="text-gray-700">
-                              {new Date(cls.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                            </span>
-                            <span className="text-gray-600">{cls.time}</span>
-                            <span className="text-primary font-semibold">{cls.type}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
-              ) : (
-                <p className="text-gray-500 text-center py-8">No batch assigned yet</p>
-              )}
-            </div>
-
-            {/* Recent Notices */}
-            <div className="card">
-              <div className="flex items-center justify-between mb-4 pb-2 border-b">
-                <h2 className="section-title">Recent Notices</h2>
-                <Link to="/notices" className="text-primary hover:text-primary-dark font-semibold text-sm">
-                  View All →
-                </Link>
-              </div>
-              
-              {dashboardData.recentNotices && dashboardData.recentNotices.length > 0 ? (
-                <div className="space-y-4">
-                  {dashboardData.recentNotices.map((notice) => (
-                    <div key={notice.id} className="flex items-start space-x-3 p-3 bg-sand-50 rounded-lg hover:bg-sand-100 transition-colors">
-                      <svg className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
-                      </svg>
-                      <div className="flex-1">
-                        <p className="font-semibold text-accent">{notice.title}</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {formatDate(notice.date)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500 text-center py-8">No recent notices</p>
-              )}
-            </div>
-          </div>
-
-          {/* Quick Actions Sidebar */}
-          <div className="space-y-6">
-            <div className="card">
-              <h2 className="section-title mb-4">Quick Actions</h2>
-              <div className="space-y-3">
-                <Link to="/student/attendance" className="block w-full bg-primary text-white px-4 py-3 rounded-lg hover:bg-primary-dark transition-colors font-semibold text-center">
-                  📊 View Attendance
-                </Link>
-                <Link to="/student/fees" className="block w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold text-center">
-                  💳 Pay Fees
-                </Link>
-                <Link to="/student/activity-log" className="block w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold text-center">
-                  ✍️ Log Activity
-                </Link>
-                <Link to="/student/resources" className="block w-full bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 transition-colors font-semibold text-center">
-                  📚 Resources
-                </Link>
-              </div>
-            </div>
-
-            {/* Fee Status Card */}
-            <div className="card">
-              <h2 className="section-title mb-4">Fee Status</h2>
-              <div className="text-center">
-                <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-3 ${
-                  dashboardData.feeStatus === 'paid' ? 'bg-green-100' : 'bg-amber-100'
-                }`}>
-                  {dashboardData.feeStatus === 'paid' ? (
-                    <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  ) : (
-                    <svg className="w-10 h-10 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  )}
-                </div>
-                <p className={`text-lg font-bold ${
-                  dashboardData.feeStatus === 'paid' ? 'text-green-600' : 'text-amber-600'
-                }`}>
-                  {dashboardData.feeStatus === 'paid' ? 'All Paid!' : 'Payment Pending'}
-                </p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {dashboardData.feeStatus === 'paid' 
-                    ? 'You are all up to date' 
-                    : 'Please complete your payment'}
-                </p>
-                {dashboardData.feeStatus !== 'paid' && (
-                  <Link to="/student/fees" className="inline-block mt-3 px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors font-semibold">
-                    Pay Now
-                  </Link>
+                {data.upcomingClasses?.length > 0 && (
+                  <div className="mt-5">
+                    <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Upcoming classes</h3>
+                    <ul className="divide-y divide-sand-100">
+                      {data.upcomingClasses.map((c, i) => (
+                        <li key={i} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                          <span className="font-medium text-accent">
+                            {formatDate(c.date, { weekday: 'short', day: 'numeric', month: 'short' })}
+                          </span>
+                          <span className="text-gray-600">{c.time}</span>
+                          {c.type && <span className="badge-brand">{c.type}</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
-              </div>
+              </>
+            ) : (
+              <EmptyState icon="calendar" size="sm" title="No batch assigned yet" description="The academy will place you in a batch soon; it will appear here." />
+            )}
+          </section>
+
+          {/* Notices */}
+          <section className="card" aria-labelledby="notices-heading">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 id="notices-heading" className="section-title">
+                Recent notices
+              </h2>
+              <Link to="/notices" className="text-sm font-semibold text-primary hover:text-primary-700">
+                View all
+              </Link>
             </div>
-          </div>
+            {data.recentNotices?.length ? (
+              <ul className="divide-y divide-sand-100">
+                {data.recentNotices.map((n) => (
+                  <li key={n.id} className="flex items-start gap-3 py-3">
+                    <Icon name="megaphone" className="mt-0.5 h-5 w-5 shrink-0 text-secondary-600" />
+                    <div className="min-w-0">
+                      <p className="font-medium text-accent">{n.title}</p>
+                      <p className="text-xs text-gray-500">{formatDate(n.date)}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyState icon="megaphone" size="sm" title="No recent notices" />
+            )}
+          </section>
         </div>
+
+        {/* Quick links */}
+        <aside className="card h-fit" aria-labelledby="quick-heading">
+          <h2 id="quick-heading" className="section-title mb-4">
+            Quick links
+          </h2>
+          <ul className="grid grid-cols-2 gap-2 lg:grid-cols-1">
+            {QUICK_LINKS.map((q) => (
+              <li key={q.to}>
+                <Link to={q.to} className="flex items-center gap-3 rounded-lg border border-sand-200 px-3 py-2.5 text-sm font-medium text-accent transition-colors hover:border-primary-200 hover:bg-primary-50/50">
+                  <Icon name={q.icon} className="h-5 w-5 text-primary" />
+                  {q.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </aside>
       </div>
     </div>
   );

@@ -1,18 +1,16 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { PageSkeleton } from '../components/ui/Skeleton';
 import { Link } from 'react-router-dom';
+import { PageSkeleton } from '../components/ui/Skeleton';
+import PageHeader from '../components/ui/PageHeader';
+import Icon from '../components/ui/Icon';
 import ErrorState from '../components/ErrorState';
+import EmptyState from '../components/EmptyState';
 import studentService from '../services/studentService';
 import noticeService from '../services/noticeService';
+import { formatDate } from '../utils/date';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const EVENT_CATEGORIES = ['event', 'examination', 'workshop', 'holiday'];
-const EVENT_STYLE = {
-  event: 'bg-purple-100 text-purple-800',
-  examination: 'bg-red-100 text-red-800',
-  workshop: 'bg-blue-100 text-blue-800',
-  holiday: 'bg-green-100 text-green-800',
-};
 
 // Batch schedules are free text ("Mon, Wed, Fri", "Monday/Thursday", "Daily").
 const classDays = (schedule) => {
@@ -45,7 +43,7 @@ const StudentSchedule = () => {
     load();
   }, [load]);
 
-  if (loading) return <PageSkeleton label="Loading schedule..." />;
+  if (loading) return <PageSkeleton label="Loading schedule…" variant="cards" />;
   if (error) return <ErrorState message={error} onRetry={load} />;
 
   const batch = schedule.batchInfo;
@@ -54,94 +52,99 @@ const StudentSchedule = () => {
 
   return (
     <div className="page">
-      <div>
-        <div className="mb-8">
-          <h1 className="page-title">My Schedule</h1>
-          <p className="text-gray-600">Your class timetable and upcoming academy events</p>
+      <PageHeader title="Schedule" description="Your weekly class timetable and upcoming academy events." />
+
+      {!batch ? (
+        <div className="callout-warning mb-6 flex gap-3">
+          <Icon name="info" className="mt-0.5 h-5 w-5 shrink-0" />
+          You have not been assigned to a batch yet. The academy office will assign you to one soon.
         </div>
-
-        {!batch ? (
-          <div className="bg-yellow-50 border border-amber-200 rounded-xl p-6 text-amber-800 mb-8">
-            You have not been assigned to a batch yet. The academy office will assign you to one soon.
-          </div>
-        ) : (
-          <>
-            <div className="bg-gradient-to-br from-primary to-primary-dark text-white rounded-2xl shadow-2xl p-6 sm:p-8 mb-8">
-              <h2 className="text-2xl font-bold mb-6">Batch Information</h2>
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
-                {[
-                  ['Batch', batch.batchName],
-                  ['Level', batch.level],
-                  ['Teacher', batch.teacher],
-                  ['Days', batch.schedule],
-                  ['Time & Room', [batch.time, batch.classRoom].filter(Boolean).join(' · ')],
-                ].map(([label, value]) => (
-                  <div key={label}>
-                    <p className="text-white/70 text-sm mb-1">{label}</p>
-                    <p className="font-semibold text-lg">{value || '—'}</p>
-                  </div>
-                ))}
-              </div>
+      ) : (
+        <>
+          <section className="surface mb-6 overflow-hidden" aria-labelledby="batch-heading">
+            <div className="border-b border-sand-200 bg-sand-50 px-5 py-4 sm:px-6">
+              <p className="eyebrow">Your batch</p>
+              <h2 id="batch-heading" className="mt-1 font-heading text-2xl font-semibold text-accent">
+                {batch.batchName}
+              </h2>
             </div>
-
-            <div className="card mb-6">
-              <h2 className="text-2xl font-bold text-accent mb-6 pb-4 border-b">Weekly Schedule</h2>
-              {days.size === 0 ? (
-                <p className="text-gray-600">Class days: {batch.schedule}</p>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
-                  {DAYS.map((day) => {
-                    const hasClass = days.has(day);
-                    return (
-                      <div
-                        key={day}
-                        className={`border-2 rounded-xl p-4 ${hasClass ? 'bg-green-50 border-green-200' : 'bg-sand-50 border-sand-200 opacity-60'} ${
-                          day === today ? 'ring-2 ring-primary' : ''
-                        }`}
-                      >
-                        <h3 className="font-bold text-accent mb-2">
-                          {day}
-                          {day === today && <span className="ml-1 text-xs text-primary">(today)</span>}
-                        </h3>
-                        {hasClass ? (
-                          <p className="text-sm text-gray-700">{batch.time}</p>
-                        ) : (
-                          <p className="text-sm text-gray-400 italic">No class</p>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </>
-        )}
-
-        <div className="card">
-          <div className="flex items-center justify-between mb-6 pb-4 border-b">
-            <h2 className="section-title">Upcoming Events</h2>
-            <Link to="/notices" className="text-sm text-primary hover:underline">All notices →</Link>
-          </div>
-          {events.length === 0 ? (
-            <p className="text-gray-500 text-center py-6">No upcoming events have been announced.</p>
-          ) : (
-            <div className="space-y-4">
-              {events.map((e) => (
-                <div key={e.id} className="flex flex-col sm:flex-row sm:items-start gap-3 p-4 bg-sand-50 rounded-xl">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-accent mb-1">{e.title}</h3>
-                    <p className="text-sm text-gray-600 line-clamp-2">{e.content}</p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Posted {new Date(e.created_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
-                    </p>
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-4 p-5 sm:p-6 lg:grid-cols-4">
+              {[
+                ['Level', batch.level, 'teacher'],
+                ['Teacher', batch.teacher, 'user'],
+                ['Days', batch.schedule, 'calendar'],
+                ['Time & room', [batch.time, batch.classRoom].filter(Boolean).join(' · '), 'clock'],
+              ].map(([label, value, icon]) => (
+                <div key={label} className="flex gap-3">
+                  <Icon name={icon} className="mt-0.5 h-5 w-5 shrink-0 text-secondary-600" />
+                  <div className="min-w-0">
+                    <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">{label}</dt>
+                    <dd className="mt-0.5 font-medium text-accent">{value || '—'}</dd>
                   </div>
-                  <span className={`self-start px-3 py-1 rounded-full text-xs font-semibold capitalize ${EVENT_STYLE[e.category]}`}>{e.category}</span>
                 </div>
               ))}
-            </div>
-          )}
+            </dl>
+          </section>
+
+          <section className="card mb-6" aria-labelledby="week-heading">
+            <h2 id="week-heading" className="section-title mb-4">
+              This week
+            </h2>
+            {days.size === 0 ? (
+              <p className="text-gray-600">Class days: {batch.schedule}</p>
+            ) : (
+              <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+                {DAYS.map((day) => {
+                  const hasClass = days.has(day);
+                  const isToday = day === today;
+                  return (
+                    <li
+                      key={day}
+                      className={`rounded-lg border p-3 ${
+                        hasClass ? 'border-primary-200 bg-primary-50/60' : 'border-sand-200 bg-sand-50 text-gray-400'
+                      } ${isToday ? 'ring-2 ring-secondary-500 ring-offset-1' : ''}`}
+                      aria-current={isToday ? 'date' : undefined}
+                    >
+                      <p className={`text-sm font-semibold ${hasClass ? 'text-accent' : ''}`}>
+                        {day.slice(0, 3)}
+                        {isToday && <span className="ml-1.5 text-[0.65rem] font-semibold uppercase text-secondary-700">Today</span>}
+                      </p>
+                      <p className="mt-1 text-xs">{hasClass ? batch.time || 'Class' : 'No class'}</p>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </section>
+        </>
+      )}
+
+      <section className="card" aria-labelledby="events-heading">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 id="events-heading" className="section-title">
+            Upcoming events
+          </h2>
+          <Link to="/notices" className="text-sm font-semibold text-primary hover:text-primary-700">
+            All notices
+          </Link>
         </div>
-      </div>
+        {events.length === 0 ? (
+          <EmptyState icon="calendar" size="sm" title="No upcoming events have been announced" />
+        ) : (
+          <ul className="divide-y divide-sand-100">
+            {events.map((e) => (
+              <li key={e.id} className="flex flex-col gap-2 py-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <h3 className="font-body font-semibold text-accent">{e.title}</h3>
+                  <p className="mt-1 line-clamp-2 text-sm text-gray-600">{e.content}</p>
+                  <p className="mt-1 text-xs text-gray-500">Posted {formatDate(e.created_at)}</p>
+                </div>
+                <span className="badge-gold shrink-0 self-start capitalize">{e.category}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 };

@@ -1,15 +1,27 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { PageSkeleton } from '../components/ui/Skeleton';
+import PageHeader from '../components/ui/PageHeader';
+import Icon from '../components/ui/Icon';
 import StarRating from '../components/StarRating';
 import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
 import studentService from '../services/studentService';
 import { useToast } from '../context/ToastContext';
+import { formatDate } from '../utils/date';
+
+const CRITERIA = [
+  ['technique_rating', 'Technique'],
+  ['rhythm_rating', 'Rhythm'],
+  ['creativity_rating', 'Creativity'],
+  ['discipline_rating', 'Discipline'],
+];
+const periodKey = (r) => `${r.review_year}-${String(r.review_month).padStart(2, '0')}`;
+const periodLabel = (r) => new Date(r.review_year, r.review_month - 1, 1).toLocaleString('en-IN', { month: 'long', year: 'numeric' });
 
 const StudentReviews = () => {
   const toast = useToast();
   const [reviews, setReviews] = useState([]);
-  const [filterMonth, setFilterMonth] = useState('all');
+  const [period, setPeriod] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -30,200 +42,130 @@ const StudentReviews = () => {
     load();
   }, [load]);
 
-  const markAsViewed = async (reviewId) => {
+  const markAsViewed = async (id) => {
     try {
-      await studentService.markReviewViewed(reviewId);
-      setReviews((list) => list.map((r) => (r.id === reviewId ? { ...r, is_viewed_by_student: true } : r)));
+      await studentService.markReviewViewed(id);
+      setReviews((list) => list.map((r) => (r.id === id ? { ...r, is_viewed_by_student: true } : r)));
     } catch (err) {
       toast.error(err.message || 'Could not update the review.');
     }
   };
 
-  const getMonthName = (month) => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return months[month - 1];
-  };
+  const periods = useMemo(() => {
+    const seen = new Map();
+    reviews.forEach((r) => seen.set(periodKey(r), periodLabel(r)));
+    return [...seen.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+  }, [reviews]);
 
-  const filteredReviews = filterMonth === 'all' 
-    ? reviews 
-    : reviews.filter(r => r.review_month === parseInt(filterMonth));
+  const shown = period === 'all' ? reviews : reviews.filter((r) => periodKey(r) === period);
+  const unread = reviews.filter((r) => !r.is_viewed_by_student).length;
+  const avg = (key) => (reviews.length ? reviews.reduce((s, r) => s + Number(r[key] || 0), 0) / reviews.length : 0);
 
-  const newReviewsCount = reviews.filter(r => !r.is_viewed_by_student).length;
-
-  // Calculate average ratings
-  const avgTechnique = reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.technique_rating, 0) / reviews.length).toFixed(1) : 0;
-  const avgRhythm = reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.rhythm_rating, 0) / reviews.length).toFixed(1) : 0;
-  const avgCreativity = reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.creativity_rating, 0) / reviews.length).toFixed(1) : 0;
-  const avgDiscipline = reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.discipline_rating, 0) / reviews.length).toFixed(1) : 0;
-
-  if (loading) return <PageSkeleton label="Loading reviews..." />;
+  if (loading) return <PageSkeleton label="Loading reviews…" variant="cards" />;
   if (error) return <ErrorState message={error} onRetry={load} />;
 
   return (
     <div className="page">
-      <div>
-        
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="page-title">
-            Teacher Reviews
-          </h1>
-          <p className="text-gray-600">See what your teacher thinks about your progress</p>
+      <PageHeader title="Teacher reviews" description="Monthly feedback from your teacher on your progress." />
+
+      {unread > 0 && (
+        <div className="callout-info mb-6 flex gap-3">
+          <Icon name="info" className="mt-0.5 h-5 w-5 shrink-0" />
+          <p>
+            You have <strong>{unread}</strong> new review{unread > 1 ? 's' : ''} to read.
+          </p>
         </div>
+      )}
 
-        {/* New Reviews Alert */}
-        {newReviewsCount > 0 && (
-          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-8 rounded-r-lg">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
+      {reviews.length > 0 && (
+        <section className="card mb-6" aria-labelledby="avg-heading">
+          <h2 id="avg-heading" className="section-title mb-4">
+            Your averages
+          </h2>
+          <dl className="grid grid-cols-2 gap-5 lg:grid-cols-4">
+            {CRITERIA.map(([key, label]) => (
+              <div key={key}>
+                <dt className="text-sm text-gray-600">{label}</dt>
+                <dd className="mt-1 flex items-center gap-3">
+                  <span className="font-heading text-2xl font-semibold tabular-nums text-accent">{avg(key).toFixed(1)}</span>
+                  <StarRating rating={avg(key)} size="sm" label={label} />
+                </dd>
               </div>
-              <div className="ml-3">
-                <p className="text-sm text-blue-700">
-                  <strong>You have {newReviewsCount} new review{newReviewsCount > 1 ? 's' : ''}!</strong> Check what your teacher has to say.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+            ))}
+          </dl>
+        </section>
+      )}
 
-        {/* Overall Performance Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="card">
-            <p className="text-sm text-gray-600 mb-2">Technique</p>
-            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-primary mb-2">{avgTechnique}</p>
-            <StarRating rating={parseFloat(avgTechnique)} size="md" />
-          </div>
-          <div className="card">
-            <p className="text-sm text-gray-600 mb-2">Rhythm</p>
-            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-green-700 mb-2">{avgRhythm}</p>
-            <StarRating rating={parseFloat(avgRhythm)} size="md" color="gold" />
-          </div>
-          <div className="card">
-            <p className="text-sm text-gray-600 mb-2">Creativity</p>
-            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-purple-700 mb-2">{avgCreativity}</p>
-            <StarRating rating={parseFloat(avgCreativity)} size="md" color="orange" />
-          </div>
-          <div className="card">
-            <p className="text-sm text-gray-600 mb-2">Discipline</p>
-            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-blue-700 mb-2">{avgDiscipline}</p>
-            <StarRating rating={parseFloat(avgDiscipline)} size="md" />
-          </div>
+      {reviews.length === 0 ? (
+        <div className="surface">
+          <EmptyState icon="star" title="No reviews yet" description="Your teacher’s monthly reviews will appear here." size="lg" />
         </div>
-
-        {/* Filter */}
-        <div className="card mb-6">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-600">
-              Showing {filteredReviews.length} of {reviews.length} reviews
+      ) : (
+        <>
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-gray-600" aria-live="polite">
+              Showing {shown.length} of {reviews.length} reviews
             </p>
-            <select
-              value={filterMonth}
-              onChange={(e) => setFilterMonth(e.target.value)}
-              className="input-field w-64"
-            >
-              <option value="all">All Months</option>
-              {[...new Set(reviews.map((r) => r.review_month))].map((m) => (
-                <option key={m} value={m}>
-                  {getMonthName(m)}
+            <select value={period} onChange={(e) => setPeriod(e.target.value)} className="input-field sm:w-56" aria-label="Filter by month">
+              <option value="all">All months</option>
+              {periods.map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
                 </option>
               ))}
             </select>
           </div>
-        </div>
 
-        {/* Reviews List */}
-        <div className="space-y-6">
-          {filteredReviews.map((review) => (
-            <div 
-              key={review.id} 
-              className={`card ${
-                !review.is_viewed_by_student ? 'border-2 border-blue-300' : ''
-              }`}
-            >
-              {/* Header */}
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <div className="flex items-center space-x-3 mb-1">
-                    <h3 className="section-title">
-                      {getMonthName(review.review_month)} {review.review_year} Review
-                    </h3>
-                    {!review.is_viewed_by_student && (
-                      <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
-                        NEW
-                      </span>
+          <ul className="space-y-4">
+            {shown.map((r) => (
+              <li key={r.id}>
+                <article className={`card ${r.is_viewed_by_student ? '' : 'ring-2 ring-sky-200'}`}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="font-heading text-xl font-semibold text-accent">{periodLabel(r)}</h2>
+                        {!r.is_viewed_by_student && <span className="badge-info">New</span>}
+                      </div>
+                      <p className="mt-0.5 text-sm text-gray-600">by {r.teacher_name}</p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="font-heading text-3xl font-semibold tabular-nums text-primary">{r.overall_rating.toFixed(1)}</p>
+                      <p className="text-xs text-gray-500">overall</p>
+                    </div>
+                  </div>
+
+                  <dl className="mt-5 grid grid-cols-2 gap-4 border-y border-sand-100 py-4 md:grid-cols-4">
+                    {CRITERIA.map(([key, label]) => (
+                      <div key={key}>
+                        <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">{label}</dt>
+                        <dd className="mt-1">
+                          <StarRating rating={r[key]} size="sm" showNumber label={label} />
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+
+                  <figure className="mt-4">
+                    <figcaption className="text-sm font-medium text-gray-500">Teacher’s comments</figcaption>
+                    <blockquote className="mt-1.5 border-l-2 border-secondary-400 pl-4 italic text-gray-700">
+                      {r.review_text || 'No written comments.'}
+                    </blockquote>
+                  </figure>
+
+                  <div className="mt-4 flex items-center justify-between gap-3">
+                    <p className="text-xs text-gray-500">Posted {formatDate(r.created_at)}</p>
+                    {!r.is_viewed_by_student && (
+                      <button type="button" onClick={() => markAsViewed(r.id)} className="btn-secondary btn-sm">
+                        <Icon name="check" className="h-4 w-4" /> Mark as read
+                      </button>
                     )}
                   </div>
-                  <p className="text-sm text-gray-600">by {review.teacher_name}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-primary">{review.overall_rating}</p>
-                  <p className="text-xs text-gray-500">Overall Rating</p>
-                </div>
-              </div>
-
-              {/* Rating Breakdown - USING StarRating Component */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 pb-6 border-b">
-                <div>
-                  <p className="text-sm font-semibold text-gray-700 mb-2">Technique</p>
-                  <StarRating rating={review.technique_rating} showNumber={true} size="md" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-700 mb-2">Rhythm</p>
-                  <StarRating rating={review.rhythm_rating} showNumber={true} size="md" color="gold" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-700 mb-2">Creativity</p>
-                  <StarRating rating={review.creativity_rating} showNumber={true} size="md" color="orange" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-700 mb-2">Discipline</p>
-                  <StarRating rating={review.discipline_rating} showNumber={true} size="md" />
-                </div>
-              </div>
-
-              {/* Teacher's Comments */}
-              <div className="mb-4">
-                <p className="text-sm font-semibold text-gray-700 mb-2">Teacher's Comments:</p>
-                <div className="p-4 bg-sand-50 rounded-lg">
-                  <p className="text-gray-700 italic">{review.review_text ? `"${review.review_text}"` : 'No written comments.'}</p>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="flex items-center justify-between pt-4 border-t">
-                <p className="text-xs text-gray-500">
-                  Posted on {new Date(review.created_at).toLocaleDateString('en-IN', { 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}
-                </p>
-                {!review.is_viewed_by_student && (
-                  <button
-                    onClick={() => markAsViewed(review.id)}
-                    className="btn-secondary text-sm"
-                  >
-                    Mark as Read
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Empty State - USING EmptyState Component */}
-        {filteredReviews.length === 0 && (
-          <EmptyState 
-            icon="star"
-            title="No reviews found"
-            description="No reviews match your selected filter. Try viewing all months."
-            size="lg"
-          />
-        )}
-      </div>
+                </article>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   );
 };
