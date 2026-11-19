@@ -33,7 +33,7 @@ const PerformanceGraph = ({ data = [], maxValue, height = 200, color = 'primary'
             const v = Number(d.value) || 0;
             const h = Math.max((v / max) * 100, v > 0 ? 3 : 0);
             return (
-              <li key={i} className="group flex h-full flex-1 flex-col justify-end" aria-label={`${d.label}: ${v}${unit}`}>
+              <li key={i} className="group flex h-full flex-1 flex-col justify-end" aria-label={`${d.label}: ${v}${unit}`} title={`${d.label}: ${v}${unit}`}>
                 {showValues && (
                   <span className="mb-1 text-center text-[0.7rem] font-medium tabular-nums text-gray-600">
                     {v}

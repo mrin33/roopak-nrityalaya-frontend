@@ -1,321 +1,191 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import galleryRequestService from '../services/galleryRequestService';
 import StatusBadge from '../components/StatusBadge';
+import RollNumberBadge from '../components/RollNumberBadge';
 import EmptyState from '../components/EmptyState';
+import ErrorState from '../components/ErrorState';
 import ProtectedMedia, { openProtectedMedia } from '../components/ProtectedMedia';
+import PageHeader from '../components/ui/PageHeader';
+import Icon from '../components/ui/Icon';
+import { PageSkeleton } from '../components/ui/Skeleton';
+import { formatDate } from '../utils/date';
+
+const TABS = [
+  ['pending', 'Pending'],
+  ['approved', 'Approved'],
+  ['rejected', 'Declined'],
+  ['all', 'All'],
+];
+const shortDate = (d) => formatDate(d, { day: 'numeric', month: 'short', year: 'numeric' });
 
 const AdminGalleryRequests = () => {
   const toast = useToast();
+  const confirm = useConfirm();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
-  const [showRejectModal, setShowRejectModal] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState(null);
-  const [rejectionReason, setRejectionReason] = useState('');
-  const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState(null);
+  const [filter, setFilter] = useState('pending');
+  const [busyId, setBusyId] = useState(null);
 
   const fetchRequests = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await galleryRequestService.getAllAdminRequests();
-      setRequests(data || []);
-    } catch (error) {
-      toast.error(error.message || 'Could not load gallery requests.');
+      setError(null);
+      setRequests((await galleryRequestService.getAllAdminRequests()) || []);
+    } catch (err) {
+      setError(err.message || 'Could not load gallery requests.');
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     fetchRequests();
   }, [fetchRequests]);
 
-  const handleApprove = async (request) => {
-    if (!window.confirm(`Approve upload request from ${request.student_name}?`)) return;
-    
-    setProcessing(true);
+  const handleApprove = async (r) => {
+    const ok = await confirm({
+      title: 'Publish this upload?',
+      message: `“${r.title}” from ${r.student_name} will appear in the public gallery.`,
+      confirmLabel: 'Approve and publish',
+    });
+    if (!ok) return;
+    setBusyId(r.id);
     try {
-      await galleryRequestService.updateRequestStatus(request.id, 'approved');
-      toast.success(`Approved — "${request.title}" is now in the public gallery.`);
+      await galleryRequestService.updateRequestStatus(r.id, 'approved');
+      toast.success(`Approved — “${r.title}” is now in the public gallery.`);
       fetchRequests();
-    } catch (error) {
-      toast.error(error.message || 'Failed to approve request.');
+    } catch (err) {
+      toast.error(err.message || 'Failed to approve request.');
     } finally {
-      setProcessing(false);
+      setBusyId(null);
     }
   };
 
-  const handleRejectClick = (request) => {
-    setSelectedRequest(request);
-    setRejectionReason('');
-    setShowRejectModal(true);
-  };
-
-  const handleRejectSubmit = async (e) => {
-    e.preventDefault();
-    setProcessing(true);
+  const handleReject = async (r) => {
+    const res = await confirm({
+      title: 'Decline this upload?',
+      message: `${r.student_name} will see your reason on their uploads page.`,
+      confirmLabel: 'Decline',
+      tone: 'danger',
+      input: { label: 'Reason', required: true, multiline: true, placeholder: 'e.g. The photo is blurred — please upload a clearer one.' },
+    });
+    if (!res) return;
+    setBusyId(r.id);
     try {
-      await galleryRequestService.updateRequestStatus(selectedRequest.id, 'rejected', rejectionReason);
-      setShowRejectModal(false);
-      toast.success(`Request rejected. ${selectedRequest.student_name || 'The student'} will see the reason on their uploads page.`);
+      await galleryRequestService.updateRequestStatus(r.id, 'rejected', res.value);
+      toast.success('Upload declined. The student can see the reason.');
       fetchRequests();
-    } catch (error) {
-      toast.error(error.message || 'Failed to reject request.');
+    } catch (err) {
+      toast.error(err.message || 'Failed to decline request.');
     } finally {
-      setProcessing(false);
+      setBusyId(null);
     }
   };
 
-  const filteredRequests = filter === 'all' 
-    ? requests 
-    : requests.filter(r => r.status === filter);
+  if (loading && !requests.length) return <PageSkeleton label="Loading upload requests…" variant="gallery" stats={false} />;
+  if (error) return <ErrorState message={error} onRetry={fetchRequests} />;
 
-  const stats = {
-    pending: requests.filter(r => r.status === 'pending').length,
-    approved: requests.filter(r => r.status === 'approved').length,
-    rejected: requests.filter(r => r.status === 'rejected').length,
-    total: requests.length
-  };
-
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-xl text-gray-500 text-center py-20">Loading requests...</p>
-      </div>
-    );
-  }
+  const shown = filter === 'all' ? requests : requests.filter((r) => r.status === filter);
+  const count = (s) => (s === 'all' ? requests.length : requests.filter((r) => r.status === s).length);
 
   return (
     <div className="page">
-      <div>
-        
-        <div className="mb-8">
-          <h1 className="page-title">
-            Gallery Upload Requests
-          </h1>
-          <p className="text-gray-600">Review and approve student gallery uploads</p>
-        </div>
+      <PageHeader title="Student uploads" description="Photos and videos submitted by students. Approved items are published to the public gallery." />
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="card">
-            <p className="text-sm text-gray-600 mb-1">Total Requests</p>
-            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-primary">{stats.total}</p>
-          </div>
-          <div className="card">
-            <p className="text-sm text-gray-600 mb-1">Pending Review</p>
-            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-amber-700">{stats.pending}</p>
-          </div>
-          <div className="card">
-            <p className="text-sm text-gray-600 mb-1">Approved</p>
-            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-green-700">{stats.approved}</p>
-          </div>
-          <div className="card">
-            <p className="text-sm text-gray-600 mb-1">Rejected</p>
-            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-red-700">{stats.rejected}</p>
-          </div>
-        </div>
+      <div className="mb-6 inline-flex flex-wrap gap-1 rounded-xl border border-sand-200 bg-white p-1" role="group" aria-label="Filter by status">
+        {TABS.map(([v, l]) => (
+          <button key={v} type="button" onClick={() => setFilter(v)} aria-pressed={filter === v} className={filter === v ? 'tab-active' : 'tab'}>
+            {l} <span className="ml-1 text-xs opacity-70">{count(v)}</span>
+          </button>
+        ))}
+      </div>
 
-        <div className="card mb-6">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-600">
-              Showing {filteredRequests.length} of {requests.length} requests
-            </p>
-            <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="input-field w-48"
-            >
-              <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-            </select>
-          </div>
+      {shown.length === 0 ? (
+        <div className="surface">
+          <EmptyState icon="inbox" title={filter === 'pending' ? 'Nothing waiting for review' : 'No uploads here'} description="Student submissions will appear here." />
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredRequests.map((request) => (
-            <div key={request.id} className="surface overflow-hidden flex flex-col">
-              <div className="relative h-48 bg-sand-100 flex items-center justify-center overflow-hidden">
-                {request.file_url ? (
-                  <ProtectedMedia
-                    requestId={request.id}
-                    mediaType={request.media_type}
-                    alt={request.title}
-                    className="object-cover w-full h-full"
-                  />
-                ) : (
-                  <div className={request.media_type === 'photo' ? 'text-blue-400' : 'text-red-400'}>
-                    {request.media_type === 'photo' ? (
-                      <svg className="w-20 h-20" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-                      </svg>
-                    ) : (
-                      <svg className="w-20 h-20" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
-                      </svg>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {shown.map((r) => {
+            const busy = busyId === r.id;
+            return (
+              <article key={r.id} className="surface flex flex-col overflow-hidden">
+                <div className="relative aspect-[4/3] bg-sand-100">
+                  {r.file_url ? (
+                    <ProtectedMedia requestId={r.id} mediaType={r.media_type} alt={r.title} className="h-full w-full object-cover" controls={r.media_type === 'video'} />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-sand-400">
+                      <Icon name={r.media_type === 'video' ? 'video' : 'photo'} className="h-12 w-12" />
+                    </div>
+                  )}
+                  <span className="absolute left-3 top-3">
+                    <StatusBadge status={r.status} label={r.status === 'rejected' ? 'Declined' : undefined} />
+                  </span>
+                  {r.file_url && (
+                    <button
+                      type="button"
+                      onClick={() => openProtectedMedia(r.id)}
+                      className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent-dark/60 text-white hover:bg-accent-dark/80"
+                      aria-label={`Open ${r.title} full size`}
+                      title="Open full size"
+                    >
+                      <Icon name="external" className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-1 flex-col p-5">
+                  <h2 className="font-body font-semibold text-accent">{r.title}</h2>
+                  {r.description && <p className="mt-1 line-clamp-2 text-sm text-gray-600">{r.description}</p>}
+                  <dl className="mt-3 space-y-1.5 text-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <dt className="text-gray-500">Student</dt>
+                      <dd className="flex items-center gap-1.5 text-right text-accent">
+                        {r.student_name} <RollNumberBadge rollNumber={r.roll_number} size="sm" />
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-gray-500">Category</dt>
+                      <dd className="text-accent">
+                        {r.category} · <span className="capitalize">{r.media_type}</span>
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-gray-500">Submitted</dt>
+                      <dd className="text-accent">{shortDate(r.requested_at)}</dd>
+                    </div>
+                  </dl>
+                  <div className="mt-auto pt-4">
+                    {r.status === 'pending' && (
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => handleApprove(r)} disabled={busy} className="btn-primary flex-1">
+                          <Icon name="check" className="h-4 w-4" /> Approve
+                        </button>
+                        <button type="button" onClick={() => handleReject(r)} disabled={busy} className="btn-danger-outline flex-1">
+                          Decline
+                        </button>
+                      </div>
+                    )}
+                    {r.status === 'approved' && (
+                      <p className="text-xs text-green-800">
+                        Approved {r.reviewed_at ? shortDate(r.reviewed_at) : ''} by {r.reviewed_by_name || 'an admin'}
+                      </p>
+                    )}
+                    {r.status === 'rejected' && r.rejection_reason && (
+                      <p className="rounded-lg bg-red-50 p-3 text-xs text-red-800">
+                        <span className="font-semibold">Reason: </span>
+                        {r.rejection_reason}
+                      </p>
                     )}
                   </div>
-                )}
-                
-                {request.media_type === 'video' && request.file_url && (
-                   <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                     <svg className="w-12 h-12 text-white opacity-80" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
-                     </svg>
-                   </div>
-                )}
-                
-                {request.file_url && (
-                   <button
-                     type="button"
-                     onClick={() => openProtectedMedia(request.id)}
-                     className="absolute top-2 right-2 bg-black/50 text-white p-2 rounded-full hover:bg-black/70"
-                     title="View full size"
-                     aria-label="View full size"
-                   >
-                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                     </svg>
-                   </button>
-                )}
-              </div>
-
-              <div className="p-6 flex flex-col flex-grow">
-                <div className="flex items-start justify-between mb-3">
-                  <h3 className="font-bold text-accent text-lg">{request.title}</h3>
-                  <StatusBadge status={request.status} type="request" />
                 </div>
-
-                <p className="text-sm text-gray-600 mb-4 h-10 line-clamp-2">{request.description}</p>
-
-                <div className="space-y-2 mb-4 pb-4 border-b">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Student:</span>
-                    <span className="font-semibold">{request.student_name} ({request.roll_number})</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Category:</span>
-                    <span className="px-2 py-1 bg-sand-100 rounded text-xs">{request.category}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Type:</span>
-                    <span className="capitalize">{request.media_type}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Requested:</span>
-                    <span>{new Date(request.requested_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                  </div>
-                </div>
-
-                <div className="mt-auto">
-                  {request.status === 'pending' && (
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => handleApprove(request)}
-                        disabled={processing}
-                        className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-semibold text-sm disabled:opacity-50"
-                      >
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => handleRejectClick(request)}
-                        disabled={processing}
-                        className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 font-semibold text-sm disabled:opacity-50"
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  )}
-
-                  {request.status === 'approved' && (
-                    <div className="p-3 bg-green-50 rounded-lg">
-                      <p className="text-xs text-green-700">
-                        Approved on {new Date(request.reviewed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} by {request.reviewed_by_name || 'Admin'}
-                      </p>
-                    </div>
-                  )}
-
-                  {request.status === 'rejected' && request.rejection_reason && (
-                    <div className="p-3 bg-red-50 rounded-lg">
-                      <p className="text-xs font-semibold text-red-800 mb-1">Rejection Reason:</p>
-                      <p className="text-xs text-red-700">{request.rejection_reason}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
+              </article>
+            );
+          })}
         </div>
-
-        {filteredRequests.length === 0 && (
-          <EmptyState 
-            icon="upload"
-            title="No gallery requests"
-            description="Students haven't submitted any upload requests yet"
-          />
-        )}
-
-        {showRejectModal && selectedRequest && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-2xl w-full">
-              <div className="bg-red-600 text-white p-6 rounded-t-2xl">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold">Reject Upload Request</h2>
-                  <button 
-                    onClick={() => setShowRejectModal(false)}
-                    className="text-white hover:bg-white/20 rounded-full p-2"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              <form onSubmit={handleRejectSubmit} className="p-6">
-                <div className="mb-6 p-4 bg-sand-50 rounded-lg">
-                  <p className="text-sm text-gray-600 mb-1">Request:</p>
-                  <p className="font-bold text-accent">{selectedRequest.title}</p>
-                  <p className="text-sm text-gray-600 mt-1">From: {selectedRequest.student_name}</p>
-                </div>
-
-                <div>
-                  <label className="form-label">
-                    Reason for Rejection *
-                  </label>
-                  <textarea
-                    value={rejectionReason}
-                    onChange={(e) => setRejectionReason(e.target.value)}
-                    rows="5"
-                    className="input-field"
-                    placeholder="Explain why this upload is being rejected. This will be sent to the student."
-                    required
-                  ></textarea>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Be specific and constructive. The student will receive this feedback.
-                  </p>
-                </div>
-
-                <div className="flex justify-end space-x-4 mt-6">
-                  <button 
-                    type="button" 
-                    onClick={() => setShowRejectModal(false)}
-                    className="btn-secondary"
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" disabled={processing} className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 font-semibold disabled:opacity-50">
-                    {processing ? 'Processing...' : 'Confirm Rejection'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 };

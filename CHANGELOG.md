@@ -23,6 +23,28 @@
 - **Public site:** Teachers and Gallery pages show real data; the contact form stores messages for the admin and reports real success/failure; registration uses levels and fees from the database.
 - Removed fabricated "NEW" sidebar badges and claims that "the student will be notified" (no notification system exists).
 
+### UI/UX redesign (phase 7)
+- **Design system:** brown and antique gold on warm ivory/sand neutrals (Tailwind tokens; `gray` mapped to warm stone), Playfair Display headings with Inter body text, component classes for buttons, cards, forms, tables, badges, callouts, tabs and skeletons, visible focus rings, and `prefers-reduced-motion` support.
+- **UI kit** (`src/components/ui`): `Modal` (focus trap, Esc, scroll lock, bottom sheet on phones), `FileDrop` (keyboard-accessible drag-and-drop with a size check), `PageHeader`, `StatCard`, `RowAction`, skeletons, `ImagePlaceholder` (clearly labelled), `Icon`, `Logo`. `ConfirmProvider`/`useConfirm` replaces every `window.confirm`/`window.prompt`.
+- **Layouts:** a separate `PublicLayout` (sticky navbar, slide-in mobile drawer, footer) and `PortalLayout` (sidebar, mobile drawer, top bar with a change-password button). The portal sidebar no longer appears on public pages. The footer, which was never rendered, is now shown. Navbar, sidebar and content offsets are fixed. New 404 page. Portal pages get browser tab titles.
+- **Public site** rebuilt with live data: the home page (hero uses the newest gallery photo or a labelled placeholder; levels, teachers, gallery strip and notices from the API), About (live fee table), Teachers, Gallery (lightbox with keyboard navigation), Notices, Contact (FAQ now describes actual system behaviour), Login, Register, Set password (show/hide password, live password rules).
+- **Academy details** live in `src/config/academy.js`. Unknown details are hidden instead of showing `XXXX`/`[Your Address Here]`. Social links that pointed at the generic Facebook, Instagram and YouTube homepages are hidden until real URLs are set.
+- **All 29 portal pages** redesigned: consistent headers, stat cards, tables that collapse columns on small screens, accessible dialogs, segmented attendance controls with a sticky save bar, and skeleton loading states.
+- **Change password** for every role (`PUT /api/auth/change-password`).
+- **Fixes found during the redesign:**
+  - Registration rejected passwords without the letter "d" (`/d/` instead of `/\d/`).
+  - The admin dashboard showed a hardcoded "+12 this month".
+  - The teacher students page listed level names that don't exist, had a "View Details" button that did nothing, and showed NaN for an empty list.
+  - The teacher profile had dead Change Photo and Change Password buttons, and name and address fields that were never saved.
+  - The batch transfer page falsely claimed students are notified by email or SMS.
+  - The gallery "View Full" button did nothing, and the Notices page linked to a "Manage Notifications" feature that doesn't exist.
+  - The Contact FAQ quoted a fee that contradicted the database.
+  - The "Remember me" checkbox did nothing.
+  - Some dates displayed a day early (UTC parsing).
+  - The upload limit hint said 10 or 100 MB; the server limit is 50 MB.
+  - Review month filters ignored the year.
+- **Tests:** `src/App.smoke.test.js` renders all 39 routes (public pages and each portal) with the API unreachable. It checks the right layout, no crashes, and route guards.
+
 ### Known blockers (need external input)
 - **Online fee payment** needs payment-gateway credentials (e.g. Razorpay). Students are told to pay at the office; admins record payments.
 - **Email delivery** (invitation/reset links, contact-form alerts) needs SMTP or an email API; links are shown to the admin to share manually.

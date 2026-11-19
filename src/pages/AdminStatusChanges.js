@@ -1,10 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { PageSkeleton } from '../components/ui/Skeleton';
+import PageHeader from '../components/ui/PageHeader';
+import StatCard from '../components/ui/StatCard';
+import Icon from '../components/ui/Icon';
+import RollNumberBadge from '../components/RollNumberBadge';
 import ErrorState from '../components/ErrorState';
+import EmptyState from '../components/EmptyState';
 import adminService from '../services/adminService';
 
+const TYPES = {
+  enrollment: ['New enrolment', 'badge-success', 'plus'],
+  discontinuation: ['Discontinued', 'badge-danger', 'xCircle'],
+  rejoining: ['Rejoined', 'badge-info', 'refresh'],
+  batch_switch: ['Batch switch', 'badge-gold', 'switch'],
+};
+
 const AdminStatusChanges = () => {
-  const [statusChanges, setStatusChanges] = useState([]);
+  const [changes, setChanges] = useState([]);
   const [filterType, setFilterType] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -14,17 +26,7 @@ const AdminStatusChanges = () => {
       setLoading(true);
       setError(null);
       const rows = await adminService.getStatusChanges();
-      setStatusChanges(
-        rows.map((c) => ({
-          ...c,
-          id: c.change_id,
-          from_status: c.status_from,
-          to_status: c.status_to,
-          from_batch: c.status_from,
-          to_batch: c.status_to,
-          changed_at: c.created_at,
-        }))
-      );
+      setChanges(rows.map((c) => ({ ...c, id: c.change_id, from: c.status_from, to: c.status_to, changed_at: c.created_at })));
     } catch (err) {
       setError(err.message || 'Failed to load status history');
     } finally {
@@ -36,152 +38,70 @@ const AdminStatusChanges = () => {
     fetchChanges();
   }, [fetchChanges]);
 
-  const getTypeBadge = (type) => {
-    switch(type) {
-      case 'enrollment':
-        return <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">New Enrollment</span>;
-      case 'discontinuation':
-        return <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-semibold">Discontinuation</span>;
-      case 'rejoining':
-        return <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">Rejoining</span>;
-      case 'batch_switch':
-        return <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-semibold">Batch Switch</span>;
-      default:
-        return null;
-    }
-  };
-
-  const filteredChanges = filterType === 'all' 
-    ? statusChanges 
-    : statusChanges.filter(c => c.change_type === filterType);
-
-  const stats = {
-    enrollments: statusChanges.filter(c => c.change_type === 'enrollment').length,
-    discontinuations: statusChanges.filter(c => c.change_type === 'discontinuation').length,
-    rejoining: statusChanges.filter(c => c.change_type === 'rejoining').length,
-    batchSwitches: statusChanges.filter(c => c.change_type === 'batch_switch').length
-  };
-
-  if (loading) return <PageSkeleton label="Loading status history..." />;
+  if (loading) return <PageSkeleton label="Loading status history…" />;
   if (error) return <ErrorState message={error} onRetry={fetchChanges} />;
+
+  const count = (t) => changes.filter((c) => c.change_type === t).length;
+  const shown = filterType === 'all' ? changes : changes.filter((c) => c.change_type === filterType);
 
   return (
     <div className="page">
-      <div>
-        
-        <div className="mb-8">
-          <h1 className="page-title">
-            Student Status Changes
-          </h1>
-          <p className="text-gray-600">Track all student enrollment and status changes</p>
-        </div>
+      <PageHeader title="Status history" description="Every enrolment, discontinuation, rejoining and batch switch, with reasons." />
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-8">
-          <div className="card">
-            <p className="text-sm text-gray-600 mb-1">New Enrollments</p>
-            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-green-700">{stats.enrollments}</p>
-          </div>
-          <div className="card">
-            <p className="text-sm text-gray-600 mb-1">Discontinuations</p>
-            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-red-700">{stats.discontinuations}</p>
-          </div>
-          <div className="card">
-            <p className="text-sm text-gray-600 mb-1">Rejoining</p>
-            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-blue-700">{stats.rejoining}</p>
-          </div>
-          <div className="card">
-            <p className="text-sm text-gray-600 mb-1">Batch Switches</p>
-            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-purple-700">{stats.batchSwitches}</p>
-          </div>
-        </div>
-
-        <div className="card mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <p className="text-sm text-gray-600">
-              Showing {filteredChanges.length} of {statusChanges.length} changes
-            </p>
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              className="input-field sm:w-64"
-              aria-label="Filter changes"
-            >
-              <option value="all">All Changes</option>
-              <option value="enrollment">New Enrollments</option>
-              <option value="discontinuation">Discontinuations</option>
-              <option value="rejoining">Rejoining</option>
-              <option value="batch_switch">Batch Switches</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="space-y-4">
-            {filteredChanges.map((change) => (
-              <div key={change.id} className="border border-sand-200 rounded-lg p-6 hover:shadow-lift transition-shadow">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="font-bold text-accent">{change.student_name}</h3>
-                      <span className="text-sm text-gray-500">({change.roll_number})</span>
-                      {getTypeBadge(change.change_type)}
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      {new Date(change.changed_at).toLocaleString('en-IN', { 
-                        weekday: 'long',
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </p>
-                  </div>
-                </div>
-
-                {change.change_type === 'batch_switch' && (
-                  <div className="grid grid-cols-2 gap-4 mb-4 p-4 bg-sand-50 rounded-lg">
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">FROM:</p>
-                      <p className="font-semibold text-red-700">{change.from_batch}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">TO:</p>
-                      <p className="font-semibold text-green-700">{change.to_batch}</p>
-                    </div>
-                  </div>
-                )}
-
-                {(change.change_type === 'discontinuation' || change.change_type === 'rejoining') && (
-                  <div className="grid grid-cols-2 gap-4 mb-4 p-4 bg-sand-50 rounded-lg">
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">FROM:</p>
-                      <p className="font-semibold capitalize">{change.from_status || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">TO:</p>
-                      <p className="font-semibold capitalize">{change.to_status}</p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="p-3 bg-blue-50 rounded-lg">
-                  <p className="text-xs font-semibold text-blue-900 mb-1">Reason:</p>
-                  <p className="text-sm text-blue-800">{change.reason}</p>
-                  {change.detailed_feedback && <p className="text-sm text-blue-700 mt-2">{change.detailed_feedback}</p>}
-                  {change.changed_by_email && <p className="text-xs text-blue-600 mt-2">By {change.changed_by_email}</p>}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {filteredChanges.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-gray-500">No status changes found</p>
-            </div>
-          )}
-        </div>
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard label="Enrolments" value={count('enrollment')} icon="plus" tone="success" />
+        <StatCard label="Discontinued" value={count('discontinuation')} icon="xCircle" tone="danger" />
+        <StatCard label="Rejoined" value={count('rejoining')} icon="refresh" tone="info" />
+        <StatCard label="Batch switches" value={count('batch_switch')} icon="switch" tone="gold" />
       </div>
+
+      <div className="mb-4 inline-flex flex-wrap gap-1 rounded-xl border border-sand-200 bg-white p-1" role="group" aria-label="Filter by type">
+        {[['all', 'All'], ...Object.entries(TYPES).map(([k, [l]]) => [k, l])].map(([v, l]) => (
+          <button key={v} type="button" onClick={() => setFilterType(v)} aria-pressed={filterType === v} className={filterType === v ? 'tab-active' : 'tab'}>
+            {l} <span className="ml-1 text-xs opacity-70">{v === 'all' ? changes.length : count(v)}</span>
+          </button>
+        ))}
+      </div>
+
+      {shown.length === 0 ? (
+        <div className="surface">
+          <EmptyState icon="document" title="No status changes found" />
+        </div>
+      ) : (
+        <ol className="surface divide-y divide-sand-100">
+          {shown.map((c) => {
+            const [label, cls, icon] = TYPES[c.change_type] || [c.change_type, 'badge-neutral', 'document'];
+            const showFromTo = c.change_type !== 'enrollment' && (c.from || c.to);
+            return (
+              <li key={c.id} className="flex gap-4 p-4 sm:p-5">
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sand-100 text-gray-600">
+                  <Icon name={icon} className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium text-accent">{c.student_name}</p>
+                    <RollNumberBadge rollNumber={c.roll_number} size="sm" />
+                    <span className={cls}>{label}</span>
+                  </div>
+                  {showFromTo && (
+                    <p className="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
+                      <span className="capitalize text-gray-600">{c.from || '—'}</span>
+                      <Icon name="arrowRight" className="h-4 w-4 text-gray-400" />
+                      <span className="font-medium capitalize text-accent">{c.to || '—'}</span>
+                    </p>
+                  )}
+                  {c.reason && <p className="mt-1.5 text-sm text-gray-700">{c.reason}</p>}
+                  {c.detailed_feedback && <p className="mt-1 text-sm text-gray-600">{c.detailed_feedback}</p>}
+                  <p className="mt-2 text-xs text-gray-500">
+                    {new Date(c.changed_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    {c.changed_by_email && ` · by ${c.changed_by_email}`}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      )}
     </div>
   );
 };

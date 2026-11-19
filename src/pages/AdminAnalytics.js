@@ -1,18 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { PageSkeleton } from '../components/ui/Skeleton';
+import PageHeader from '../components/ui/PageHeader';
 import StarRating from '../components/StarRating';
 import RollNumberBadge from '../components/RollNumberBadge';
 import PerformanceGraph from '../components/PerformanceGraph';
 import ErrorState from '../components/ErrorState';
+import EmptyState from '../components/EmptyState';
 import adminService from '../services/adminService';
 
 const AdminAnalytics = () => {
-  const [analytics, setAnalytics] = useState({
-    bestTeachers: [],
-    bestStudents: [],
-    enrollmentTrends: [],
-    discontinuationReasons: []
-  });
+  const [analytics, setAnalytics] = useState({ bestTeachers: [], bestStudents: [], enrollmentTrends: [], discontinuationReasons: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -27,7 +24,7 @@ const AdminAnalytics = () => {
         adminService.getDiscontinuationReasons(),
       ]);
       setAnalytics({
-        bestTeachers: bestTeachers.map((t) => ({ ...t, id: t.teacher_id, avg_rating: Number(t.avg_rating).toFixed(1) })),
+        bestTeachers: bestTeachers.map((t) => ({ ...t, id: t.teacher_id, avg_rating: Number(t.avg_rating) || 0 })),
         bestStudents,
         enrollmentTrends,
         discontinuationReasons,
@@ -43,166 +40,144 @@ const AdminAnalytics = () => {
     fetchAnalytics();
   }, [fetchAnalytics]);
 
-  if (loading) return <PageSkeleton label="Loading analytics..." />;
+  if (loading) return <PageSkeleton label="Loading analytics…" variant="cards" />;
   if (error) return <ErrorState message={error} onRetry={fetchAnalytics} />;
 
-  const maxEnrolled = Math.max(5, ...analytics.enrollmentTrends.map((t) => t.enrolled));
   const maxReason = Math.max(1, ...analytics.discontinuationReasons.map((r) => r.count));
-
+  const totalDiscontinued = analytics.discontinuationReasons.reduce((s, r) => s + r.count, 0);
+  const totalEnrolled = analytics.enrollmentTrends.reduce((s, t) => s + Number(t.enrolled || 0), 0);
 
   return (
     <div className="page">
-      <div>
-        
-        <div className="mb-8">
-          <h1 className="page-title">
-            Analytics Dashboard
-          </h1>
-          <p className="text-gray-600">Insights and performance metrics</p>
-        </div>
+      <PageHeader title="Analytics" description="Enrolment, teacher ratings and student performance, from academy records." />
 
-        {/* Best Teachers */}
-        <div className="card mb-6">
-          <h2 className="section-title mb-5 border-b border-sand-200 pb-3">🏆 Top Performing Teachers</h2>
-          {analytics.bestTeachers.length === 0 && (
-            <p className="text-gray-500 text-center py-6">No active teachers yet.</p>
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {analytics.bestTeachers.map((teacher, index) => (
-              <div key={teacher.id} className={`p-6 rounded-xl border-2 ${
-                index === 0 ? 'border-amber-400 bg-yellow-50' :
-                index === 1 ? 'border-gray-400 bg-sand-50' :
-                'border-orange-400 bg-orange-50'
-              }`}>
-                <div className="flex items-center justify-between mb-4">
-                  <span className={`text-4xl font-bold ${
-                    index === 0 ? 'text-amber-600' :
-                    index === 1 ? 'text-gray-600' :
-                    'text-orange-600'
-                  }`}>
-                    #{index + 1}
-                  </span>
-                  <StarRating rating={teacher.avg_rating} size="sm" />
-                </div>
-                <h3 className="text-xl font-bold text-accent mb-2">{teacher.name}</h3>
-                <div className="space-y-1 text-sm text-gray-600">
-                  <p>Rating: <span className="font-semibold text-primary">{teacher.avg_rating}/5.0</span></p>
-                  <p>Students: <span className="font-semibold">{teacher.total_students}</span></p>
-                  <p>Experience: <span className="font-semibold">{teacher.experience_years} years</span></p>
-                </div>
-              </div>
-            ))}
+      <div className="mb-6 grid gap-6 lg:grid-cols-2">
+        <section className="card" aria-labelledby="trend-heading">
+          <div className="mb-4 flex items-baseline justify-between gap-3">
+            <h2 id="trend-heading" className="section-title">
+              New enrolments by month
+            </h2>
+            <p className="text-sm text-gray-500">
+              <span className="font-semibold tabular-nums text-accent">{totalEnrolled}</span> in this period
+            </p>
           </div>
-        </div>
-
-        {/* Best Students */}
-        <div className="card mb-6">
-          <h2 className="section-title mb-5 border-b border-sand-200 pb-3">⭐ Top Performing Students</h2>
-          <p className="text-sm text-gray-500 mb-4">
-            Score = average teacher review × 20; attendance over the last 90 days.
-          </p>
-          {analytics.bestStudents.length === 0 && (
-            <p className="text-gray-500 text-center py-6">No active students yet.</p>
+          {analytics.enrollmentTrends.length === 0 ? (
+            <EmptyState icon="chart" size="sm" title="No enrolments recorded yet" />
+          ) : (
+            <PerformanceGraph
+              data={analytics.enrollmentTrends.map((t) => ({ label: t.month, value: Number(t.enrolled) || 0 }))}
+              maxValue={Math.max(5, ...analytics.enrollmentTrends.map((t) => Number(t.enrolled) || 0))}
+              height={220}
+            />
           )}
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-sand-50 border-b-2">
+        </section>
+
+        <section className="card" aria-labelledby="reasons-heading">
+          <div className="mb-4 flex items-baseline justify-between gap-3">
+            <h2 id="reasons-heading" className="section-title">
+              Why students discontinued
+            </h2>
+            <p className="text-sm text-gray-500">
+              <span className="font-semibold tabular-nums text-accent">{totalDiscontinued}</span> in total
+            </p>
+          </div>
+          {analytics.discontinuationReasons.length === 0 ? (
+            <EmptyState icon="chart" size="sm" title="No discontinuations recorded" />
+          ) : (
+            <ul className="space-y-3">
+              {analytics.discontinuationReasons.map((r) => (
+                <li key={r.reason} title={`${r.reason}: ${r.count}`}>
+                  <div className="mb-1 flex items-center justify-between gap-3 text-sm">
+                    <span className="text-gray-700">{r.reason}</span>
+                    <span className="font-medium tabular-nums text-accent">{r.count}</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-sand-200" aria-hidden="true">
+                    <div className="h-full rounded-full bg-primary-500" style={{ width: `${(r.count / maxReason) * 100}%` }} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+
+      <section className="card mb-6" aria-labelledby="teachers-heading">
+        <h2 id="teachers-heading" className="section-title">
+          Highest-rated teachers
+        </h2>
+        <p className="mb-4 mt-1 text-sm text-gray-500">Average rating from student feedback.</p>
+        {analytics.bestTeachers.length === 0 ? (
+          <EmptyState icon="teacher" size="sm" title="No active teachers yet" />
+        ) : (
+          <ol className="grid gap-3 md:grid-cols-3">
+            {analytics.bestTeachers.map((t, i) => (
+              <li key={t.id} className={`rounded-xl border p-5 ${i === 0 ? 'border-secondary-300 bg-secondary-50/60' : 'border-sand-200'}`}>
+                <div className="flex items-center justify-between">
+                  <span className="font-heading text-2xl font-semibold text-secondary-700">#{i + 1}</span>
+                  <StarRating rating={t.avg_rating} size="sm" label={`${t.name} rating`} />
+                </div>
+                <p className="mt-3 font-semibold text-accent">{t.name}</p>
+                <p className="text-sm text-gray-600">
+                  {t.avg_rating.toFixed(1)} / 5 · {t.total_students} students · {t.experience_years ?? 0} yrs
+                </p>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+
+      <section className="surface overflow-hidden" aria-labelledby="students-heading">
+        <div className="border-b border-sand-200 px-5 py-4">
+          <h2 id="students-heading" className="section-title">
+            Top students
+          </h2>
+          <p className="mt-1 text-sm text-gray-500">Score = average teacher review × 20. Attendance covers the last 90 days.</p>
+        </div>
+        {analytics.bestStudents.length === 0 ? (
+          <EmptyState icon="users" size="sm" title="No active students yet" />
+        ) : (
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
                 <tr>
-                  <th className="th">Rank</th>
-                  <th className="th">Roll No</th>
-                  <th className="th">Student Name</th>
-                  <th className="th">Performance Score</th>
-                  <th className="th">Attendance</th>
-                  <th className="th">Practice Hours</th>
+                  <th scope="col" className="w-12">
+                    #
+                  </th>
+                  <th scope="col">Student</th>
+                  <th scope="col">Score</th>
+                  <th scope="col" className="text-right">
+                    Attendance
+                  </th>
+                  <th scope="col" className="hidden text-right sm:table-cell">
+                    Practice
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {analytics.bestStudents.map((student, index) => (
-                  <tr key={student.roll_number} className={`border-b hover:bg-sand-50 ${index < 3 ? 'bg-yellow-50/30' : ''}`}>
-                    <td className="td">
-                      <span className={`text-lg font-bold ${
-                        index === 0 ? 'text-amber-600' :
-                        index === 1 ? 'text-gray-600' :
-                        index === 2 ? 'text-orange-600' :
-                        'text-gray-400'
-                      }`}>
-                        #{index + 1}
-                      </span>
+                {analytics.bestStudents.map((s, i) => (
+                  <tr key={s.roll_number || i}>
+                    <td className="font-heading font-semibold text-secondary-700">{i + 1}</td>
+                    <td>
+                      <p className="font-medium text-accent">{s.name}</p>
+                      <RollNumberBadge rollNumber={s.roll_number} size="sm" />
                     </td>
-                    <td className="td">
-                      <RollNumberBadge rollNumber={student.roll_number} />
-                    </td>
-                    <td className="px-6 py-4 font-semibold text-accent">{student.name}</td>
-                    <td className="td">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-lg font-bold text-purple-600">{student.performance_score}</span>
-                        <div className="w-24 bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-purple-600 h-2 rounded-full"
-                            style={{width: `${student.performance_score}%`}}
-                          ></div>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        <span className="w-8 font-medium tabular-nums text-accent">{s.performance_score}</span>
+                        <div className="hidden h-1.5 w-24 overflow-hidden rounded-full bg-sand-200 sm:block" aria-hidden="true">
+                          <div className="h-full rounded-full bg-primary-500" style={{ width: `${Math.min(Number(s.performance_score) || 0, 100)}%` }} />
                         </div>
                       </div>
                     </td>
-                    <td className="td">
-                      <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
-                        {student.attendance}%
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm font-semibold text-blue-600">{student.practice_hours}h</td>
+                    <td className="text-right tabular-nums">{s.attendance}%</td>
+                    <td className="hidden text-right tabular-nums sm:table-cell">{s.practice_hours}h</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Enrollment Trends */}
-          <PerformanceGraph 
-            data={analytics.enrollmentTrends.map(t => ({
-              label: t.month,
-              value: t.enrolled
-            }))}
-            title="Enrollment Trends"
-            maxValue={maxEnrolled}
-            color="primary"
-            height={250}
-          />
-
-          {/* Discontinuation Reasons */}
-          <div className="card">
-            <h2 className="section-title mb-5 border-b border-sand-200 pb-3">📊 Discontinuation Reasons</h2>
-            
-            <div className="mb-6">
-              <p className="text-sm text-gray-600">Total Discontinuations</p>
-              <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-red-700">
-                {analytics.discontinuationReasons.reduce((sum, r) => sum + r.count, 0)}
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              {analytics.discontinuationReasons.length === 0 && (
-                <p className="text-gray-500 text-center py-6">No discontinuations recorded.</p>
-              )}
-              {analytics.discontinuationReasons.map((item, index) => (
-                <div key={index}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-semibold text-gray-700">{item.reason}</span>
-                    <span className="text-sm font-bold text-red-600">{item.count}</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3">
-                    <div 
-                      className="bg-red-500 h-3 rounded-full transition-all"
-                      style={{width: `${(item.count / maxReason) * 100}%`}}
-                    ></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+        )}
+      </section>
     </div>
   );
 };

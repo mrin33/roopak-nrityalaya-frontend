@@ -1,5 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { PageSkeleton } from '../components/ui/Skeleton';
+import PageHeader from '../components/ui/PageHeader';
+import StatCard from '../components/ui/StatCard';
+import Modal from '../components/ui/Modal';
+import Icon from '../components/ui/Icon';
+import RowAction from '../components/ui/RowAction';
 import RollNumberBadge from '../components/RollNumberBadge';
 import PaymentWindowBadge from '../components/PaymentWindowBadge';
 import StatusBadge from '../components/StatusBadge';
@@ -9,11 +14,12 @@ import InviteLinkDialog from '../components/InviteLinkDialog';
 import adminService from '../services/adminService';
 import useLevels from '../hooks/useLevels';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 const PAYMENT_WINDOWS = [
   ['monthly', 'Monthly'],
   ['quarterly', 'Quarterly'],
-  ['half_yearly', 'Half-Yearly'],
+  ['half_yearly', 'Half-yearly'],
   ['yearly', 'Yearly'],
 ];
 
@@ -32,8 +38,18 @@ const EMPTY_FORM = {
   enrollment_reason: '',
 };
 
+const TEXT_FIELDS = [
+  ['full_name', 'Full name', 'text', true],
+  ['email', 'Email', 'email', true],
+  ['phone', 'Phone', 'tel', false],
+  ['date_of_birth', 'Date of birth', 'date', false],
+  ['emergency_contact_name', 'Emergency contact name', 'text', false],
+  ['emergency_contact', 'Emergency contact phone', 'tel', false],
+];
+
 const AdminStudents = () => {
   const toast = useToast();
+  const confirm = useConfirm();
   const { levels } = useLevels();
   const [students, setStudents] = useState([]);
   const [batches, setBatches] = useState([]);
@@ -67,16 +83,19 @@ const AdminStudents = () => {
     fetchData();
   }, [fetchData]);
 
-  const q = searchTerm.toLowerCase();
+  const q = searchTerm.trim().toLowerCase();
   const filteredStudents = students.filter((s) => {
     const matchesSearch =
+      !q ||
       (s.full_name || '').toLowerCase().includes(q) ||
       (s.roll_number || '').toLowerCase().includes(q) ||
       (s.email || '').toLowerCase().includes(q);
-    const matchesLevel = filterLevel === 'all' || String(s.current_level_id) === filterLevel;
-    const matchesStatus = filterStatus === 'all' || s.status === filterStatus;
-    const matchesPayment = filterPaymentWindow === 'all' || s.payment_window === filterPaymentWindow;
-    return matchesSearch && matchesLevel && matchesStatus && matchesPayment;
+    return (
+      matchesSearch &&
+      (filterLevel === 'all' || String(s.current_level_id) === filterLevel) &&
+      (filterStatus === 'all' || s.status === filterStatus) &&
+      (filterPaymentWindow === 'all' || s.payment_window === filterPaymentWindow)
+    );
   });
 
   const openAdd = () => {
@@ -117,18 +136,12 @@ const AdminStudents = () => {
     setSaving(true);
     try {
       if (modal.mode === 'add') {
-        const result = await adminService.createStudent({
-          ...formData,
-          batch_id: formData.batch_id || undefined,
-        });
+        const result = await adminService.createStudent({ ...formData, batch_id: formData.batch_id || undefined });
         setInvite({ invite: result.invite, name: formData.full_name });
         toast.success(`${formData.full_name} was enrolled (roll number ${result.student.roll_number}).`);
       } else {
         const { enrollment_reason, ...rest } = formData;
-        await adminService.updateStudent(modal.student.student_id, {
-          ...rest,
-          batch_id: formData.batch_id ? Number(formData.batch_id) : null,
-        });
+        await adminService.updateStudent(modal.student.student_id, { ...rest, batch_id: formData.batch_id ? Number(formData.batch_id) : null });
         toast.success('Student details updated.');
       }
       setModal(null);
@@ -144,15 +157,19 @@ const AdminStudents = () => {
     const activate = student.status !== 'active';
     let reason;
     if (!activate) {
-      reason = window.prompt(`Reason for deactivating ${student.full_name} (optional):`, '');
-      if (reason === null) return; // cancelled
+      const res = await confirm({
+        title: `Deactivate ${student.full_name}?`,
+        message: 'They will no longer be able to log in. You can reactivate them later.',
+        confirmLabel: 'Deactivate',
+        tone: 'danger',
+        input: { label: 'Reason', placeholder: 'Recorded in the status history' },
+      });
+      if (!res) return;
+      reason = res.value;
     }
     setBusyId(student.student_id);
     try {
-      await adminService.changeStudentStatus(student.student_id, {
-        status: activate ? 'active' : 'inactive',
-        reason: reason || undefined,
-      });
+      await adminService.changeStudentStatus(student.student_id, { status: activate ? 'active' : 'inactive', reason: reason || undefined });
       toast.success(`${student.full_name} is now ${activate ? 'active' : 'inactive and cannot log in'}.`);
       fetchData();
     } catch (err) {
@@ -175,7 +192,13 @@ const AdminStudents = () => {
   };
 
   const handleDeleteStudent = async (student) => {
-    if (!window.confirm(`Delete ${student.full_name}? Their login and records will be removed. This cannot be undone.`)) return;
+    const ok = await confirm({
+      title: `Delete ${student.full_name}?`,
+      message: 'Their login and records will be removed. This cannot be undone. Students with payment history cannot be deleted — deactivate them instead.',
+      confirmLabel: 'Delete student',
+      tone: 'danger',
+    });
+    if (!ok) return;
     setBusyId(student.student_id);
     try {
       await adminService.deleteStudent(student.student_id);
@@ -188,293 +211,236 @@ const AdminStudents = () => {
     }
   };
 
-  if (loading && !students.length) return <PageSkeleton label="Loading students..." />;
+  if (loading && !students.length) return <PageSkeleton label="Loading students…" />;
   if (error) return <ErrorState message={error} onRetry={fetchData} />;
 
-  const batchesForLevel = batches.filter(
-    (b) => b.is_active && (!formData.current_level_id || String(b.level_id) === formData.current_level_id)
-  );
+  const batchesForLevel = batches.filter((b) => b.is_active && (!formData.current_level_id || String(b.level_id) === formData.current_level_id));
 
   return (
     <div className="page">
-      <div>
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="page-title">Manage Students</h1>
-            <p className="text-gray-600">View, add, edit, and manage all students</p>
-          </div>
-          <button onClick={openAdd} className="btn-primary">
-            + Add New Student
+      <PageHeader
+        title="Students"
+        description="Enrol students, assign batches and manage their accounts."
+        actions={
+          <button type="button" onClick={openAdd} className="btn-primary">
+            <Icon name="plus" className="h-4 w-4" /> Add student
           </button>
-        </div>
+        }
+      />
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-8">
-          {[
-            ['Total Students', students.length, 'text-primary'],
-            ['Active', students.filter((s) => s.status === 'active').length, 'text-green-600'],
-            ['Inactive', students.filter((s) => s.status !== 'active').length, 'text-red-600'],
-            ['Without a batch', students.filter((s) => !s.batch_name && s.status === 'active').length, 'text-amber-600'],
-          ].map(([label, value, color]) => (
-            <div key={label} className="card">
-              <p className="text-sm text-gray-600 mb-1">{label}</p>
-              <p className={`text-3xl font-bold ${color}`}>{value}</p>
-            </div>
-          ))}
-        </div>
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard label="All students" value={students.length} icon="users" tone="brand" />
+        <StatCard label="Active" value={students.filter((s) => s.status === 'active').length} icon="checkCircle" tone="success" />
+        <StatCard label="Inactive" value={students.filter((s) => s.status !== 'active').length} icon="xCircle" tone="neutral" />
+        <StatCard label="Active, no batch" value={students.filter((s) => !s.batch_name && s.status === 'active').length} icon="warning" tone="warning" />
+      </div>
 
-        {/* Filters */}
-        <div className="card mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <input
-              type="search"
-              placeholder="Search name, roll number, email…"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="input-field"
-              aria-label="Search students"
-            />
-            <select value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)} className="input-field" aria-label="Filter by level">
-              <option value="all">All Levels</option>
-              {levels.map((l) => (
-                <option key={l.level_id} value={String(l.level_id)}>
-                  {l.level_name}
-                </option>
-              ))}
-            </select>
-            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="input-field" aria-label="Filter by status">
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-            <select
-              value={filterPaymentWindow}
-              onChange={(e) => setFilterPaymentWindow(e.target.value)}
-              className="input-field"
-              aria-label="Filter by payment plan"
-            >
-              <option value="all">All Payment Plans</option>
-              {PAYMENT_WINDOWS.map(([v, l]) => (
-                <option key={v} value={v}>
-                  {l}
-                </option>
-              ))}
-            </select>
+      <section className="surface overflow-hidden">
+        <div className="grid gap-3 border-b border-sand-200 p-4 sm:grid-cols-2 sm:px-5 lg:grid-cols-4">
+          <div className="relative">
+            <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input type="search" placeholder="Name, roll number or email" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="input-field pl-9" aria-label="Search students" />
           </div>
-          <p className="text-sm text-gray-600 mt-3">
-            Showing {filteredStudents.length} of {students.length} students
-          </p>
+          <select value={filterLevel} onChange={(e) => setFilterLevel(e.target.value)} className="input-field" aria-label="Filter by level">
+            <option value="all">All levels</option>
+            {levels.map((l) => (
+              <option key={l.level_id} value={String(l.level_id)}>
+                {l.level_name}
+              </option>
+            ))}
+          </select>
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="input-field" aria-label="Filter by status">
+            <option value="all">All statuses</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+          <select value={filterPaymentWindow} onChange={(e) => setFilterPaymentWindow(e.target.value)} className="input-field" aria-label="Filter by payment plan">
+            <option value="all">All payment plans</option>
+            {PAYMENT_WINDOWS.map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+          </select>
         </div>
 
-        {/* Table */}
         {filteredStudents.length === 0 ? (
-          <div className="surface">
-            <EmptyState
-              icon="user"
-              title={students.length ? 'No students match your filters' : 'No students yet'}
-              description={students.length ? 'Try changing the search or filters.' : 'Enrol your first student to get started.'}
-              actionText={students.length ? undefined : 'Add Student'}
-              onAction={students.length ? undefined : openAdd}
-            />
-          </div>
+          <EmptyState
+            icon="user"
+            title={students.length ? 'No students match your filters' : 'No students yet'}
+            description={students.length ? 'Try changing the search or filters.' : 'Enrol your first student to get started.'}
+            actionText={students.length ? undefined : 'Add student'}
+            onAction={students.length ? undefined : openAdd}
+          />
         ) : (
-          <div className="surface overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gradient-to-r from-primary/10 to-secondary/10">
-                  <tr>
-                    {['Roll No.', 'Student', 'Level', 'Payment Plan', 'Batch', 'Status', 'Actions'].map((h) => (
-                      <th key={h} className="px-6 py-4 text-left text-sm font-semibold text-accent whitespace-nowrap">
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredStudents.map((student) => (
-                    <tr key={student.student_id} className="border-b hover:bg-sand-50 transition-colors">
-                      <td className="td">
-                        <RollNumberBadge rollNumber={student.roll_number} size="lg" />
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">Student</th>
+                  <th scope="col" className="hidden lg:table-cell">
+                    Level
+                  </th>
+                  <th scope="col" className="hidden xl:table-cell">
+                    Plan
+                  </th>
+                  <th scope="col" className="hidden md:table-cell">
+                    Batch
+                  </th>
+                  <th scope="col">Status</th>
+                  <th scope="col" className="text-right">
+                    <span className="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredStudents.map((s) => {
+                  const busy = busyId === s.student_id;
+                  return (
+                    <tr key={s.student_id}>
+                      <td>
+                        <p className="font-medium text-accent">{s.full_name}</p>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                          <RollNumberBadge rollNumber={s.roll_number} size="sm" />
+                          <span className="text-xs text-gray-500">{s.email}</span>
+                        </div>
                       </td>
-                      <td className="td">
-                        <p className="font-semibold text-accent">{student.full_name}</p>
-                        <p className="text-sm text-gray-500">{student.email}</p>
-                        <p className="text-sm text-gray-500">{student.phone}</p>
+                      <td className="hidden text-gray-600 lg:table-cell">{s.level_name || 'Unassigned'}</td>
+                      <td className="hidden xl:table-cell">
+                        <PaymentWindowBadge paymentWindow={s.payment_window} discount={s.discount} />
                       </td>
-                      <td className="td text-gray-600">{student.level_name || 'Unassigned'}</td>
-                      <td className="td">
-                        <PaymentWindowBadge paymentWindow={student.payment_window} discount={student.discount} />
+                      <td className="hidden text-gray-600 md:table-cell">{s.batch_name || <span className="badge-warning">Not assigned</span>}</td>
+                      <td>
+                        <StatusBadge status={s.status} />
                       </td>
-                      <td className="td text-gray-600">
-                        {student.batch_name || <span className="text-amber-600 font-semibold">Not Assigned</span>}
-                      </td>
-                      <td className="td">
-                        <StatusBadge status={student.status} type="student" />
-                      </td>
-                      <td className="td">
-                        <div className="flex flex-wrap gap-x-3 gap-y-1">
-                          <button
-                            onClick={() => openEdit(student)}
-                            disabled={busyId === student.student_id}
-                            className="text-blue-600 hover:text-blue-800 font-semibold text-sm disabled:opacity-50"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleToggleStatus(student)}
-                            disabled={busyId === student.student_id}
-                            className="text-amber-600 hover:text-amber-800 font-semibold text-sm disabled:opacity-50"
-                          >
-                            {student.status === 'active' ? 'Deactivate' : 'Activate'}
-                          </button>
-                          {student.status === 'active' && (
-                            <button
-                              onClick={() => handleSendLink(student)}
-                              disabled={busyId === student.student_id}
-                              className="text-primary hover:text-primary-dark font-semibold text-sm disabled:opacity-50"
-                              title="Create a password setup / reset link"
-                            >
-                              Send link
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleDeleteStudent(student)}
-                            disabled={busyId === student.student_id}
-                            className="text-red-600 hover:text-red-800 font-semibold text-sm disabled:opacity-50"
-                          >
-                            Delete
-                          </button>
+                      <td>
+                        <div className="flex justify-end gap-0.5">
+                          <RowAction icon="pencil" label={`Edit ${s.full_name}`} onClick={() => openEdit(s)} disabled={busy} />
+                          {s.status === 'active' && <RowAction icon="key" label={`Password link for ${s.full_name}`} onClick={() => handleSendLink(s)} disabled={busy} />}
+                          <RowAction
+                            icon={s.status === 'active' ? 'eyeOff' : 'refresh'}
+                            label={s.status === 'active' ? `Deactivate ${s.full_name}` : `Reactivate ${s.full_name}`}
+                            onClick={() => handleToggleStatus(s)}
+                            disabled={busy}
+                          />
+                          <RowAction icon="trash" label={`Delete ${s.full_name}`} onClick={() => handleDeleteStudent(s)} disabled={busy} danger />
                         </div>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
+        <p className="border-t border-sand-200 px-5 py-3 text-xs text-gray-500" aria-live="polite">
+          Showing {filteredStudents.length} of {students.length} students
+        </p>
+      </section>
 
-        <InviteLinkDialog invite={invite?.invite} name={invite?.name} onClose={() => setInvite(null)} />
+      <InviteLinkDialog invite={invite?.invite} name={invite?.name} onClose={() => setInvite(null)} />
 
-        {/* Add / Edit Student Modal */}
-        {modal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
-                <h2 className="section-title">{modal.mode === 'add' ? 'Add New Student' : 'Edit Student'}</h2>
-                <button onClick={() => setModal(null)} className="text-gray-400 hover:text-gray-600 text-2xl" aria-label="Close">
-                  ×
-                </button>
+      <Modal
+        open={!!modal}
+        onClose={() => setModal(null)}
+        title={modal?.mode === 'add' ? 'Add a student' : 'Edit student'}
+        description={modal?.mode === 'add' ? 'A roll number is generated automatically. You will get a one-time link for the student to set their password.' : modal?.student?.full_name}
+        size="lg"
+        dismissible={!saving}
+      >
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-5 sm:grid-cols-2">
+            {TEXT_FIELDS.map(([name, label, type, required]) => (
+              <div key={name}>
+                <label htmlFor={`s-${name}`} className="form-label">
+                  {label} {!required && <span className="font-normal text-gray-500">(optional)</span>}
+                </label>
+                <input id={`s-${name}`} type={type} name={name} value={formData[name]} onChange={handleChange} className="input-field" required={required} />
               </div>
-              <form onSubmit={handleSubmit} className="p-6">
-                {modal.mode === 'add' && (
-                  <p className="text-sm text-gray-600 bg-blue-50 border-l-4 border-blue-400 p-3 rounded mb-6">
-                    A roll number is generated automatically. After saving you will get a one-time link for the student
-                    to set their password.
-                  </p>
-                )}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  {[
-                    ['full_name', 'Full Name *', 'text', true],
-                    ['email', 'Email *', 'email', true],
-                    ['phone', 'Phone', 'tel', false],
-                    ['date_of_birth', 'Date of Birth', 'date', false],
-                    ['emergency_contact_name', 'Emergency Contact Name', 'text', false],
-                    ['emergency_contact', 'Emergency Contact Phone', 'tel', false],
-                  ].map(([name, label, type, required]) => (
-                    <div key={name}>
-                      <label htmlFor={`s-${name}`} className="form-label">
-                        {label}
-                      </label>
-                      <input id={`s-${name}`} type={type} name={name} value={formData[name]} onChange={handleChange} className="input-field" required={required} />
-                    </div>
-                  ))}
-                  <div>
-                    <label htmlFor="s-gender" className="form-label">
-                      Gender
-                    </label>
-                    <select id="s-gender" name="gender" value={formData.gender} onChange={handleChange} className="input-field">
-                      <option value="">Not specified</option>
-                      <option value="female">Female</option>
-                      <option value="male">Male</option>
-                      <option value="other">Other</option>
-                      <option value="prefer_not_to_say">Prefer not to say</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="s-level" className="form-label">
-                      Level *
-                    </label>
-                    <select
-                      id="s-level"
-                      name="current_level_id"
-                      value={formData.current_level_id}
-                      onChange={(e) => setFormData((f) => ({ ...f, current_level_id: e.target.value, batch_id: '' }))}
-                      className="input-field"
-                      required
-                    >
-                      <option value="">Select level</option>
-                      {levels.map((l) => (
-                        <option key={l.level_id} value={String(l.level_id)}>
-                          {l.level_number}. {l.level_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="s-pw" className="form-label">
-                      Payment Plan
-                    </label>
-                    <select id="s-pw" name="payment_window" value={formData.payment_window} onChange={handleChange} className="input-field">
-                      {PAYMENT_WINDOWS.map(([v, l]) => (
-                        <option key={v} value={v}>
-                          {l}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="s-batch" className="form-label">
-                      Batch
-                    </label>
-                    <select id="s-batch" name="batch_id" value={formData.batch_id} onChange={handleChange} className="input-field">
-                      <option value="">Not assigned</option>
-                      {batchesForLevel.map((b) => (
-                        <option key={b.batch_id} value={String(b.batch_id)} disabled={b.active_students >= b.max_students && String(b.batch_id) !== formData.batch_id}>
-                          {b.batch_name} — {b.schedule} {b.time} ({b.active_students}/{b.max_students})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="md:col-span-2">
-                    <label htmlFor="s-address" className="form-label">
-                      Address
-                    </label>
-                    <textarea id="s-address" name="address" value={formData.address} onChange={handleChange} rows="2" className="input-field" />
-                  </div>
-                  {modal.mode === 'add' && (
-                    <div className="md:col-span-2">
-                      <label htmlFor="s-reason" className="form-label">
-                        Enrollment note
-                      </label>
-                      <textarea id="s-reason" name="enrollment_reason" value={formData.enrollment_reason} onChange={handleChange} rows="2" className="input-field" />
-                    </div>
-                  )}
-                </div>
-                <div className="flex justify-end gap-4 mt-8">
-                  <button type="button" onClick={() => setModal(null)} className="btn-secondary">
-                    Cancel
-                  </button>
-                  <button type="submit" disabled={saving} className="btn-primary disabled:opacity-50">
-                    {saving ? 'Saving…' : modal.mode === 'add' ? 'Enrol Student' : 'Save Changes'}
-                  </button>
-                </div>
-              </form>
+            ))}
+            <div>
+              <label htmlFor="s-gender" className="form-label">
+                Gender
+              </label>
+              <select id="s-gender" name="gender" value={formData.gender} onChange={handleChange} className="input-field">
+                <option value="">Not specified</option>
+                <option value="female">Female</option>
+                <option value="male">Male</option>
+                <option value="other">Other</option>
+                <option value="prefer_not_to_say">Prefer not to say</option>
+              </select>
             </div>
+            <div>
+              <label htmlFor="s-level" className="form-label">
+                Level
+              </label>
+              <select
+                id="s-level"
+                name="current_level_id"
+                value={formData.current_level_id}
+                onChange={(e) => setFormData((f) => ({ ...f, current_level_id: e.target.value, batch_id: '' }))}
+                className="input-field"
+                required
+              >
+                <option value="">Select level</option>
+                {levels.map((l) => (
+                  <option key={l.level_id} value={String(l.level_id)}>
+                    {l.level_number}. {l.level_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="s-pw" className="form-label">
+                Payment plan
+              </label>
+              <select id="s-pw" name="payment_window" value={formData.payment_window} onChange={handleChange} className="input-field">
+                {PAYMENT_WINDOWS.map(([v, l]) => (
+                  <option key={v} value={v}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="s-batch" className="form-label">
+                Batch
+              </label>
+              <select id="s-batch" name="batch_id" value={formData.batch_id} onChange={handleChange} className="input-field">
+                <option value="">Not assigned</option>
+                {batchesForLevel.map((b) => (
+                  <option key={b.batch_id} value={String(b.batch_id)} disabled={b.active_students >= b.max_students && String(b.batch_id) !== formData.batch_id}>
+                    {b.batch_name} — {b.schedule} {b.time} ({b.active_students}/{b.max_students})
+                  </option>
+                ))}
+              </select>
+              <p className="form-hint">Only active batches at the selected level are listed; full batches are disabled.</p>
+            </div>
+            <div className="sm:col-span-2">
+              <label htmlFor="s-address" className="form-label">
+                Address <span className="font-normal text-gray-500">(optional)</span>
+              </label>
+              <textarea id="s-address" name="address" value={formData.address} onChange={handleChange} rows={2} className="input-field" />
+            </div>
+            {modal?.mode === 'add' && (
+              <div className="sm:col-span-2">
+                <label htmlFor="s-reason" className="form-label">
+                  Enrolment note <span className="font-normal text-gray-500">(optional)</span>
+                </label>
+                <textarea id="s-reason" name="enrollment_reason" value={formData.enrollment_reason} onChange={handleChange} rows={2} className="input-field" />
+              </div>
+            )}
           </div>
-        )}
-      </div>
+          <div className="modal-actions">
+            <button type="button" onClick={() => setModal(null)} className="btn-secondary" disabled={saving}>
+              Cancel
+            </button>
+            <button type="submit" disabled={saving} className="btn-primary">
+              {saving ? 'Saving…' : modal?.mode === 'add' ? 'Enrol student' : 'Save changes'}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

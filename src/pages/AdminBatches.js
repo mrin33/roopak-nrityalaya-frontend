@@ -1,5 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { PageSkeleton } from '../components/ui/Skeleton';
+import PageHeader from '../components/ui/PageHeader';
+import StatCard from '../components/ui/StatCard';
+import Modal from '../components/ui/Modal';
+import Icon from '../components/ui/Icon';
+import RowAction from '../components/ui/RowAction';
 import BatchCapacityBar from '../components/BatchCapacityBar';
 import StatusBadge from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
@@ -7,11 +12,13 @@ import ErrorState from '../components/ErrorState';
 import adminService from '../services/adminService';
 import useLevels from '../hooks/useLevels';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 const EMPTY_FORM = { batch_name: '', level_id: '', teacher_id: '', schedule: '', time: '', room: '', max_students: '15', start_date: '' };
 
 const AdminBatches = () => {
   const toast = useToast();
+  const confirm = useConfirm();
   const { levels } = useLevels();
   const [batches, setBatches] = useState([]);
   const [teachers, setTeachers] = useState([]);
@@ -41,12 +48,9 @@ const AdminBatches = () => {
     fetchData();
   }, [fetchData]);
 
-  const q = searchTerm.toLowerCase();
-  const filteredBatches = batches.filter(
-    (b) =>
-      (b.batch_name || '').toLowerCase().includes(q) ||
-      (b.teacher_name || '').toLowerCase().includes(q) ||
-      (b.level_name || '').toLowerCase().includes(q)
+  const q = searchTerm.trim().toLowerCase();
+  const filtered = batches.filter(
+    (b) => !q || (b.batch_name || '').toLowerCase().includes(q) || (b.teacher_name || '').toLowerCase().includes(q) || (b.level_name || '').toLowerCase().includes(q)
   );
 
   const openAdd = () => {
@@ -76,7 +80,7 @@ const AdminBatches = () => {
     try {
       if (modal.mode === 'add') {
         await adminService.createBatch(payload);
-        toast.success(`Batch "${formData.batch_name}" created.`);
+        toast.success(`Batch “${formData.batch_name}” created.`);
       } else {
         await adminService.updateBatch(modal.batch.batch_id, payload);
         toast.success('Batch updated.');
@@ -91,6 +95,14 @@ const AdminBatches = () => {
   };
 
   const toggleActive = async (b) => {
+    if (b.is_active) {
+      const ok = await confirm({
+        title: `Deactivate ${b.batch_name}?`,
+        message: 'It will no longer accept students or appear for attendance. History is kept.',
+        confirmLabel: 'Deactivate',
+      });
+      if (!ok) return;
+    }
     setBusyId(b.batch_id);
     try {
       await adminService.updateBatch(b.batch_id, { is_active: !b.is_active });
@@ -104,210 +116,207 @@ const AdminBatches = () => {
   };
 
   const handleDelete = async (b) => {
-    if (!window.confirm(`Delete batch "${b.batch_name}"? This cannot be undone.`)) return;
+    const ok = await confirm({
+      title: `Delete ${b.batch_name}?`,
+      message: 'This cannot be undone. Batches with students or attendance history cannot be deleted — deactivate them instead.',
+      confirmLabel: 'Delete batch',
+      tone: 'danger',
+    });
+    if (!ok) return;
     setBusyId(b.batch_id);
     try {
       await adminService.deleteBatch(b.batch_id);
       toast.success('Batch deleted.');
       setBatches((list) => list.filter((x) => x.batch_id !== b.batch_id));
     } catch (err) {
-      // e.g. "has active students" or "has attendance history — mark it inactive instead"
       toast.error(err.message || 'Failed to delete batch');
     } finally {
       setBusyId(null);
     }
   };
 
-  if (loading && !batches.length) return <PageSkeleton label="Loading batches..." />;
+  if (loading && !batches.length) return <PageSkeleton label="Loading batches…" />;
   if (error) return <ErrorState message={error} onRetry={fetchData} />;
 
-  const totalSeats = batches.reduce((s, b) => s + (b.max_students || 0), 0);
+  const totalSeats = batches.filter((b) => b.is_active).reduce((s, b) => s + (b.max_students || 0), 0);
   const enrolled = batches.reduce((s, b) => s + (b.active_students || 0), 0);
 
   return (
     <div className="page">
-      <div>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="page-title">Manage Batches</h1>
-            <p className="text-gray-600">Create and manage class batches</p>
-          </div>
-          <button onClick={openAdd} className="btn-primary">
-            + Create New Batch
+      <PageHeader
+        title="Batches"
+        description="Class groups by level, with teacher, timings and capacity."
+        actions={
+          <button type="button" onClick={openAdd} className="btn-primary">
+            <Icon name="plus" className="h-4 w-4" /> New batch
           </button>
-        </div>
+        }
+      />
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-8">
-          {[
-            ['Total Batches', batches.length, 'text-primary'],
-            ['Active', batches.filter((b) => b.is_active).length, 'text-green-600'],
-            ['Students Enrolled', enrolled, 'text-blue-600'],
-            ['Seats Available', Math.max(totalSeats - enrolled, 0), 'text-purple-600'],
-          ].map(([label, value, color]) => (
-            <div key={label} className="card">
-              <p className="text-sm text-gray-600 mb-1">{label}</p>
-              <p className={`text-3xl font-bold ${color}`}>{value}</p>
-            </div>
-          ))}
-        </div>
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard label="Batches" value={batches.length} icon="collection" tone="brand" />
+        <StatCard label="Active" value={batches.filter((b) => b.is_active).length} icon="checkCircle" tone="success" />
+        <StatCard label="Students enrolled" value={enrolled} icon="users" tone="gold" />
+        <StatCard label="Places available" value={Math.max(totalSeats - enrolled, 0)} hint="In active batches" icon="plus" tone="info" />
+      </div>
 
-        <div className="card mb-6">
-          <input
-            type="search"
-            placeholder="Search by batch, teacher or level…"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="input-field"
-            aria-label="Search batches"
-          />
-        </div>
-
-        {filteredBatches.length === 0 ? (
-          <div className="surface">
-            <EmptyState
-              icon="calendar"
-              title={batches.length ? 'No batches match your search' : 'No batches yet'}
-              description={batches.length ? 'Try a different search term.' : 'Create a batch and assign a teacher.'}
-              actionText={batches.length ? undefined : 'Create Batch'}
-              onAction={batches.length ? undefined : openAdd}
-            />
+      <section className="surface overflow-hidden">
+        <div className="border-b border-sand-200 p-4 sm:px-5">
+          <div className="relative max-w-md">
+            <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input type="search" placeholder="Batch, teacher or level" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="input-field pl-9" aria-label="Search batches" />
           </div>
+        </div>
+
+        {filtered.length === 0 ? (
+          <EmptyState
+            icon="collection"
+            title={batches.length ? 'No batches match your search' : 'No batches yet'}
+            description={batches.length ? 'Try a different search term.' : 'Create a batch and assign a teacher.'}
+            actionText={batches.length ? undefined : 'Create batch'}
+            onAction={batches.length ? undefined : openAdd}
+          />
         ) : (
-          <div className="surface overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gradient-to-r from-primary/10 to-secondary/10">
-                  <tr>
-                    {['Batch Name', 'Level', 'Teacher', 'Schedule', 'Capacity', 'Status', 'Actions'].map((h) => (
-                      <th key={h} className="px-6 py-4 text-left text-sm font-semibold text-accent whitespace-nowrap">
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredBatches.map((b) => (
-                    <tr key={b.batch_id} className="border-b hover:bg-sand-50">
-                      <td className="px-6 py-4 font-semibold text-accent">{b.batch_name}</td>
-                      <td className="td text-gray-600">{b.level_name}</td>
-                      <td className="td text-gray-600">{b.teacher_name || 'Unassigned'}</td>
-                      <td className="td text-gray-600">
-                        <div>{b.schedule}</div>
-                        <div className="text-xs text-gray-500">
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">Batch</th>
+                  <th scope="col" className="hidden md:table-cell">
+                    Teacher
+                  </th>
+                  <th scope="col" className="hidden lg:table-cell">
+                    Schedule
+                  </th>
+                  <th scope="col" className="w-40">
+                    Capacity
+                  </th>
+                  <th scope="col">Status</th>
+                  <th scope="col">
+                    <span className="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((b) => {
+                  const busy = busyId === b.batch_id;
+                  return (
+                    <tr key={b.batch_id}>
+                      <td>
+                        <p className="font-medium text-accent">{b.batch_name}</p>
+                        <p className="text-xs text-gray-500">{b.level_name}</p>
+                      </td>
+                      <td className="hidden text-gray-600 md:table-cell">{b.teacher_name || <span className="badge-warning">Unassigned</span>}</td>
+                      <td className="hidden text-gray-600 lg:table-cell">
+                        {b.schedule}
+                        <span className="block text-xs text-gray-500">
                           {b.time}
                           {b.room ? ` · ${b.room}` : ''}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 min-w-[140px]">
-                        <BatchCapacityBar currentEnrolled={b.active_students} maxStudents={b.max_students} showLabel={false} size="sm" />
-                        <span className="text-xs text-gray-600 mt-1">
-                          {b.active_students}/{b.max_students}
                         </span>
                       </td>
-                      <td className="td">
-                        <StatusBadge status={b.is_active ? 'active' : 'inactive'} type="batch" />
+                      <td>
+                        <BatchCapacityBar currentEnrolled={b.active_students} maxStudents={b.max_students} size="sm" />
                       </td>
-                      <td className="td">
-                        <div className="flex flex-wrap gap-x-3 gap-y-1">
-                          <button onClick={() => openEdit(b)} className="text-blue-600 hover:text-blue-800 text-sm font-semibold">
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => toggleActive(b)}
-                            disabled={busyId === b.batch_id}
-                            className="text-amber-600 hover:text-amber-800 text-sm font-semibold disabled:opacity-50"
-                          >
-                            {b.is_active ? 'Deactivate' : 'Activate'}
-                          </button>
-                          <button
-                            onClick={() => handleDelete(b)}
-                            disabled={busyId === b.batch_id}
-                            className="text-red-600 hover:text-red-800 text-sm font-semibold disabled:opacity-50"
-                          >
-                            Delete
-                          </button>
+                      <td>
+                        <StatusBadge status={b.is_active ? 'active' : 'inactive'} />
+                      </td>
+                      <td>
+                        <div className="flex justify-end gap-0.5">
+                          <RowAction icon="pencil" label={`Edit ${b.batch_name}`} onClick={() => openEdit(b)} disabled={busy} />
+                          <RowAction icon={b.is_active ? 'eyeOff' : 'refresh'} label={b.is_active ? `Deactivate ${b.batch_name}` : `Reactivate ${b.batch_name}`} onClick={() => toggleActive(b)} disabled={busy} />
+                          <RowAction icon="trash" label={`Delete ${b.batch_name}`} onClick={() => handleDelete(b)} disabled={busy} danger />
                         </div>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
+      </section>
 
-        {modal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
-            <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="bg-primary text-white p-6 rounded-t-2xl sticky top-0 flex items-center justify-between">
-                <h2 className="text-2xl font-bold">{modal.mode === 'add' ? 'Create New Batch' : 'Edit Batch'}</h2>
-                <button onClick={() => setModal(null)} className="text-white hover:bg-white/20 rounded-full p-2" aria-label="Close">
-                  ×
-                </button>
-              </div>
-              <form onSubmit={handleSubmit} className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label htmlFor="b-name" className="form-label">Batch Name *</label>
-                    <input id="b-name" name="batch_name" value={formData.batch_name} onChange={handleChange} className="input-field" required />
-                  </div>
-                  <div>
-                    <label htmlFor="b-level" className="form-label">Level *</label>
-                    <select id="b-level" name="level_id" value={formData.level_id} onChange={handleChange} className="input-field" required>
-                      <option value="">Select level</option>
-                      {levels.map((l) => (
-                        <option key={l.level_id} value={String(l.level_id)}>
-                          {l.level_number}. {l.level_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="b-teacher" className="form-label">Teacher *</label>
-                    <select id="b-teacher" name="teacher_id" value={formData.teacher_id} onChange={handleChange} className="input-field" required>
-                      <option value="">Select teacher</option>
-                      {teachers
-                        .filter((t) => t.is_active || String(t.teacher_id) === formData.teacher_id)
-                        .map((t) => (
-                          <option key={t.teacher_id} value={String(t.teacher_id)}>
-                            {t.full_name}
-                            {t.specialization ? ` — ${t.specialization}` : ''}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="b-max" className="form-label">Max Students (1–15)</label>
-                    <input id="b-max" type="number" min="1" max="15" name="max_students" value={formData.max_students} onChange={handleChange} className="input-field" />
-                  </div>
-                  <div>
-                    <label htmlFor="b-schedule" className="form-label">Days *</label>
-                    <input id="b-schedule" name="schedule" value={formData.schedule} onChange={handleChange} className="input-field" placeholder="e.g. Mon, Wed, Fri" required />
-                  </div>
-                  <div>
-                    <label htmlFor="b-time" className="form-label">Time *</label>
-                    <input id="b-time" name="time" value={formData.time} onChange={handleChange} className="input-field" placeholder="e.g. 5:00 PM - 6:30 PM" required />
-                  </div>
-                  <div>
-                    <label htmlFor="b-room" className="form-label">Room</label>
-                    <input id="b-room" name="room" value={formData.room} onChange={handleChange} className="input-field" placeholder="e.g. Studio 1" />
-                  </div>
-                  <div>
-                    <label htmlFor="b-start" className="form-label">Start Date</label>
-                    <input id="b-start" type="date" name="start_date" value={formData.start_date} onChange={handleChange} className="input-field" />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-4 mt-8">
-                  <button type="button" onClick={() => setModal(null)} className="btn-secondary">Cancel</button>
-                  <button type="submit" disabled={saving} className="btn-primary disabled:opacity-50">
-                    {saving ? 'Saving…' : modal.mode === 'add' ? 'Create Batch' : 'Save Changes'}
-                  </button>
-                </div>
-              </form>
+      <Modal open={!!modal} onClose={() => setModal(null)} title={modal?.mode === 'add' ? 'New batch' : 'Edit batch'} size="lg" dismissible={!saving}>
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div>
+              <label htmlFor="b-name" className="form-label">
+                Batch name
+              </label>
+              <input id="b-name" name="batch_name" value={formData.batch_name} onChange={handleChange} className="input-field" required />
+            </div>
+            <div>
+              <label htmlFor="b-level" className="form-label">
+                Level
+              </label>
+              <select id="b-level" name="level_id" value={formData.level_id} onChange={handleChange} className="input-field" required>
+                <option value="">Select level</option>
+                {levels.map((l) => (
+                  <option key={l.level_id} value={String(l.level_id)}>
+                    {l.level_number}. {l.level_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="b-teacher" className="form-label">
+                Teacher
+              </label>
+              <select id="b-teacher" name="teacher_id" value={formData.teacher_id} onChange={handleChange} className="input-field" required>
+                <option value="">Select teacher</option>
+                {teachers
+                  .filter((t) => t.is_active || String(t.teacher_id) === formData.teacher_id)
+                  .map((t) => (
+                    <option key={t.teacher_id} value={String(t.teacher_id)}>
+                      {t.full_name}
+                      {t.specialization ? ` — ${t.specialization}` : ''}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="b-max" className="form-label">
+                Maximum students
+              </label>
+              <input id="b-max" type="number" min="1" max="15" name="max_students" value={formData.max_students} onChange={handleChange} className="input-field" />
+              <p className="form-hint">Between 1 and 15.</p>
+            </div>
+            <div>
+              <label htmlFor="b-schedule" className="form-label">
+                Days
+              </label>
+              <input id="b-schedule" name="schedule" value={formData.schedule} onChange={handleChange} className="input-field" placeholder="e.g. Mon, Wed, Fri" required />
+              <p className="form-hint">Used to build students’ weekly timetable.</p>
+            </div>
+            <div>
+              <label htmlFor="b-time" className="form-label">
+                Time
+              </label>
+              <input id="b-time" name="time" value={formData.time} onChange={handleChange} className="input-field" placeholder="e.g. 5:00 – 6:30 PM" required />
+            </div>
+            <div>
+              <label htmlFor="b-room" className="form-label">
+                Room <span className="font-normal text-gray-500">(optional)</span>
+              </label>
+              <input id="b-room" name="room" value={formData.room} onChange={handleChange} className="input-field" placeholder="e.g. Studio 1" />
+            </div>
+            <div>
+              <label htmlFor="b-start" className="form-label">
+                Start date <span className="font-normal text-gray-500">(optional)</span>
+              </label>
+              <input id="b-start" type="date" name="start_date" value={formData.start_date} onChange={handleChange} className="input-field" />
             </div>
           </div>
-        )}
-      </div>
+          <div className="modal-actions">
+            <button type="button" onClick={() => setModal(null)} className="btn-secondary" disabled={saving}>
+              Cancel
+            </button>
+            <button type="submit" disabled={saving} className="btn-primary">
+              {saving ? 'Saving…' : modal?.mode === 'add' ? 'Create batch' : 'Save changes'}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

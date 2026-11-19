@@ -1,21 +1,19 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { PageSkeleton } from '../components/ui/Skeleton';
+import PageHeader from '../components/ui/PageHeader';
+import StatCard from '../components/ui/StatCard';
+import Modal from '../components/ui/Modal';
+import Icon from '../components/ui/Icon';
+import RowAction from '../components/ui/RowAction';
+import StatusBadge from '../components/StatusBadge';
 import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
 import InviteLinkDialog from '../components/InviteLinkDialog';
 import adminService from '../services/adminService';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 
-const EMPTY_FORM = {
-  fullName: '',
-  email: '',
-  phone: '',
-  specialization: '',
-  experienceYears: '',
-  qualifications: '',
-  bio: '',
-  isSenior: false,
-};
+const EMPTY_FORM = { fullName: '', email: '', phone: '', specialization: '', experienceYears: '', qualifications: '', bio: '', isSenior: false };
 
 const toForm = (t) => ({
   fullName: t.full_name || '',
@@ -28,8 +26,17 @@ const toForm = (t) => ({
   isSenior: !!t.is_senior,
 });
 
+const FIELDS = [
+  ['fullName', 'Full name', 'text', true],
+  ['email', 'Email', 'email', true],
+  ['phone', 'Phone', 'tel', false],
+  ['specialization', 'Specialisation', 'text', false],
+  ['experienceYears', 'Experience (years)', 'number', false],
+];
+
 const AdminTeachers = () => {
   const toast = useToast();
+  const confirm = useConfirm();
   const [teachers, setTeachers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
@@ -38,7 +45,7 @@ const AdminTeachers = () => {
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState(null);
-  const [invite, setInvite] = useState(null); // { invite, name }
+  const [invite, setInvite] = useState(null);
 
   const fetchTeachers = useCallback(async () => {
     try {
@@ -56,12 +63,9 @@ const AdminTeachers = () => {
     fetchTeachers();
   }, [fetchTeachers]);
 
-  const q = searchTerm.toLowerCase();
-  const filteredTeachers = teachers.filter(
-    (t) =>
-      (t.full_name || '').toLowerCase().includes(q) ||
-      (t.email || '').toLowerCase().includes(q) ||
-      (t.specialization || '').toLowerCase().includes(q)
+  const q = searchTerm.trim().toLowerCase();
+  const filtered = teachers.filter(
+    (t) => !q || (t.full_name || '').toLowerCase().includes(q) || (t.email || '').toLowerCase().includes(q) || (t.specialization || '').toLowerCase().includes(q)
   );
 
   const openAdd = () => {
@@ -111,6 +115,15 @@ const AdminTeachers = () => {
   };
 
   const handleToggleStatus = async (teacher) => {
+    if (teacher.is_active) {
+      const ok = await confirm({
+        title: `Deactivate ${teacher.full_name}?`,
+        message: 'They will no longer be able to log in, and they disappear from the public Teachers page.',
+        confirmLabel: 'Deactivate',
+        tone: 'danger',
+      });
+      if (!ok) return;
+    }
     setBusyId(teacher.teacher_id);
     try {
       await adminService.updateTeacher(teacher.teacher_id, { is_active: !teacher.is_active });
@@ -137,7 +150,13 @@ const AdminTeachers = () => {
   };
 
   const handleDelete = async (teacher) => {
-    if (!window.confirm(`Delete ${teacher.full_name}? Their login will be removed. This cannot be undone.`)) return;
+    const ok = await confirm({
+      title: `Delete ${teacher.full_name}?`,
+      message: 'Their login will be removed. This cannot be undone. Teachers with batches or history should be deactivated instead.',
+      confirmLabel: 'Delete teacher',
+      tone: 'danger',
+    });
+    if (!ok) return;
     setBusyId(teacher.teacher_id);
     try {
       await adminService.deleteTeacher(teacher.teacher_id);
@@ -150,215 +169,173 @@ const AdminTeachers = () => {
     }
   };
 
-  if (loading && !teachers.length) return <PageSkeleton label="Loading teachers..." />;
+  if (loading && !teachers.length) return <PageSkeleton label="Loading teachers…" />;
   if (error) return <ErrorState message={error} onRetry={fetchTeachers} />;
 
   return (
     <div className="page">
-      <div>
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="page-title">Manage Teachers</h1>
-            <p className="text-gray-600">Add, edit, and manage teaching staff</p>
-          </div>
-          <button onClick={openAdd} className="btn-primary">
-            + Add New Teacher
+      <PageHeader
+        title="Teachers"
+        description="Faculty accounts, public profiles and invitations."
+        actions={
+          <button type="button" onClick={openAdd} className="btn-primary">
+            <Icon name="plus" className="h-4 w-4" /> Add teacher
           </button>
-        </div>
+        }
+      />
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-8">
-          {[
-            ['Total Teachers', teachers.length, 'text-primary'],
-            ['Active', teachers.filter((t) => t.is_active).length, 'text-green-600'],
-            ['Total Batches', teachers.reduce((s, t) => s + (t.total_batches || 0), 0), 'text-blue-600'],
-            ['Total Students', teachers.reduce((s, t) => s + (t.total_students || 0), 0), 'text-purple-600'],
-          ].map(([label, value, color]) => (
-            <div key={label} className="card">
-              <p className="text-sm text-gray-600 mb-1">{label}</p>
-              <p className={`text-3xl font-bold ${color}`}>{value}</p>
-            </div>
-          ))}
-        </div>
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard label="Teachers" value={teachers.length} icon="teacher" tone="brand" />
+        <StatCard label="Active" value={teachers.filter((t) => t.is_active).length} icon="checkCircle" tone="success" />
+        <StatCard label="Batches taught" value={teachers.reduce((s, t) => s + (t.total_batches || 0), 0)} icon="collection" tone="gold" />
+        <StatCard label="Students taught" value={teachers.reduce((s, t) => s + (t.total_students || 0), 0)} icon="users" tone="info" />
+      </div>
 
-        {/* Search */}
-        <div className="card mb-6">
-          <input
-            type="search"
-            placeholder="Search by name, email, or specialization..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="input-field"
-            aria-label="Search teachers"
-          />
-          <p className="text-sm text-gray-600 mt-2">
-            Showing {filteredTeachers.length} of {teachers.length} teachers
-          </p>
-        </div>
-
-        {/* Teachers Table */}
-        {filteredTeachers.length === 0 ? (
-          <div className="surface">
-            <EmptyState
-              icon="user"
-              title={teachers.length ? 'No teachers match your search' : 'No teachers yet'}
-              description={teachers.length ? 'Try a different search term.' : 'Add your first teacher to get started.'}
-              actionText={teachers.length ? undefined : 'Add Teacher'}
-              onAction={teachers.length ? undefined : openAdd}
-            />
+      <section className="surface overflow-hidden">
+        <div className="border-b border-sand-200 p-4 sm:px-5">
+          <div className="relative max-w-md">
+            <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input type="search" placeholder="Name, email or specialisation" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="input-field pl-9" aria-label="Search teachers" />
           </div>
+        </div>
+        {filtered.length === 0 ? (
+          <EmptyState
+            icon="user"
+            title={teachers.length ? 'No teachers match your search' : 'No teachers yet'}
+            description={teachers.length ? 'Try a different search term.' : 'Add your first teacher to get started.'}
+            actionText={teachers.length ? undefined : 'Add teacher'}
+            onAction={teachers.length ? undefined : openAdd}
+          />
         ) : (
-          <div className="surface overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-sand-50 border-b-2">
-                  <tr>
-                    {['Teacher', 'Specialization', 'Experience', 'Batches', 'Students', 'Status', 'Actions'].map((h) => (
-                      <th key={h} className="px-6 py-4 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-sand-200">
-                  {filteredTeachers.map((teacher) => (
-                    <tr key={teacher.teacher_id} className="hover:bg-sand-50">
-                      <td className="td">
-                        <p className="font-semibold text-accent">{teacher.full_name}</p>
-                        <p className="text-sm text-gray-600">{teacher.email}</p>
-                        {teacher.phone && <p className="text-sm text-gray-500">{teacher.phone}</p>}
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">Teacher</th>
+                  <th scope="col" className="hidden lg:table-cell">
+                    Specialisation
+                  </th>
+                  <th scope="col" className="hidden md:table-cell text-right">
+                    Batches
+                  </th>
+                  <th scope="col" className="hidden md:table-cell text-right">
+                    Students
+                  </th>
+                  <th scope="col">Status</th>
+                  <th scope="col">
+                    <span className="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((t) => {
+                  const busy = busyId === t.teacher_id;
+                  return (
+                    <tr key={t.teacher_id}>
+                      <td>
+                        <p className="flex items-center gap-2 font-medium text-accent">
+                          {t.full_name}
+                          {t.is_senior && <span className="badge-gold">Senior</span>}
+                        </p>
+                        <p className="text-xs text-gray-500">{t.email}</p>
                       </td>
-                      <td className="td text-gray-600">{teacher.specialization || '—'}</td>
-                      <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">{teacher.experience_years ?? 0} years</td>
-                      <td className="px-6 py-4 text-sm font-semibold text-primary">{teacher.total_batches}</td>
-                      <td className="px-6 py-4 text-sm font-semibold text-green-600">{teacher.total_students}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                            teacher.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                          }`}
-                        >
-                          {teacher.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                        {teacher.invite_pending && (
-                          <span className="ml-2 px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
-                            Invite pending
-                          </span>
-                        )}
+                      <td className="hidden text-gray-600 lg:table-cell">
+                        {t.specialization || '—'}
+                        <span className="block text-xs text-gray-500">{t.experience_years ?? 0} years</span>
                       </td>
-                      <td className="td">
-                        <div className="flex flex-wrap gap-x-3 gap-y-1">
-                          <button onClick={() => openEdit(teacher)} className="text-blue-600 hover:text-blue-800 text-sm font-semibold">
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleToggleStatus(teacher)}
-                            disabled={busyId === teacher.teacher_id}
-                            className="text-amber-600 hover:text-amber-800 text-sm font-semibold disabled:opacity-50"
-                          >
-                            {teacher.is_active ? 'Deactivate' : 'Activate'}
-                          </button>
-                          {teacher.is_active && (
-                            <button
-                              onClick={() => handleSendLink(teacher)}
-                              disabled={busyId === teacher.teacher_id}
-                              className="text-primary hover:text-primary-dark text-sm font-semibold disabled:opacity-50"
-                              title="Create a new password setup link"
-                            >
-                              Send link
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleDelete(teacher)}
-                            disabled={busyId === teacher.teacher_id}
-                            className="text-red-600 hover:text-red-800 text-sm font-semibold disabled:opacity-50"
-                          >
-                            Delete
-                          </button>
+                      <td className="hidden text-right tabular-nums md:table-cell">{t.total_batches}</td>
+                      <td className="hidden text-right tabular-nums md:table-cell">{t.total_students}</td>
+                      <td>
+                        <div className="flex flex-wrap gap-1">
+                          <StatusBadge status={t.is_active ? 'active' : 'inactive'} />
+                          {t.invite_pending && <span className="badge-warning">Invite pending</span>}
+                        </div>
+                      </td>
+                      <td>
+                        <div className="flex justify-end gap-0.5">
+                          <RowAction icon="pencil" label={`Edit ${t.full_name}`} onClick={() => openEdit(t)} disabled={busy} />
+                          {t.is_active && <RowAction icon="key" label={`Password link for ${t.full_name}`} onClick={() => handleSendLink(t)} disabled={busy} />}
+                          <RowAction
+                            icon={t.is_active ? 'eyeOff' : 'refresh'}
+                            label={t.is_active ? `Deactivate ${t.full_name}` : `Reactivate ${t.full_name}`}
+                            onClick={() => handleToggleStatus(t)}
+                            disabled={busy}
+                          />
+                          <RowAction icon="trash" label={`Delete ${t.full_name}`} onClick={() => handleDelete(t)} disabled={busy} danger />
                         </div>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
+        <p className="border-t border-sand-200 px-5 py-3 text-xs text-gray-500">
+          Showing {filtered.length} of {teachers.length} teachers
+        </p>
+      </section>
 
-        <InviteLinkDialog invite={invite?.invite} name={invite?.name} onClose={() => setInvite(null)} />
+      <InviteLinkDialog invite={invite?.invite} name={invite?.name} onClose={() => setInvite(null)} />
 
-        {/* Add / Edit Teacher Modal */}
-        {modal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
-                <h2 className="section-title">{modal.mode === 'add' ? 'Add New Teacher' : 'Edit Teacher'}</h2>
-                <button onClick={() => setModal(null)} className="text-gray-400 hover:text-gray-600 text-2xl" aria-label="Close">
-                  ×
-                </button>
+      <Modal
+        open={!!modal}
+        onClose={() => setModal(null)}
+        title={modal?.mode === 'add' ? 'Add a teacher' : 'Edit teacher'}
+        description={modal?.mode === 'add' ? 'You will get a one-time link to share so the teacher can set their own password.' : modal?.teacher?.full_name}
+        size="lg"
+        dismissible={!saving}
+      >
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-5 sm:grid-cols-2">
+            {FIELDS.map(([name, label, type, required]) => (
+              <div key={name}>
+                <label htmlFor={`t-${name}`} className="form-label">
+                  {label} {!required && <span className="font-normal text-gray-500">(optional)</span>}
+                </label>
+                <input
+                  id={`t-${name}`}
+                  type={type}
+                  name={name}
+                  value={formData[name]}
+                  onChange={handleChange}
+                  className="input-field"
+                  required={required}
+                  min={type === 'number' ? 0 : undefined}
+                  max={type === 'number' ? 80 : undefined}
+                />
               </div>
-              <form onSubmit={handleSubmit} className="p-6">
-                {modal.mode === 'add' && (
-                  <p className="text-sm text-gray-600 bg-blue-50 border-l-4 border-blue-400 p-3 rounded mb-6">
-                    After saving you will get a one-time link to share with the teacher so they can set their own password.
-                  </p>
-                )}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {[
-                    ['fullName', 'Full Name *', 'text', true],
-                    ['email', 'Email *', 'email', true],
-                    ['phone', 'Phone', 'tel', false],
-                    ['specialization', 'Specialization', 'text', false],
-                    ['experienceYears', 'Experience (years)', 'number', false],
-                  ].map(([name, label, type, required]) => (
-                    <div key={name}>
-                      <label htmlFor={`t-${name}`} className="form-label">
-                        {label}
-                      </label>
-                      <input
-                        id={`t-${name}`}
-                        type={type}
-                        name={name}
-                        value={formData[name]}
-                        onChange={handleChange}
-                        className="input-field"
-                        required={required}
-                        min={type === 'number' ? 0 : undefined}
-                        max={type === 'number' ? 80 : undefined}
-                      />
-                    </div>
-                  ))}
-                  <label className="flex items-center gap-2 mt-8 text-sm font-semibold text-gray-700">
-                    <input type="checkbox" name="isSenior" checked={formData.isSenior} onChange={handleChange} />
-                    Senior teacher
-                  </label>
-                  <div className="md:col-span-2">
-                    <label htmlFor="t-qualifications" className="form-label">
-                      Qualifications
-                    </label>
-                    <input id="t-qualifications" name="qualifications" value={formData.qualifications} onChange={handleChange} className="input-field" />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label htmlFor="t-bio" className="form-label">
-                      Bio
-                    </label>
-                    <textarea id="t-bio" name="bio" value={formData.bio} onChange={handleChange} rows="3" className="input-field" />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-4 mt-8">
-                  <button type="button" onClick={() => setModal(null)} className="btn-secondary">
-                    Cancel
-                  </button>
-                  <button type="submit" disabled={saving} className="btn-primary disabled:opacity-50">
-                    {saving ? 'Saving…' : modal.mode === 'add' ? 'Add Teacher' : 'Save Changes'}
-                  </button>
-                </div>
-              </form>
+            ))}
+            <label className="flex cursor-pointer items-start gap-3 self-end rounded-lg border border-sand-200 p-3">
+              <input type="checkbox" name="isSenior" checked={formData.isSenior} onChange={handleChange} className="mt-1 h-4 w-4" />
+              <span className="text-sm">
+                <span className="font-medium text-accent">Senior faculty</span>
+                <span className="block text-gray-500">Listed first on the public Teachers page</span>
+              </span>
+            </label>
+            <div className="sm:col-span-2">
+              <label htmlFor="t-qualifications" className="form-label">
+                Qualifications <span className="font-normal text-gray-500">(optional)</span>
+              </label>
+              <input id="t-qualifications" name="qualifications" value={formData.qualifications} onChange={handleChange} className="input-field" />
+            </div>
+            <div className="sm:col-span-2">
+              <label htmlFor="t-bio" className="form-label">
+                Bio <span className="font-normal text-gray-500">(shown publicly)</span>
+              </label>
+              <textarea id="t-bio" name="bio" value={formData.bio} onChange={handleChange} rows={3} className="input-field" />
             </div>
           </div>
-        )}
-      </div>
+          <div className="modal-actions">
+            <button type="button" onClick={() => setModal(null)} className="btn-secondary" disabled={saving}>
+              Cancel
+            </button>
+            <button type="submit" disabled={saving} className="btn-primary">
+              {saving ? 'Saving…' : modal?.mode === 'add' ? 'Add teacher' : 'Save changes'}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };
