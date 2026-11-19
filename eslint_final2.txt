@@ -1,6 +1,0 @@
-﻿
-D:\Mrinmayi\In_House_Internship\roopak-nrityalaya\frontend\src\pages\AdminAnalytics.js
-  47:9  warning  'totalEnrollments' is assigned a value but never used  no-unused-vars
-
-Γ£û 1 problem (0 errors, 1 warning)
-
