@@ -1,15 +1,28 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { PageSkeleton } from '../components/ui/Skeleton';
+import PageHeader from '../components/ui/PageHeader';
+import Icon from '../components/ui/Icon';
 import StatusBadge from '../components/StatusBadge';
+import RollNumberBadge from '../components/RollNumberBadge';
 import ErrorState from '../components/ErrorState';
 import EmptyState from '../components/EmptyState';
 import teacherService from '../services/teacherService';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { formatDate } from '../utils/date';
+
+const FILTERS = [
+  ['pending', 'Pending'],
+  ['approved', 'Approved'],
+  ['rejected', 'Declined'],
+  ['completed', 'Attended'],
+  ['all', 'All'],
+];
 
 // Students who missed a class request to attend one of this teacher's batches.
 const TeacherMakeupRequests = () => {
   const toast = useToast();
+  const confirm = useConfirm();
   const [requests, setRequests] = useState([]);
   const [filter, setFilter] = useState('pending');
   const [loading, setLoading] = useState(true);
@@ -35,8 +48,15 @@ const TeacherMakeupRequests = () => {
   const decide = async (r, status) => {
     let notes;
     if (status === 'rejected') {
-      notes = window.prompt('Reason for declining (shown to the student):', '');
-      if (notes === null) return;
+      const res = await confirm({
+        title: `Decline ${r.student_name}'s request?`,
+        message: 'The student will see your reason on their Makeup Classes page.',
+        confirmLabel: 'Decline request',
+        tone: 'danger',
+        input: { label: 'Reason', multiline: true, placeholder: 'e.g. The batch is full that day' },
+      });
+      if (!res) return;
+      notes = res.value;
     }
     setBusyId(r.booking_id);
     try {
@@ -56,95 +76,81 @@ const TeacherMakeupRequests = () => {
     }
   };
 
-  if (loading) return <PageSkeleton label="Loading makeup requests..." />;
+  if (loading) return <PageSkeleton label="Loading makeup requests…" variant="cards" stats={false} />;
   if (error) return <ErrorState message={error} onRetry={load} />;
 
   const shown = requests.filter((r) => filter === 'all' || r.status === filter);
-  const count = (s) => requests.filter((r) => r.status === s).length;
+  const count = (s) => (s === 'all' ? requests.length : requests.filter((r) => r.status === s).length);
 
   return (
     <div className="page">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="page-title">Makeup Class Requests</h1>
-          <p className="text-gray-600">Students who missed a class and want to join one of your batches</p>
-        </div>
+      <PageHeader title="Makeup requests" description="Students who missed a class and want to join one of your batches." />
 
-        <div className="flex flex-wrap gap-3 mb-6" role="group" aria-label="Filter requests">
-          {[
-            ['pending', `Pending (${count('pending')})`],
-            ['approved', `Approved (${count('approved')})`],
-            ['rejected', 'Declined'],
-            ['completed', 'Attended'],
-            ['all', 'All'],
-          ].map(([v, l]) => (
-            <button
-              key={v}
-              onClick={() => setFilter(v)}
-              aria-pressed={filter === v}
-              className={`px-4 py-2 rounded-lg font-semibold ${filter === v ? 'bg-primary text-white' : 'bg-white shadow'}`}
-            >
-              {l}
-            </button>
-          ))}
-        </div>
-
-        {shown.length === 0 ? (
-          <div className="surface">
-            <EmptyState icon="calendar" title="No requests here" description="Makeup requests for your batches will appear here." />
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {shown.map((r) => (
-              <article key={r.booking_id} className="bg-white rounded-xl shadow p-6">
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
-                  <div>
-                    <h2 className="font-bold text-accent text-lg">
-                      {r.student_name} <span className="text-sm text-gray-500 font-normal">({r.roll_number || '—'})</span>
-                    </h2>
-                    <p className="text-sm text-gray-600">Requested {new Date(r.created_at).toLocaleDateString('en-IN')}</p>
-                  </div>
-                  <StatusBadge status={r.status} />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-sand-50 rounded-lg mb-4 text-sm">
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">MISSED</p>
-                    <p className="font-semibold">{formatDate(r.original_class_date)}</p>
-                    <p className="text-gray-600">{r.original_batch_name || '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">WANTS TO ATTEND</p>
-                    <p className="font-semibold">{formatDate(r.makeup_class_date)}</p>
-                    <p className="text-gray-600">{r.makeup_batch_name}</p>
-                  </div>
-                </div>
-                {r.notes && <p className="text-sm text-gray-700 whitespace-pre-line mb-4">{r.notes}</p>}
-                <div className="flex flex-wrap gap-3">
-                  {r.status === 'pending' && (
-                    <>
-                      <button onClick={() => decide(r, 'approved')} disabled={busyId === r.booking_id} className="btn-primary px-4 py-2 disabled:opacity-50">
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => decide(r, 'rejected')}
-                        disabled={busyId === r.booking_id}
-                        className="px-4 py-2 rounded-lg font-semibold bg-red-50 text-red-700 hover:bg-red-100 disabled:opacity-50"
-                      >
-                        Decline
-                      </button>
-                    </>
-                  )}
-                  {r.status === 'approved' && (
-                    <button onClick={() => decide(r, 'completed')} disabled={busyId === r.booking_id} className="btn-secondary px-4 py-2 disabled:opacity-50">
-                      Mark as attended
-                    </button>
-                  )}
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
+      <div className="mb-6 inline-flex flex-wrap gap-1 rounded-xl border border-sand-200 bg-white p-1" role="group" aria-label="Filter requests">
+        {FILTERS.map(([v, l]) => (
+          <button key={v} type="button" onClick={() => setFilter(v)} aria-pressed={filter === v} className={filter === v ? 'tab-active' : 'tab'}>
+            {l} <span className="ml-1 text-xs opacity-70">{count(v)}</span>
+          </button>
+        ))}
       </div>
+
+      {shown.length === 0 ? (
+        <div className="surface">
+          <EmptyState icon="refresh" title={filter === 'pending' ? 'No requests waiting for you' : 'No requests here'} description="Makeup requests for your batches will appear here." />
+        </div>
+      ) : (
+        <ul className="grid gap-4 lg:grid-cols-2">
+          {shown.map((r) => {
+            const busy = busyId === r.booking_id;
+            return (
+              <li key={r.booking_id} className="card flex flex-col">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-accent">{r.student_name}</p>
+                    <div className="mt-0.5 flex items-center gap-2">
+                      <RollNumberBadge rollNumber={r.roll_number} size="sm" />
+                      <span className="text-xs text-gray-500">Requested {formatDate(r.created_at, { day: 'numeric', month: 'short' })}</span>
+                    </div>
+                  </div>
+                  <StatusBadge status={r.status} label={r.status === 'rejected' ? 'Declined' : r.status === 'completed' ? 'Attended' : undefined} />
+                </div>
+                <div className="mt-4 flex items-center gap-3 text-sm">
+                  <div className="min-w-0 flex-1 rounded-lg bg-sand-50 p-3">
+                    <p className="text-[0.68rem] font-semibold uppercase tracking-wide text-gray-500">Missed</p>
+                    <p className="font-medium text-accent">{formatDate(r.original_class_date, { weekday: 'short', day: 'numeric', month: 'short' })}</p>
+                    <p className="truncate text-xs text-gray-600">{r.original_batch_name || '—'}</p>
+                  </div>
+                  <Icon name="arrowRight" className="h-5 w-5 shrink-0 text-secondary-600" />
+                  <div className="min-w-0 flex-1 rounded-lg bg-primary-50/60 p-3">
+                    <p className="text-[0.68rem] font-semibold uppercase tracking-wide text-gray-500">Wants to attend</p>
+                    <p className="font-medium text-accent">{formatDate(r.makeup_class_date, { weekday: 'short', day: 'numeric', month: 'short' })}</p>
+                    <p className="truncate text-xs text-gray-600">{r.makeup_batch_name}</p>
+                  </div>
+                </div>
+                {r.notes && <p className="mt-3 whitespace-pre-line text-sm text-gray-700">{r.notes}</p>}
+                {(r.status === 'pending' || r.status === 'approved') && (
+                  <div className="mt-auto flex gap-2 pt-4">
+                    {r.status === 'pending' ? (
+                      <>
+                        <button type="button" onClick={() => decide(r, 'approved')} disabled={busy} className="btn-primary flex-1">
+                          <Icon name="check" className="h-4 w-4" /> Approve
+                        </button>
+                        <button type="button" onClick={() => decide(r, 'rejected')} disabled={busy} className="btn-danger-outline flex-1">
+                          Decline
+                        </button>
+                      </>
+                    ) : (
+                      <button type="button" onClick={() => decide(r, 'completed')} disabled={busy} className="btn-secondary flex-1">
+                        <Icon name="clipboardCheck" className="h-4 w-4" /> Mark as attended
+                      </button>
+                    )}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 };

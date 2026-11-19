@@ -1,18 +1,25 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { PageSkeleton } from '../components/ui/Skeleton';
 import { useSearchParams } from 'react-router-dom';
-import LoadingSpinner from '../components/LoadingSpinner';
+import { PageSkeleton, Skeleton } from '../components/ui/Skeleton';
+import PageHeader from '../components/ui/PageHeader';
+import Icon from '../components/ui/Icon';
 import ErrorState from '../components/ErrorState';
+import EmptyState from '../components/EmptyState';
+import RollNumberBadge from '../components/RollNumberBadge';
 import teacherService from '../services/teacherService';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
+import { todayISO } from '../utils/date';
 
-const todayISO = () => {
-  const d = new Date();
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-};
+const STATUSES = [
+  ['present', 'Present', 'bg-green-700 text-white', 'P'],
+  ['late', 'Late', 'bg-amber-500 text-accent-dark', 'L'],
+  ['absent', 'Absent', 'bg-red-700 text-white', 'A'],
+];
 
 const TeacherAttendance = () => {
   const toast = useToast();
+  const confirm = useConfirm();
   const [searchParams] = useSearchParams();
   const [batches, setBatches] = useState([]);
   const [selectedBatch, setSelectedBatch] = useState(searchParams.get('batch') || '');
@@ -30,11 +37,7 @@ const TeacherAttendance = () => {
       setLoading(true);
       setError(null);
       const rows = await teacherService.getBatches();
-      setBatches(
-        rows
-          .filter((b) => b.is_active !== false)
-          .map((b) => ({ id: String(b.batch_id), name: b.batch_name, level: b.level_name }))
-      );
+      setBatches(rows.filter((b) => b.is_active !== false).map((b) => ({ id: String(b.batch_id), name: b.batch_name, level: b.level_name })));
     } catch (err) {
       setError(err.message || 'Could not load your batches');
     } finally {
@@ -58,7 +61,7 @@ const TeacherAttendance = () => {
       .getBatchAttendance(selectedBatch, selectedDate)
       .then((rows) => {
         if (!active) return;
-        setStudents(rows.map((r) => ({ id: r.student_id, name: r.full_name, rollNo: r.roll_number || '—' })));
+        setStudents(rows.map((r) => ({ id: r.student_id, name: r.full_name, rollNo: r.roll_number })));
         const existing = {};
         rows.forEach((r) => {
           if (r.status !== 'unmarked') existing[r.student_id] = r.status;
@@ -73,17 +76,9 @@ const TeacherAttendance = () => {
     };
   }, [selectedBatch, selectedDate, toast]);
 
-  const handleAttendanceChange = (studentId, status) => {
-    setAttendance((prev) => ({ ...prev, [studentId]: status }));
-  };
-
-  const handleBulkMark = (status) => {
-    const updated = {};
-    students.forEach((student) => {
-      updated[student.id] = status;
-    });
-    setAttendance(updated);
-  };
+  const mark = (id, status) => setAttendance((prev) => ({ ...prev, [id]: status }));
+  const markAll = (status) => setAttendance(Object.fromEntries(students.map((s) => [s.id, status])));
+  const count = (status) => Object.values(attendance).filter((s) => s === status).length;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -93,13 +88,19 @@ const TeacherAttendance = () => {
       return;
     }
     const unmarked = students.length - records.length;
-    if (unmarked > 0 && !window.confirm(`${unmarked} student(s) are not marked and will be skipped. Save anyway?`)) return;
-
+    if (unmarked > 0) {
+      const ok = await confirm({
+        title: 'Some students are not marked',
+        message: `${unmarked} student${unmarked > 1 ? 's are' : ' is'} not marked and will be skipped. Save the rest?`,
+        confirmLabel: 'Save anyway',
+      });
+      if (!ok) return;
+    }
     setSaving(true);
     try {
       await teacherService.markAttendance({ batch_id: Number(selectedBatch), attendance_date: selectedDate, records });
       setAlreadyMarked(true);
-      toast.success(`Attendance saved for ${records.length} student(s).`);
+      toast.success(`Attendance saved for ${records.length} student${records.length > 1 ? 's' : ''}.`);
     } catch (err) {
       toast.error(err.message || 'Could not save attendance.');
     } finally {
@@ -107,223 +108,119 @@ const TeacherAttendance = () => {
     }
   };
 
-  const getStatusCount = (status) => {
-    return Object.values(attendance).filter(s => s === status).length;
-  };
-
-  if (loading) return <PageSkeleton label="Loading your batches..." />;
+  if (loading) return <PageSkeleton label="Loading your batches…" variant="form" />;
   if (error) return <ErrorState message={error} onRetry={loadBatches} />;
+
+  const marked = Object.keys(attendance).length;
 
   return (
     <div className="page">
-      <div>
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="page-title">
-            Mark Attendance
-          </h1>
-          <p className="text-gray-600">Record student attendance for your classes</p>
+      <PageHeader title="Attendance" description="Choose a batch and date, then mark each student." />
+
+      <div className="card mb-6 grid gap-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor="batch" className="form-label">
+            Batch
+          </label>
+          <select id="batch" value={selectedBatch} onChange={(e) => setSelectedBatch(e.target.value)} className="input-field">
+            <option value="">Choose a batch</option>
+            {batches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name} — {b.level}
+              </option>
+            ))}
+          </select>
         </div>
-
-        {/* Selection Form */}
-        <div className="card mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="form-label">
-                Select Batch *
-              </label>
-              <select
-                value={selectedBatch}
-                onChange={(e) => setSelectedBatch(e.target.value)}
-                className="input-field"
-                required
-              >
-                <option value="">Choose a batch</option>
-                {batches.map(batch => (
-                  <option key={batch.id} value={batch.id}>
-                    {batch.name} - {batch.level}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="form-label">
-                Date *
-              </label>
-              <input
-                type="date"
-                max={todayISO()}
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="input-field"
-                required
-              />
-            </div>
-          </div>
+        <div>
+          <label htmlFor="date" className="form-label">
+            Date
+          </label>
+          <input id="date" type="date" max={todayISO()} value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="input-field" />
         </div>
-
-        {batches.length === 0 && (
-          <div className="bg-yellow-50 border border-amber-200 rounded-xl p-6 text-amber-800 mb-8">
-            You have no active batches assigned yet. An administrator can assign batches to you.
-          </div>
-        )}
-
-        {selectedBatch && loadingStudents && <LoadingSpinner text="Loading students..." />}
-
-        {selectedBatch && !loadingStudents && students.length === 0 && (
-          <div className="card sm:p-8 text-center text-gray-600">
-            No active students are enrolled in this batch.
-          </div>
-        )}
-
-        {selectedBatch && !loadingStudents && students.length > 0 && (
-          <>
-            {/* Quick Stats */}
-            {alreadyMarked && (
-              <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-green-800 mb-6 text-sm">
-                Attendance for this date has already been saved. Saving again will update it.
-              </div>
-            )}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <div className="bg-white rounded-lg shadow p-4">
-                <p className="text-sm text-gray-600">Total Students</p>
-                <p className="text-2xl font-bold text-primary">{students.length}</p>
-              </div>
-              <div className="bg-white rounded-lg shadow p-4">
-                <p className="text-sm text-gray-600">Present</p>
-                <p className="text-2xl font-bold text-green-600">{getStatusCount('present')}</p>
-              </div>
-              <div className="bg-white rounded-lg shadow p-4">
-                <p className="text-sm text-gray-600">Absent</p>
-                <p className="text-2xl font-bold text-red-600">{getStatusCount('absent')}</p>
-              </div>
-              <div className="bg-white rounded-lg shadow p-4">
-                <p className="text-sm text-gray-600">Late</p>
-                <p className="text-2xl font-bold text-amber-600">{getStatusCount('late')}</p>
-              </div>
-            </div>
-
-            {/* Bulk Actions */}
-            <div className="card mb-6">
-              <h3 className="font-bold text-accent mb-4">Quick Actions</h3>
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={() => handleBulkMark('present')}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  Mark All Present
-                </button>
-                <button
-                  onClick={() => handleBulkMark('absent')}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                >
-                  Mark All Absent
-                </button>
-                <button
-                  onClick={() => handleBulkMark('late')}
-                  className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
-                >
-                  Mark All Late
-                </button>
-              </div>
-            </div>
-
-            {/* Student List */}
-            <form onSubmit={handleSubmit}>
-              <div className="card mb-6">
-                <h3 className="font-bold text-accent mb-6 text-xl">Student Attendance</h3>
-                
-                <div className="space-y-3">
-                  {students.map((student, index) => (
-                    <div 
-                      key={student.id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-sand-50 rounded-lg hover:bg-sand-100 transition-colors"
-                    >
-                      <div className="flex items-center space-x-4">
-                        <span className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center font-semibold text-primary">
-                          {index + 1}
-                        </span>
-                        <div>
-                          <p className="font-semibold text-accent">{student.name}</p>
-                          <p className="text-sm text-gray-500">Roll No: {student.rollNo}</p>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-2" role="group" aria-label={`Attendance for ${student.name}`}>
-                        <button
-                          type="button"
-                          aria-pressed={attendance[student.id] === 'present'}
-                          onClick={() => handleAttendanceChange(student.id, 'present')}
-                          className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                            attendance[student.id] === 'present'
-                              ? 'bg-green-600 text-white shadow-lg'
-                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                          }`}
-                        >
-                          Present
-                        </button>
-                        <button
-                          type="button"
-                          aria-pressed={attendance[student.id] === 'absent'}
-                          onClick={() => handleAttendanceChange(student.id, 'absent')}
-                          className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                            attendance[student.id] === 'absent'
-                              ? 'bg-red-600 text-white shadow-lg'
-                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                          }`}
-                        >
-                          Absent
-                        </button>
-                        <button
-                          type="button"
-                          aria-pressed={attendance[student.id] === 'late'}
-                          onClick={() => handleAttendanceChange(student.id, 'late')}
-                          className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                            attendance[student.id] === 'late'
-                              ? 'bg-amber-600 text-white shadow-lg'
-                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                          }`}
-                        >
-                          Late
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Submit Button */}
-              <div className="flex justify-end space-x-4">
-                <button
-                  type="button"
-                  onClick={() => setSelectedBatch('')}
-                  className="btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="btn-primary disabled:opacity-50"
-                >
-                  {saving ? 'Saving...' : 'Save Attendance'}
-                </button>
-              </div>
-            </form>
-          </>
-        )}
-
-        {!selectedBatch && (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-8 text-center">
-            <svg className="w-16 h-16 text-blue-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            <p className="text-blue-800 text-lg font-semibold mb-2">Select a batch to start</p>
-            <p className="text-blue-600 text-sm">Choose a batch and date to mark attendance</p>
-          </div>
-        )}
       </div>
+
+      {batches.length === 0 ? (
+        <div className="callout-warning">You have no active batches yet. An administrator can assign batches to you.</div>
+      ) : !selectedBatch ? (
+        <div className="surface">
+          <EmptyState icon="clipboardCheck" title="Select a batch to start" description="The student list appears here with any attendance already saved for that date." />
+        </div>
+      ) : loadingStudents ? (
+        <div className="surface space-y-1 p-4" role="status" aria-label="Loading students">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-14 w-full" />
+          ))}
+        </div>
+      ) : students.length === 0 ? (
+        <div className="surface">
+          <EmptyState icon="users" title="No active students in this batch" size="sm" />
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit}>
+          {alreadyMarked && (
+            <div className="callout-success mb-4 flex gap-2">
+              <Icon name="checkCircle" className="h-5 w-5 shrink-0" /> Attendance for this date is saved. Saving again updates it.
+            </div>
+          )}
+
+          <section className="surface overflow-hidden">
+            <div className="flex flex-col gap-3 border-b border-sand-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <p className="text-sm text-gray-600" aria-live="polite">
+                <span className="font-semibold text-accent">{marked}</span> of {students.length} marked ·{' '}
+                <span className="text-green-800">{count('present')} present</span> · <span className="text-amber-800">{count('late')} late</span> ·{' '}
+                <span className="text-red-800">{count('absent')} absent</span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <span className="self-center text-xs font-medium text-gray-500">Mark all:</span>
+                {STATUSES.map(([v, l]) => (
+                  <button key={v} type="button" onClick={() => markAll(v)} className="btn-secondary btn-sm">
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <ul className="divide-y divide-sand-100">
+              {students.map((s, i) => (
+                <li key={s.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sand-100 text-xs font-semibold text-gray-600">{i + 1}</span>
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-accent">{s.name}</p>
+                      <RollNumberBadge rollNumber={s.rollNo} size="sm" />
+                    </div>
+                  </div>
+                  <div className="inline-flex shrink-0 rounded-lg border border-sand-300 bg-white p-0.5" role="radiogroup" aria-label={`Attendance for ${s.name}`}>
+                    {STATUSES.map(([v, l, active]) => {
+                      const on = attendance[s.id] === v;
+                      return (
+                        <button
+                          key={v}
+                          type="button"
+                          role="radio"
+                          aria-checked={on}
+                          onClick={() => mark(s.id, v)}
+                          className={`min-w-[4.5rem] rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${on ? active : 'text-gray-600 hover:bg-sand-100'}`}
+                        >
+                          {l}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <div className="sticky bottom-0 z-10 -mx-4 mt-4 flex justify-end gap-2 border-t border-sand-200 bg-sand-50/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0">
+            <button type="button" onClick={() => setSelectedBatch('')} className="btn-secondary">
+              Cancel
+            </button>
+            <button type="submit" disabled={saving} className="btn-primary">
+              {saving ? 'Saving…' : alreadyMarked ? 'Update attendance' : 'Save attendance'}
+            </button>
+          </div>
+        </form>
+      )}
     </div>
   );
 };

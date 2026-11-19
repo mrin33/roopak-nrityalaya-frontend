@@ -5,6 +5,7 @@ import { PORTAL_NAV, portalPageTitle } from '../../config/navigation';
 import academy from '../../config/academy';
 import { LogoMark } from '../ui/Logo';
 import Icon from '../ui/Icon';
+import ChangePasswordDialog from '../ChangePasswordDialog';
 
 const ROLE_LABEL = { admin: 'Administrator', teacher: 'Teacher', student: 'Student' };
 
@@ -91,6 +92,7 @@ const PortalLayout = ({ role }) => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
   const menuButtonRef = useRef(null);
   const drawerRef = useRef(null);
 
@@ -199,6 +201,9 @@ const PortalLayout = ({ role }) => {
               <Icon name="globe" className="h-4 w-4" />
               Website
             </Link>
+            <button type="button" onClick={() => setPasswordOpen(true)} className="icon-btn" aria-label="Change password" title="Change password">
+              <Icon name="key" className="h-5 w-5" />
+            </button>
             <button type="button" onClick={handleLogout} className="btn-ghost btn-sm">
               <Icon name="logout" className="h-4 w-4" />
               <span className="hidden sm:inline">Log out</span>
@@ -211,6 +216,7 @@ const PortalLayout = ({ role }) => {
           <Outlet />
         </main>
       </div>
+      <ChangePasswordDialog open={passwordOpen} onClose={() => setPasswordOpen(false)} />
     </div>
   );
 };

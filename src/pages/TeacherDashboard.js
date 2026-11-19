@@ -1,26 +1,30 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { PageSkeleton } from '../components/ui/Skeleton';
-import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
+import { PageSkeleton } from '../components/ui/Skeleton';
+import PageHeader from '../components/ui/PageHeader';
+import StatCard from '../components/ui/StatCard';
+import Icon from '../components/ui/Icon';
 import ErrorState from '../components/ErrorState';
+import EmptyState from '../components/EmptyState';
+import { useAuth } from '../context/AuthContext';
 import teacherService from '../services/teacherService';
 import noticeService from '../services/noticeService';
+import { formatDate } from '../utils/date';
+
+const QUICK_LINKS = [
+  { to: '/teacher/attendance', icon: 'clipboardCheck', label: 'Mark attendance' },
+  { to: '/teacher/review-students', icon: 'star', label: 'Monthly reviews' },
+  { to: '/teacher/makeup-requests', icon: 'refresh', label: 'Makeup requests' },
+  { to: '/teacher/resources', icon: 'upload', label: 'Share resources' },
+];
 
 const TeacherDashboard = () => {
   const { user } = useAuth();
-  const [dashboardData, setDashboardData] = useState({
-    myBatches: [],
-    totalStudents: 0,
-    classesToday: 0,
-    pendingAttendance: 0,
-    recentNotices: [],
-    upcomingClasses: [],
-    profile: null
-  });
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const fetchDashboardData = useCallback(async () => {
+  const load = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -30,19 +34,19 @@ const TeacherDashboard = () => {
         teacherService.getProfile(),
         noticeService.getNotices(),
       ]);
-      setDashboardData({
-        myBatches: batches.map((b) => ({
+      setData({
+        batches: batches.map((b) => ({
           id: b.batch_id,
           name: b.batch_name,
           level: b.level_name,
           students: b.active_students,
-          schedule: `${b.schedule} - ${b.time}`,
+          schedule: [b.schedule, b.time].filter(Boolean).join(' · '),
         })),
         totalStudents: stats.total_students,
         classesToday: stats.classes_today,
         pendingAttendance: stats.pending_attendance,
-        recentNotices: notices.slice(0, 4).map((n) => ({ id: n.id, title: n.title, date: n.created_at })),
-        upcomingClasses: stats.today_batches.map((b) => ({
+        notices: notices.slice(0, 4),
+        today: stats.today_batches.map((b) => ({
           id: b.batch_id,
           batch: b.batch_name,
           time: b.time,
@@ -59,256 +63,166 @@ const TeacherDashboard = () => {
   }, []);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
+    load();
+  }, [load]);
 
-  if (loading) {
-    return <PageSkeleton label="Loading dashboard..." />;
-  }
+  if (loading) return <PageSkeleton label="Loading dashboard…" variant="cards" />;
+  if (error) return <ErrorState message={error} onRetry={load} />;
 
-  if (error) return <ErrorState message={error} onRetry={fetchDashboardData} />;
+  const name = data.profile?.full_name || user?.profile?.full_name || '';
 
   return (
     <div className="page">
-      <div>
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="page-title">
-            Welcome, {dashboardData.profile?.full_name || user?.profile?.full_name || user?.email}
-          </h1>
-          <p className="text-gray-600">Teacher Dashboard - Manage your classes and students</p>
-        </div>
+      <PageHeader
+        eyebrow="Teacher portal"
+        title={name ? `Namaste, ${name.split(' ')[0]}` : 'Welcome'}
+        description={formatDate(new Date(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+        actions={
+          <Link to="/teacher/attendance" className="btn-primary">
+            <Icon name="clipboardCheck" className="h-4 w-4" /> Mark attendance
+          </Link>
+        }
+      />
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">My Batches</p>
-                <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-primary">{dashboardData.myBatches.length}</p>
-              </div>
-              <svg className="w-12 h-12 text-primary/20" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-              </svg>
-            </div>
-          </div>
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard label="My batches" value={data.batches.length} icon="collection" tone="brand" to="/teacher/batches" />
+        <StatCard label="Active students" value={data.totalStudents} icon="users" tone="gold" to="/teacher/students" />
+        <StatCard label="Classes today" value={data.classesToday} icon="calendar" tone="info" />
+        <StatCard
+          label="Attendance to mark"
+          value={data.pendingAttendance}
+          hint={data.pendingAttendance ? 'For today’s classes' : 'All caught up'}
+          icon="clock"
+          tone={data.pendingAttendance ? 'warning' : 'success'}
+        />
+      </div>
 
-          <div className="card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Total Students</p>
-                <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-green-700">{dashboardData.totalStudents}</p>
-              </div>
-              <svg className="w-12 h-12 text-green-500/20" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-              </svg>
-            </div>
-          </div>
-
-          <div className="card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Classes Today</p>
-                <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-blue-700">{dashboardData.classesToday}</p>
-              </div>
-              <svg className="w-12 h-12 text-blue-500/20" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-              </svg>
-            </div>
-          </div>
-
-          <div className="card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Pending Attendance</p>
-                <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-amber-700">{dashboardData.pendingAttendance}</p>
-              </div>
-              <svg className="w-12 h-12 text-amber-500/20" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - My Batches */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* My Batches */}
-            <div className="card">
-              <div className="flex items-center justify-between mb-6 pb-4 border-b">
-                <h2 className="section-title">My Batches</h2>
-                <Link to="/teacher/batches" className="text-sm text-primary hover:text-primary-dark">
-                  View All →
-                </Link>
-              </div>
-
-              <div className="space-y-4">
-                {dashboardData.myBatches.length === 0 && (
-                  <p className="text-gray-500 text-center py-6">No batches are assigned to you yet.</p>
-                )}
-                {dashboardData.myBatches.map((batch) => (
-                  <div key={batch.id} className="bg-gradient-to-r from-primary/5 to-secondary/5 rounded-xl p-5 hover:shadow-lift transition-all">
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <h3 className="text-lg font-bold text-accent">{batch.name}</h3>
-                        <p className="text-sm text-gray-600">{batch.level}</p>
-                      </div>
-                      <span className="px-4 py-2 bg-primary text-white rounded-full text-sm font-semibold">
-                        {batch.students} Students
-                      </span>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          <section className="card" aria-labelledby="today-heading">
+            <h2 id="today-heading" className="section-title mb-4">
+              Today’s classes
+            </h2>
+            {data.today.length === 0 ? (
+              <EmptyState icon="calendar" size="sm" title="No classes scheduled for today" />
+            ) : (
+              <ul className="divide-y divide-sand-100">
+                {data.today.map((c) => (
+                  <li key={c.id} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="font-medium text-accent">{c.batch}</p>
+                      <p className="text-sm text-gray-600">
+                        {c.time || 'Time not set'} · {c.students} student{c.students === 1 ? '' : 's'}
+                      </p>
                     </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">
-                        <svg className="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                        </svg>
-                        {batch.schedule}
-                      </span>
-                      <div className="flex space-x-2">
-                        <Link to={`/teacher/attendance?batch=${batch.id}`} className="text-primary hover:text-primary-dark font-semibold">
-                          Mark Attendance
-                        </Link>
-                        <span className="text-gray-300">|</span>
-                        <Link to="/teacher/students" className="text-primary hover:text-primary-dark font-semibold">
-                          View Students
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
+                    {c.marked ? (
+                      <Link to={`/teacher/attendance?batch=${c.id}`} className="btn-secondary btn-sm">
+                        <Icon name="check" className="h-4 w-4 text-green-700" /> Saved — review
+                      </Link>
+                    ) : (
+                      <Link to={`/teacher/attendance?batch=${c.id}`} className="btn-primary btn-sm">
+                        Mark attendance
+                      </Link>
+                    )}
+                  </li>
                 ))}
-              </div>
-            </div>
+              </ul>
+            )}
+          </section>
 
-            {/* Upcoming Classes */}
-            <div className="card">
-              <h2 className="text-2xl font-bold text-accent mb-6 pb-4 border-b">Today's Classes</h2>
-              <div className="space-y-4">
-                {dashboardData.upcomingClasses.length === 0 && (
-                  <p className="text-gray-500 text-center py-6">No classes scheduled for today.</p>
-                )}
-                {dashboardData.upcomingClasses.map((class_) => (
-                  <div key={class_.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-sand-50 rounded-xl">
-                    <div className="flex items-center space-x-4">
-                      <div>
-                        <p className="font-semibold text-accent">{class_.batch}</p>
-                        <p className="text-sm text-primary font-semibold">{class_.time}</p>
-                        <p className="text-sm text-gray-600">{class_.students} students enrolled</p>
-                      </div>
-                    </div>
-                    <Link to={`/teacher/attendance?batch=${class_.id}`} className={class_.marked ? 'btn-secondary' : 'btn-primary'}>
-                      {class_.marked ? 'Attendance saved ✓' : 'Mark Attendance'}
-                    </Link>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column - Quick Actions & Notices */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* Quick Actions */}
-            <div className="card">
-              <h2 className="text-xl font-bold text-accent mb-4 pb-2 border-b">Quick Actions</h2>
-              <div className="space-y-3">
-                <Link to="/teacher/attendance" className="block p-4 bg-gradient-to-r from-primary/10 to-primary/5 rounded-xl hover:shadow-lift transition-all">
-                  <div className="flex items-center space-x-3">
-                    <svg className="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                    </svg>
-                    <div>
-                      <p className="font-semibold text-accent">Mark Attendance</p>
-                      <p className="text-xs text-gray-600">Record student attendance</p>
-                    </div>
-                  </div>
-                </Link>
-
-                <Link to="/teacher/students" className="block p-4 bg-gradient-to-r from-green-100 to-green-50 rounded-xl hover:shadow-lift transition-all">
-                  <div className="flex items-center space-x-3">
-                    <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                    </svg>
-                    <div>
-                      <p className="font-semibold text-accent">View Students</p>
-                      <p className="text-xs text-gray-600">Student list & progress</p>
-                    </div>
-                  </div>
-                </Link>
-
-                <Link to="/teacher/resources" className="block p-4 bg-gradient-to-r from-blue-100 to-blue-50 rounded-xl hover:shadow-lift transition-all">
-                  <div className="flex items-center space-x-3">
-                    <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                    <div>
-                      <p className="font-semibold text-accent">Upload Resources</p>
-                      <p className="text-xs text-gray-600">Videos, audio, documents</p>
-                    </div>
-                  </div>
-                </Link>
-
-                <Link to="/teacher/batches" className="block p-4 bg-gradient-to-r from-purple-100 to-purple-50 rounded-xl hover:shadow-lift transition-all">
-                  <div className="flex items-center space-x-3">
-                    <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <div>
-                      <p className="font-semibold text-accent">My Batches</p>
-                      <p className="text-xs text-gray-600">View teaching timetable</p>
-                    </div>
-                  </div>
-                </Link>
-              </div>
-            </div>
-
-            {/* Recent Notices */}
-            <div className="card">
-              <div className="flex items-center justify-between mb-4 pb-2 border-b">
-                <h2 className="section-title">Notices</h2>
-                <Link to="/notices" className="text-sm text-primary hover:text-primary-dark">
-                  View All →
-                </Link>
-              </div>
-              <div className="space-y-3">
-                {dashboardData.recentNotices.length === 0 && <p className="text-sm text-gray-500">No current notices.</p>}
-                {dashboardData.recentNotices.map((notice) => (
-                  <div key={notice.id} className="p-3 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg">
-                    <h3 className="font-semibold text-accent text-sm mb-1">{notice.title}</h3>
-                    <p className="text-xs text-gray-500">
-                      {new Date(notice.date).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Profile Summary */}
-            <div className="bg-gradient-to-br from-primary to-primary-dark text-white rounded-xl shadow-lg p-6">
-              <h2 className="text-xl font-bold mb-4">My Profile</h2>
-              <div className="space-y-3 text-sm">
-                <div>
-                  <p className="text-white/70">Name</p>
-                  <p className="font-semibold">{dashboardData.profile?.full_name || user?.profile?.full_name || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-white/70">Email</p>
-                  <p className="font-semibold">{user?.email}</p>
-                </div>
-                <div>
-                  <p className="text-white/70">Experience</p>
-                  <p className="font-semibold">{dashboardData.profile?.experience_years ?? user?.profile?.experience_years ?? 0} years</p>
-                </div>
-                <div>
-                  <p className="text-white/70">Specialization</p>
-                  <p className="font-semibold">{dashboardData.profile?.specialization || user?.profile?.specialization || 'Kathak'}</p>
-                </div>
-              </div>
-              <Link to="/teacher/profile" className="block mt-4 text-center bg-white text-primary px-4 py-2 rounded-lg font-semibold hover:bg-sand-100 transition-colors">
-                Edit Profile
+          <section className="card" aria-labelledby="batches-heading">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 id="batches-heading" className="section-title">
+                My batches
+              </h2>
+              <Link to="/teacher/batches" className="text-sm font-semibold text-primary hover:text-primary-700">
+                View all
               </Link>
             </div>
-          </div>
+            {data.batches.length === 0 ? (
+              <EmptyState icon="collection" size="sm" title="No batches assigned yet" description="The academy office assigns batches to teachers." />
+            ) : (
+              <ul className="grid gap-3 sm:grid-cols-2">
+                {data.batches.map((b) => (
+                  <li key={b.id} className="rounded-lg border border-sand-200 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-accent">{b.name}</p>
+                        <p className="text-xs text-gray-500">{b.level}</p>
+                      </div>
+                      <span className="badge-brand shrink-0">{b.students} students</span>
+                    </div>
+                    <p className="mt-2 flex items-center gap-1.5 text-sm text-gray-600">
+                      <Icon name="clock" className="h-4 w-4 text-gray-400" />
+                      {b.schedule || '—'}
+                    </p>
+                    <div className="mt-3 flex gap-3 text-sm font-semibold">
+                      <Link to={`/teacher/attendance?batch=${b.id}`} className="text-primary hover:text-primary-700">
+                        Attendance
+                      </Link>
+                      <Link to="/teacher/students" className="text-primary hover:text-primary-700">
+                        Students
+                      </Link>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </div>
+
+        <aside className="space-y-6">
+          <section className="card" aria-labelledby="quick-heading">
+            <h2 id="quick-heading" className="section-title mb-4">
+              Quick links
+            </h2>
+            <ul className="space-y-2">
+              {QUICK_LINKS.map((q) => (
+                <li key={q.to}>
+                  <Link to={q.to} className="flex items-center gap-3 rounded-lg border border-sand-200 px-3 py-2.5 text-sm font-medium text-accent hover:border-primary-200 hover:bg-primary-50/50">
+                    <Icon name={q.icon} className="h-5 w-5 text-primary" />
+                    {q.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="card" aria-labelledby="notices-heading">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 id="notices-heading" className="section-title">
+                Notices
+              </h2>
+              <Link to="/notices" className="text-sm font-semibold text-primary hover:text-primary-700">
+                All
+              </Link>
+            </div>
+            {data.notices.length === 0 ? (
+              <p className="text-sm text-gray-500">No current notices.</p>
+            ) : (
+              <ul className="divide-y divide-sand-100">
+                {data.notices.map((n) => (
+                  <li key={n.id} className="py-2.5">
+                    <p className="text-sm font-medium text-accent">{n.title}</p>
+                    <p className="text-xs text-gray-500">{formatDate(n.created_at)}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="rounded-xl bg-accent p-5 text-sand-100" aria-labelledby="profile-heading">
+            <h2 id="profile-heading" className="font-body text-xs font-semibold uppercase tracking-[0.18em] text-secondary-300">
+              My profile
+            </h2>
+            <p className="mt-2 font-heading text-lg font-semibold text-sand-50">{name || '—'}</p>
+            <p className="text-sm text-sand-300">{data.profile?.specialization || 'Kathak'}</p>
+            <p className="mt-1 text-xs text-sand-400">{data.profile?.experience_years ?? 0} years of experience</p>
+            <Link to="/teacher/profile" className="btn btn-sm mt-4 border border-sand-300/30 text-sand-50 hover:bg-white/10">
+              <Icon name="pencil" className="h-4 w-4" /> Edit profile
+            </Link>
+          </section>
+        </aside>
       </div>
     </div>
   );

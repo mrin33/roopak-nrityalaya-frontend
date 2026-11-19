@@ -1,10 +1,24 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { PageSkeleton } from '../components/ui/Skeleton';
+import PageHeader from '../components/ui/PageHeader';
+import StatCard from '../components/ui/StatCard';
+import Modal from '../components/ui/Modal';
+import Icon from '../components/ui/Icon';
 import StarRating from '../components/StarRating';
 import RollNumberBadge from '../components/RollNumberBadge';
+import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
 import teacherService from '../services/teacherService';
 import { useToast } from '../context/ToastContext';
+import { formatDate } from '../utils/date';
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const CRITERIA = [
+  ['techniqueRating', 'Technique', 'Footwork, hand gestures, posture'],
+  ['rhythmRating', 'Rhythm', 'Taal, layakari, tempo control'],
+  ['creativityRating', 'Expression', 'Abhinaya, facial expression, interpretation'],
+  ['disciplineRating', 'Discipline', 'Regular practice, punctuality, dedication'],
+];
 
 const freshForm = () => ({
   reviewMonth: new Date().getMonth() + 1,
@@ -16,11 +30,12 @@ const freshForm = () => ({
   reviewText: '',
 });
 
+const periodIndex = (y, m) => y * 12 + (m - 1);
+
 const TeacherReviewStudents = () => {
   const toast = useToast();
   const [students, setStudents] = useState([]);
   const [myReviews, setMyReviews] = useState([]);
-  const [showReviewModal, setShowReviewModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [formData, setFormData] = useState(freshForm());
   const [loading, setLoading] = useState(true);
@@ -33,21 +48,12 @@ const TeacherReviewStudents = () => {
       setError(null);
       const [studentRows, reviewRows] = await Promise.all([teacherService.getStudents(), teacherService.getReviews()]);
       const reviews = reviewRows.map((r) => ({ ...r, id: r.review_id }));
-      // Most recent review period per student
       const latest = {};
       reviews.forEach((r) => {
-        const key = r.review_year * 12 + r.review_month;
-        if (!latest[r.student_id] || key > latest[r.student_id].key) latest[r.student_id] = { key, r };
+        const key = periodIndex(r.review_year, r.review_month);
+        if (latest[r.student_id] === undefined || key > latest[r.student_id]) latest[r.student_id] = key;
       });
-      setStudents(
-        studentRows.map((st) => ({
-          ...st,
-          id: st.student_id,
-          last_review_date: latest[st.student_id]
-            ? `${latest[st.student_id].r.review_year}-${String(latest[st.student_id].r.review_month).padStart(2, '0')}-01`
-            : null,
-        }))
-      );
+      setStudents(studentRows.map((st) => ({ ...st, id: st.student_id, lastReview: latest[st.student_id] ?? null })));
       setMyReviews(reviews);
     } catch (err) {
       setError(err.message || 'Could not load your students');
@@ -60,19 +66,13 @@ const TeacherReviewStudents = () => {
     loadData();
   }, [loadData]);
 
-  const handleOpenReview = (student) => {
-    setSelectedStudent(student);
-    setFormData(freshForm());
-    setShowReviewModal(true);
-  };
+  const now = new Date();
+  const thisPeriod = periodIndex(now.getFullYear(), now.getMonth() + 1);
+  const needsReview = (s) => s.lastReview === null || s.lastReview < thisPeriod;
+  const pending = students.filter(needsReview);
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleRatingChange = (category, rating) => {
-    setFormData((prev) => ({ ...prev, [category]: rating }));
-  };
+  const handleChange = (e) => setFormData((f) => ({ ...f, [e.target.name]: e.target.value }));
+  const overall = CRITERIA.reduce((sum, [k]) => sum + Number(formData[k]), 0) / CRITERIA.length;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -88,7 +88,7 @@ const TeacherReviewStudents = () => {
         discipline_rating: parseInt(formData.disciplineRating, 10),
         review_text: formData.reviewText,
       });
-      setShowReviewModal(false);
+      setSelectedStudent(null);
       toast.success(`Review saved for ${selectedStudent.full_name}. It is now visible on their Reviews page.`);
       loadData();
     } catch (err) {
@@ -98,142 +98,79 @@ const TeacherReviewStudents = () => {
     }
   };
 
-  const renderStarSelector = (category) => (
-    <StarRating
-      rating={formData[category]}
-      interactive={true}
-      onChange={(value) => handleRatingChange(category, value)}
-      size="lg"
-    />
-  );
-
-  const getMonthName = (month) => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return months[month - 1];
-  };
-
-  // A student needs a review when none exists for the current month.
-  const needsReview = (student) => {
-    if (!student.last_review_date) return true;
-    const last = new Date(student.last_review_date);
-    const now = new Date();
-    return last.getFullYear() * 12 + last.getMonth() < now.getFullYear() * 12 + now.getMonth();
-  };
-
-  const studentsNeedingReview = students.filter(needsReview);
-
-  if (loading) return <PageSkeleton label="Loading your students..." />;
+  if (loading) return <PageSkeleton label="Loading your students…" />;
   if (error) return <ErrorState message={error} onRetry={loadData} />;
+
+  const fromIndex = (i) => `${MONTHS[i % 12].slice(0, 3)} ${Math.floor(i / 12)}`;
 
   return (
     <div className="page">
-      <div>
-        
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="page-title">
-            Review Students
-          </h1>
-          <p className="text-gray-600">Provide monthly feedback to help students improve</p>
+      <PageHeader title="Monthly reviews" description="Rate each student’s progress once a month. Students see your review on their portal." />
+
+      {pending.length > 0 && (
+        <div className="callout-warning mb-6 flex gap-3">
+          <Icon name="info" className="mt-0.5 h-5 w-5 shrink-0" />
+          <p>
+            <strong>{pending.length}</strong> student{pending.length > 1 ? 's have' : ' has'} not been reviewed for {MONTHS[now.getMonth()]} yet.
+          </p>
         </div>
+      )}
 
-        {/* Alert for pending reviews */}
-        {studentsNeedingReview.length > 0 && (
-          <div className="bg-yellow-50 border-l-4 border-amber-500 p-4 mb-8 rounded-r-lg">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm text-amber-700">
-                  <strong>{studentsNeedingReview.length} student{studentsNeedingReview.length > 1 ? 's' : ''} need{studentsNeedingReview.length === 1 ? 's' : ''} a review this month!</strong> Regular feedback helps students track their progress.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard label="Students" value={students.length} icon="users" tone="brand" />
+        <StatCard label="Due this month" value={pending.length} icon="clock" tone={pending.length ? 'warning' : 'success'} />
+        <StatCard
+          label="Reviewed this month"
+          value={myReviews.filter((r) => periodIndex(r.review_year, r.review_month) === thisPeriod).length}
+          icon="checkCircle"
+          tone="success"
+        />
+        <StatCard label="Total reviews" value={myReviews.length} icon="star" tone="gold" />
+      </div>
 
-        {/* Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="card">
-            <p className="text-sm text-gray-600 mb-1">Total Students</p>
-            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-primary">{students.length}</p>
-          </div>
-          <div className="card">
-            <p className="text-sm text-gray-600 mb-1">Need Review</p>
-            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-amber-700">{studentsNeedingReview.length}</p>
-          </div>
-          <div className="card">
-            <p className="text-sm text-gray-600 mb-1">Reviews This Month</p>
-            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-green-700">
-              {myReviews.filter(r => 
-                r.review_month === new Date().getMonth() + 1 && 
-                r.review_year === new Date().getFullYear()
-              ).length}
-            </p>
-          </div>
-          <div className="card">
-            <p className="text-sm text-gray-600 mb-1">Total Reviews</p>
-            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-blue-700">{myReviews.length}</p>
-          </div>
-        </div>
-
-        {/* My Students */}
-        <div className="card mb-6">
-          <h2 className="section-title mb-5 border-b border-sand-200 pb-3">My Students</h2>
-          
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-sand-50 border-b-2">
+      <section className="surface mb-6 overflow-hidden" aria-labelledby="students-heading">
+        <h2 id="students-heading" className="section-title border-b border-sand-200 px-5 py-4">
+          Students
+        </h2>
+        {students.length === 0 ? (
+          <EmptyState icon="users" title="No students yet" description="Students enrolled in your batches appear here." size="sm" />
+        ) : (
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
                 <tr>
-                  <th className="th">Roll No</th>
-                  <th className="th">Student Name</th>
-                  <th className="th">Level</th>
-                  <th className="th">Batch</th>
-                  <th className="th">Last Review</th>
-                  <th className="th">Actions</th>
+                  <th scope="col">Student</th>
+                  <th scope="col" className="hidden md:table-cell">
+                    Batch
+                  </th>
+                  <th scope="col">Last review</th>
+                  <th scope="col">
+                    <span className="sr-only">Action</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {students.length === 0 && (
-                  <tr>
-                    <td colSpan="6" className="px-6 py-10 text-center text-gray-500">
-                      No students are enrolled in your batches yet.
-                    </td>
-                  </tr>
-                )}
-                {students.map((student) => (
-                  <tr key={student.id} className="border-b hover:bg-sand-50">
+                {students.map((s) => (
+                  <tr key={s.id}>
                     <td>
-                      <RollNumberBadge rollNumber={student.roll_number} />
+                      <p className="font-medium text-accent">{s.full_name}</p>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                        <RollNumberBadge rollNumber={s.roll_number} size="sm" />
+                        <span className="text-xs text-gray-500">{s.level_name}</span>
+                      </div>
                     </td>
-                    <td className="px-6 py-4 font-semibold text-accent">{student.full_name}</td>
-                    <td className="td text-gray-600">{student.level_name}</td>
-                    <td className="td text-gray-600">{student.batch_name}</td>
-                    <td className="px-6 py-4 text-sm">
-                      {student.last_review_date ? (
-                        <span className="text-gray-600">
-                          {new Date(student.last_review_date).toLocaleDateString('en-US', { 
-                            month: 'short', 
-                            year: 'numeric' 
-                          })}
-                        </span>
-                      ) : (
-                        <span className="text-amber-600 font-semibold">Never reviewed</span>
-                      )}
-                    </td>
-                    <td className="td">
+                    <td className="hidden text-gray-600 md:table-cell">{s.batch_name || '—'}</td>
+                    <td>{s.lastReview === null ? <span className="badge-warning">Never</span> : <span className="text-gray-600">{fromIndex(s.lastReview)}</span>}</td>
+                    <td className="text-right">
                       <button
-                        onClick={() => handleOpenReview(student)}
-                        className={`px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
-                          needsReview(student)
-                            ? 'bg-primary text-white hover:bg-primary-dark'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                        }`}
+                        type="button"
+                        onClick={() => {
+                          setSelectedStudent(s);
+                          setFormData(freshForm());
+                        }}
+                        className={needsReview(s) ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'}
                       >
-                        {needsReview(student) ? 'Submit Review' : 'Add Review'}
+                        {needsReview(s) ? 'Write review' : 'Add review'}
                       </button>
                     </td>
                   </tr>
@@ -241,202 +178,117 @@ const TeacherReviewStudents = () => {
               </tbody>
             </table>
           </div>
-        </div>
+        )}
+      </section>
 
-        {/* Recent Reviews */}
-        <div className="card">
-          <h2 className="section-title mb-5 border-b border-sand-200 pb-3">Recent Reviews</h2>
-          
-          {myReviews.length === 0 ? (
-            <div className="text-center py-12">
-              <svg className="w-24 h-24 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <p className="text-gray-500 text-lg">No reviews submitted yet</p>
+      <section className="card" aria-labelledby="recent-heading">
+        <h2 id="recent-heading" className="section-title mb-4">
+          Reviews you have written
+        </h2>
+        {myReviews.length === 0 ? (
+          <EmptyState icon="star" title="No reviews submitted yet" size="sm" />
+        ) : (
+          <ul className="divide-y divide-sand-100">
+            {myReviews.map((r) => (
+              <li key={r.id} className="flex items-center gap-4 py-3">
+                <span className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-lg bg-secondary-50 text-secondary-800">
+                  <span className="font-heading text-lg font-semibold leading-none">{Number(r.overall_rating).toFixed(1)}</span>
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-accent">{r.student_name}</p>
+                  <p className="text-sm text-gray-600">
+                    {MONTHS[r.review_month - 1]} {r.review_year}
+                  </p>
+                </div>
+                <p className="hidden text-xs text-gray-500 sm:block">Submitted {formatDate(r.created_at, { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <Modal
+        open={!!selectedStudent}
+        onClose={() => setSelectedStudent(null)}
+        title="Monthly review"
+        description={selectedStudent && `${selectedStudent.full_name}${selectedStudent.roll_number ? ` · ${selectedStudent.roll_number}` : ''}`}
+        size="lg"
+        dismissible={!saving}
+      >
+        <form onSubmit={handleSubmit}>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="reviewMonth" className="form-label">
+                Month
+              </label>
+              <select id="reviewMonth" name="reviewMonth" value={formData.reviewMonth} onChange={handleChange} className="input-field">
+                {MONTHS.map((m, i) => (
+                  <option key={m} value={i + 1}>
+                    {m}
+                  </option>
+                ))}
+              </select>
             </div>
-          ) : (
-            <div className="space-y-4">
-              {myReviews.map((review) => (
-                <div key={review.id} className="border border-sand-200 rounded-lg p-4 hover:shadow-lift transition-shadow">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-16 h-16 bg-primary/10 rounded-lg flex flex-col items-center justify-center">
-                        <span className="text-2xl font-bold text-primary">{review.overall_rating}</span>
-                        <span className="text-xs text-gray-600">Rating</span>
-                      </div>
-                      <div>
-                        <p className="font-semibold text-accent">{review.student_name}</p>
-                        <p className="text-sm text-gray-600">Roll No: {review.roll_number}</p>
-                        <p className="text-sm text-gray-600">
-                          {getMonthName(review.review_month)} {review.review_year}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-gray-500">
-                        Submitted on {new Date(review.created_at).toLocaleDateString('en-US', { 
-                          month: 'short', 
-                          day: 'numeric',
-                          year: 'numeric'
-                        })}
-                      </p>
-                    </div>
-                  </div>
+            <div>
+              <label htmlFor="reviewYear" className="form-label">
+                Year
+              </label>
+              <select id="reviewYear" name="reviewYear" value={formData.reviewYear} onChange={handleChange} className="input-field">
+                {[0, 1].map((back) => {
+                  const y = now.getFullYear() - back;
+                  return (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          </div>
+
+          <fieldset className="mt-5 rounded-xl border border-sand-200 bg-sand-50 p-4">
+            <legend className="px-1 text-sm font-semibold text-accent">Ratings (1–5)</legend>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {CRITERIA.map(([key, label, hint]) => (
+                <div key={key}>
+                  <p className="text-sm font-medium text-accent">{label}</p>
+                  <p className="mb-1.5 text-xs text-gray-500">{hint}</p>
+                  <StarRating rating={Number(formData[key])} interactive onChange={(v) => setFormData((f) => ({ ...f, [key]: v }))} size="lg" showNumber label={label} />
                 </div>
               ))}
             </div>
-          )}
-        </div>
+            <p className="mt-4 border-t border-sand-200 pt-3 text-sm text-gray-600">
+              Overall: <strong className="font-heading text-lg text-accent">{overall.toFixed(2)}</strong> / 5
+            </p>
+          </fieldset>
 
-        {/* Review Modal */}
-        {showReviewModal && selectedStudent && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="bg-primary text-white p-6 rounded-t-2xl sticky top-0">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-2xl font-bold">Monthly Review</h2>
-                    <p className="text-sm text-white/80 mt-1">
-                      {selectedStudent.full_name} ({selectedStudent.roll_number})
-                    </p>
-                  </div>
-                  <button 
-                    onClick={() => setShowReviewModal(false)}
-                    className="text-white hover:bg-white/20 rounded-full p-2"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              <form onSubmit={handleSubmit} className="p-6">
-                <div className="space-y-6">
-                  {/* Month and Year */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="form-label">Review Month *</label>
-                      <select
-                        name="reviewMonth"
-                        value={formData.reviewMonth}
-                        onChange={handleChange}
-                        className="input-field"
-                        required
-                      >
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(month => (
-                          <option key={month} value={month}>
-                            {getMonthName(month)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="form-label">Year *</label>
-                      <select
-                        name="reviewYear"
-                        value={formData.reviewYear}
-                        onChange={handleChange}
-                        className="input-field"
-                        required
-                      >
-                        {[0, 1].map((back) => {
-                          const y = new Date().getFullYear() - back;
-                          return (
-                            <option key={y} value={y}>
-                              {y}
-                            </option>
-                          );
-                        })}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Rating Categories */}
-                  <div className="space-y-4 p-4 bg-sand-50 rounded-lg">
-                    <h3 className="font-semibold text-accent mb-4">Rate Student Performance (1-5 Stars)</h3>
-                    
-                    <div>
-                      <label className="form-label">
-                        Technique Progress *
-                      </label>
-                      {renderStarSelector('techniqueRating')}
-                      <p className="text-xs text-gray-500 mt-1">Footwork, hand gestures, body posture</p>
-                    </div>
-
-                    <div>
-                      <label className="form-label">
-                        Rhythm Understanding *
-                      </label>
-                      {renderStarSelector('rhythmRating')}
-                      <p className="text-xs text-gray-500 mt-1">Taal mastery, layakari, tempo control</p>
-                    </div>
-
-                    <div>
-                      <label className="form-label">
-                        Creativity & Expression *
-                      </label>
-                      {renderStarSelector('creativityRating')}
-                      <p className="text-xs text-gray-500 mt-1">Abhinaya, facial expressions, interpretation</p>
-                    </div>
-
-                    <div>
-                      <label className="form-label">
-                        Discipline & Attendance *
-                      </label>
-                      {renderStarSelector('disciplineRating')}
-                      <p className="text-xs text-gray-500 mt-1">Regular practice, punctuality, dedication</p>
-                    </div>
-                  </div>
-
-                  {/* Overall Rating Display */}
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-sm font-semibold text-blue-900 mb-1">Overall Rating</p>
-                    <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-blue-700">
-                      {((parseInt(formData.techniqueRating) + 
-                         parseInt(formData.rhythmRating) + 
-                         parseInt(formData.creativityRating) + 
-                         parseInt(formData.disciplineRating)) / 4).toFixed(2)} / 5.00
-                    </p>
-                  </div>
-
-                  {/* Written Feedback */}
-                  <div>
-                    <label className="form-label">
-                      Written Feedback *
-                    </label>
-                    <textarea
-                      name="reviewText"
-                      value={formData.reviewText}
-                      onChange={handleChange}
-                      rows="6"
-                      className="input-field"
-                      placeholder="Provide detailed feedback on the student's progress, strengths, and areas for improvement..."
-                      required
-                    ></textarea>
-                    <p className="text-xs text-gray-500 mt-1">
-                      This feedback will be visible to the student. Be constructive and encouraging!
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-4 mt-8">
-                  <button 
-                    type="button" 
-                    onClick={() => setShowReviewModal(false)}
-                    className="btn-secondary"
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" disabled={saving} className="btn-primary disabled:opacity-50">
-                    {saving ? 'Saving…' : 'Submit Review'}
-                  </button>
-                </div>
-              </form>
-            </div>
+          <div className="mt-5">
+            <label htmlFor="reviewText" className="form-label">
+              Written feedback
+            </label>
+            <textarea
+              id="reviewText"
+              name="reviewText"
+              value={formData.reviewText}
+              onChange={handleChange}
+              rows={5}
+              className="input-field"
+              placeholder="Strengths, areas to improve, and what to practise next…"
+              required
+            />
+            <p className="form-hint">The student will see this feedback.</p>
           </div>
-        )}
-      </div>
+
+          <div className="modal-actions">
+            <button type="button" onClick={() => setSelectedStudent(null)} className="btn-secondary" disabled={saving}>
+              Cancel
+            </button>
+            <button type="submit" disabled={saving} className="btn-primary">
+              {saving ? 'Saving…' : 'Submit review'}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

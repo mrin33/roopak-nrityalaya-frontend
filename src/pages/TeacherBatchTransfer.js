@@ -1,20 +1,23 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { PageSkeleton } from '../components/ui/Skeleton';
+import PageHeader from '../components/ui/PageHeader';
+import StatCard from '../components/ui/StatCard';
+import Modal from '../components/ui/Modal';
+import Icon from '../components/ui/Icon';
+import StatusBadge from '../components/StatusBadge';
+import EmptyState from '../components/EmptyState';
 import ErrorState from '../components/ErrorState';
 import teacherService from '../services/teacherService';
 import { useToast } from '../context/ToastContext';
-
-const todayISO = () => {
-  const d = new Date();
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-};
+import { useConfirm } from '../context/ConfirmContext';
+import { formatDate, todayISO } from '../utils/date';
 
 const TeacherBatchTransfer = () => {
   const toast = useToast();
+  const confirm = useConfirm();
   const [myBatches, setMyBatches] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [transfers, setTransfers] = useState([]);
-  const [showTransferModal, setShowTransferModal] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -30,11 +33,7 @@ const TeacherBatchTransfer = () => {
         teacherService.getAvailableTeachers(),
         teacherService.getMyTransfers(),
       ]);
-      setMyBatches(
-        batchRows
-          .filter((b) => b.is_active !== false)
-          .map((b) => ({ ...b, id: b.batch_id, student_count: b.active_students }))
-      );
+      setMyBatches(batchRows.filter((b) => b.is_active !== false).map((b) => ({ ...b, id: b.batch_id, student_count: b.active_students })));
       setTeachers(teacherRows.map((t) => ({ ...t, id: t.teacher_id })));
       setTransfers(transferRows.map((t) => ({ ...t, id: t.transfer_id })));
     } catch (err) {
@@ -48,10 +47,9 @@ const TeacherBatchTransfer = () => {
     loadData();
   }, [loadData]);
 
-  const handleTransferBatch = (batch) => {
+  const openTransfer = (batch) => {
     setSelectedBatch(batch);
     setFormData({ substituteTeacherId: '', transferDate: todayISO(), reason: '', isPermanent: false });
-    setShowTransferModal(true);
   };
 
   const handleChange = (e) => {
@@ -61,12 +59,15 @@ const TeacherBatchTransfer = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const selectedTeacher = teachers.find((t) => t.id === parseInt(formData.substituteTeacherId, 10));
-    if (
-      formData.isPermanent &&
-      !window.confirm(`Permanently hand over ${selectedBatch.batch_name} to ${selectedTeacher?.full_name}? You will no longer teach this batch.`)
-    ) {
-      return;
+    const teacher = teachers.find((t) => t.id === parseInt(formData.substituteTeacherId, 10));
+    if (formData.isPermanent) {
+      const ok = await confirm({
+        title: 'Hand over this batch permanently?',
+        message: `${selectedBatch.batch_name} will be reassigned to ${teacher?.full_name}. You will no longer teach this batch.`,
+        confirmLabel: 'Hand over batch',
+        tone: 'danger',
+      });
+      if (!ok) return;
     }
     setSaving(true);
     try {
@@ -77,12 +78,12 @@ const TeacherBatchTransfer = () => {
         reason: formData.reason,
         is_permanent: formData.isPermanent,
       });
-      setShowTransferModal(false);
       toast.success(
         formData.isPermanent
-          ? `${selectedBatch.batch_name} now belongs to ${selectedTeacher?.full_name}.`
-          : `${selectedTeacher?.full_name} will take ${selectedBatch.batch_name} on ${formData.transferDate}.`
+          ? `${selectedBatch.batch_name} now belongs to ${teacher?.full_name}.`
+          : `${teacher?.full_name} will take ${selectedBatch.batch_name} on ${formatDate(formData.transferDate)}.`
       );
+      setSelectedBatch(null);
       loadData();
     } catch (err) {
       toast.error(err.message || 'Could not create the transfer.');
@@ -91,269 +92,137 @@ const TeacherBatchTransfer = () => {
     }
   };
 
-  const getStatusBadge = (status) => {
-    switch(status) {
-      case 'active':
-        return <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">✓ Active</span>;
-      case 'completed':
-        return <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">Completed</span>;
-      case 'cancelled':
-        return <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-semibold">Cancelled</span>;
-      default:
-        return null;
-    }
-  };
-
-  const activeTransfers = transfers.filter(t => t.status === 'active');
-
-  if (loading) return <PageSkeleton label="Loading batch transfers..." />;
+  if (loading) return <PageSkeleton label="Loading batch transfers…" variant="cards" />;
   if (error) return <ErrorState message={error} onRetry={loadData} />;
 
   return (
     <div className="page">
-      <div>
-        
-        <div className="mb-8">
-          <h1 className="page-title">
-            Batch Transfers
-          </h1>
-          <p className="text-gray-600">Transfer your batch to another teacher for a day</p>
-        </div>
+      <PageHeader title="Batch transfers" description="Ask another teacher to cover a class for a day, or hand a batch over permanently." />
 
-        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-8 rounded-r-lg">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-blue-700">
-                <strong>Note:</strong> A transfer hands a batch to another teacher for one day (they can then mark its attendance), or permanently if you tick "Permanent transfer".
-              </p>
-            </div>
-          </div>
-        </div>
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-3">
+        <StatCard label="My batches" value={myBatches.length} icon="collection" tone="brand" />
+        <StatCard label="Active transfers" value={transfers.filter((t) => t.status === 'active').length} icon="switch" tone="success" />
+        <StatCard label="All transfers" value={transfers.length} icon="document" tone="neutral" />
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="card">
-            <p className="text-sm text-gray-600 mb-1">My Batches</p>
-            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-primary">{myBatches.length}</p>
-          </div>
-          <div className="card">
-            <p className="text-sm text-gray-600 mb-1">Active Transfers</p>
-            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-green-700">{activeTransfers.length}</p>
-          </div>
-          <div className="card">
-            <p className="text-sm text-gray-600 mb-1">Total Transfers</p>
-            <p className="text-2xl sm:text-3xl font-semibold tabular-nums text-blue-700">{transfers.length}</p>
-          </div>
-        </div>
-
-        <div className="card mb-6">
-          <h2 className="section-title mb-5 border-b border-sand-200 pb-3">My Batches</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {myBatches.length === 0 && <p className="text-gray-500">You have no active batches to transfer.</p>}
-            {myBatches.map((batch) => (
-              <div key={batch.id} className="border border-sand-200 rounded-lg p-6 hover:shadow-lift transition-shadow">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h3 className="text-xl font-bold text-accent mb-1">{batch.batch_name}</h3>
-                    <p className="text-sm text-gray-600">{batch.level_name}</p>
-                  </div>
-                  <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-semibold">
-                    {batch.student_count} students
-                  </span>
-                </div>
-                
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center text-sm text-gray-600">
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    {batch.schedule}
-                  </div>
-                  <div className="flex items-center text-sm text-gray-600">
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    {batch.time}
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => handleTransferBatch(batch)}
-                  className="w-full btn-primary"
-                >
-                  Transfer Batch
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="card">
-          <h2 className="section-title mb-5 border-b border-sand-200 pb-3">Transfer History</h2>
-          
-          {transfers.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-500">No batch transfers yet</p>
+      <div className="grid gap-6 lg:grid-cols-5">
+        <section className="lg:col-span-2" aria-labelledby="batches-heading">
+          <h2 id="batches-heading" className="section-title mb-3">
+            My batches
+          </h2>
+          {myBatches.length === 0 ? (
+            <div className="surface">
+              <EmptyState icon="collection" size="sm" title="No active batches to transfer" />
             </div>
           ) : (
-            <div className="space-y-4">
-              {transfers.map((transfer) => (
-                <div key={transfer.id} className="border border-sand-200 rounded-lg p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <div className="flex items-center space-x-3 mb-2">
-                        <h3 className="font-bold text-accent">{transfer.batch_name}</h3>
-                        {getStatusBadge(transfer.status)}
-                      </div>
-                      <p className="text-sm text-gray-600">
-                        {transfer.direction === 'incoming' ? 'Covering for' : 'Substitute'}:{' '}
-                        <span className="font-semibold">
-                          {transfer.direction === 'incoming' ? transfer.from_teacher_name : transfer.to_teacher_name}
-                        </span>
-                        {transfer.is_permanent && <span className="ml-2 text-xs font-semibold text-purple-700">(permanent)</span>}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-primary">
-                        {new Date(transfer.transfer_date).toLocaleDateString('en-US', { 
-                          weekday: 'short',
-                          month: 'short', 
-                          day: 'numeric',
-                          year: 'numeric'
-                        })}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-sand-50 rounded-lg">
-                    <p className="text-sm text-gray-700">
-                      <strong>Reason:</strong> {transfer.reason || '—'}
+            <ul className="space-y-3">
+              {myBatches.map((b) => (
+                <li key={b.id} className="card flex items-center justify-between gap-3 p-4 sm:p-5">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-accent">{b.batch_name}</p>
+                    <p className="text-xs text-gray-500">
+                      {b.level_name} · {b.student_count} students
                     </p>
+                    <p className="mt-1 text-sm text-gray-600">{[b.schedule, b.time].filter(Boolean).join(' · ')}</p>
                   </div>
-
-                  <p className="text-xs text-gray-500 mt-3">
-                    Requested: {new Date(transfer.created_at).toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      day: 'numeric',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </p>
-                </div>
+                  <button type="button" onClick={() => openTransfer(b)} className="btn-secondary btn-sm shrink-0">
+                    <Icon name="switch" className="h-4 w-4" /> Transfer
+                  </button>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
-        </div>
+        </section>
 
-        {showTransferModal && selectedBatch && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-2xl w-full">
-              <div className="bg-primary text-white p-6 rounded-t-2xl">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-2xl font-bold">Transfer Batch</h2>
-                    <p className="text-sm text-white/80 mt-1">{selectedBatch.batch_name}</p>
-                  </div>
-                  <button 
-                    onClick={() => setShowTransferModal(false)}
-                    className="text-white hover:bg-white/20 rounded-full p-2"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              <form onSubmit={handleSubmit} className="p-6">
-                <div className="space-y-6">
-                  <div>
-                    <label className="form-label">
-                      Select Substitute Teacher *
-                    </label>
-                    <select
-                      name="substituteTeacherId"
-                      value={formData.substituteTeacherId}
-                      onChange={handleChange}
-                      className="input-field"
-                      required
-                    >
-                      <option value="">Choose a teacher...</option>
-                      {teachers.map(teacher => (
-                        <option key={teacher.id} value={teacher.id}>
-                          {teacher.full_name} - {teacher.specialization}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="form-label">
-                      Transfer Date *
-                    </label>
-                    <input
-                      type="date"
-                      name="transferDate"
-                      value={formData.transferDate}
-                      onChange={handleChange}
-                      min={todayISO()}
-                      className="input-field"
-                      required
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Select a date when you need a substitute teacher
-                    </p>
-                  </div>
-
-                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                    <input type="checkbox" name="isPermanent" checked={formData.isPermanent} onChange={handleChange} />
-                    Permanent transfer (the batch is reassigned to this teacher)
-                  </label>
-                  <div>
-                    <label className="form-label">
-                      Reason for Transfer *
-                    </label>
-                    <textarea
-                      name="reason"
-                      value={formData.reason}
-                      onChange={handleChange}
-                      rows="4"
-                      className="input-field"
-                      placeholder="E.g., Personal work, Medical appointment, Workshop attendance..."
-                      required
-                    ></textarea>
-                  </div>
-
-                  <div className="p-4 bg-yellow-50 border border-amber-200 rounded-lg">
-                    <p className="text-sm text-amber-800">
-                      <strong>Note:</strong> Students will be automatically notified about the substitute teacher via email/SMS.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-4 mt-8">
-                  <button 
-                    type="button" 
-                    onClick={() => setShowTransferModal(false)}
-                    className="btn-secondary"
-                  >
-                    Cancel
-                  </button>
-                  <button type="submit" disabled={saving} className="btn-primary disabled:opacity-50">
-                    Confirm Transfer
-                  </button>
-                </div>
-              </form>
+        <section className="lg:col-span-3" aria-labelledby="history-heading">
+          <h2 id="history-heading" className="section-title mb-3">
+            Transfer history
+          </h2>
+          {transfers.length === 0 ? (
+            <div className="surface">
+              <EmptyState icon="switch" size="sm" title="No batch transfers yet" />
             </div>
-          </div>
-        )}
+          ) : (
+            <ul className="surface divide-y divide-sand-100">
+              {transfers.map((t) => {
+                const incoming = t.direction === 'incoming';
+                return (
+                  <li key={t.id} className="p-4 sm:p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold text-accent">{t.batch_name}</p>
+                          <StatusBadge status={t.status} />
+                          <span className={incoming ? 'badge-info' : 'badge-neutral'}>{incoming ? 'Incoming' : 'Outgoing'}</span>
+                          {t.is_permanent && <span className="badge-gold">Permanent</span>}
+                        </div>
+                        <p className="mt-1 text-sm text-gray-600">
+                          {incoming ? 'Covering for ' : 'Covered by '}
+                          <span className="font-medium text-accent">{incoming ? t.from_teacher_name : t.to_teacher_name}</span>
+                        </p>
+                      </div>
+                      <p className="text-sm font-medium text-primary">{formatDate(t.transfer_date, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                    </div>
+                    {t.reason && <p className="mt-2 text-sm text-gray-600">{t.reason}</p>}
+                    <p className="mt-2 text-xs text-gray-500">Requested {new Date(t.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
       </div>
+
+      <Modal open={!!selectedBatch} onClose={() => setSelectedBatch(null)} title="Transfer batch" description={selectedBatch?.batch_name} size="md" dismissible={!saving}>
+        <form onSubmit={handleSubmit}>
+          <div className="space-y-5">
+            <div>
+              <label htmlFor="substituteTeacherId" className="form-label">
+                Teacher
+              </label>
+              <select id="substituteTeacherId" name="substituteTeacherId" value={formData.substituteTeacherId} onChange={handleChange} className="input-field" required>
+                <option value="">Choose a teacher…</option>
+                {teachers.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.full_name}
+                    {t.specialization ? ` — ${t.specialization}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="transferDate" className="form-label">
+                {formData.isPermanent ? 'Effective from' : 'Date of class'}
+              </label>
+              <input id="transferDate" type="date" name="transferDate" value={formData.transferDate} onChange={handleChange} min={todayISO()} className="input-field" required />
+            </div>
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-sand-200 p-3">
+              <input type="checkbox" name="isPermanent" checked={formData.isPermanent} onChange={handleChange} className="mt-1 h-4 w-4" />
+              <span className="text-sm">
+                <span className="font-medium text-accent">Permanent transfer</span>
+                <span className="block text-gray-500">The batch is reassigned to this teacher instead of being covered for one day.</span>
+              </span>
+            </label>
+            <div>
+              <label htmlFor="reason" className="form-label">
+                Reason
+              </label>
+              <textarea id="reason" name="reason" value={formData.reason} onChange={handleChange} rows={3} className="input-field" required />
+            </div>
+            <p className="form-hint">
+              Students are not notified automatically — please let the batch know about the change.
+            </p>
+          </div>
+          <div className="modal-actions">
+            <button type="button" onClick={() => setSelectedBatch(null)} className="btn-secondary" disabled={saving}>
+              Cancel
+            </button>
+            <button type="submit" disabled={saving} className="btn-primary">
+              {saving ? 'Saving…' : 'Confirm transfer'}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

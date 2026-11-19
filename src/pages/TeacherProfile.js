@@ -1,353 +1,220 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { PageSkeleton } from '../components/ui/Skeleton';
+import PageHeader from '../components/ui/PageHeader';
+import Icon from '../components/ui/Icon';
+import ErrorState from '../components/ErrorState';
+import ChangePasswordDialog from '../components/ChangePasswordDialog';
+import { TeacherAvatar } from '../components/public/Sections';
 import { useToast } from '../context/ToastContext';
-
 import teacherService from '../services/teacherService';
+
+const toForm = (p) => ({
+  fullName: p.full_name || '',
+  email: p.email || '',
+  phone: p.phone || '',
+  specialization: p.specialization || '',
+  experienceYears: p.experience_years ?? 0,
+  qualifications: p.qualifications || '',
+  bio: p.bio || '',
+});
 
 const TeacherProfile = () => {
   const toast = useToast();
-  // const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
-  const [stats, setStats] = useState({});
-  const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    phone: '',
-    specialization: '',
-    experienceYears: 0,
-    qualifications: '',
-    bio: '',
-    address: ''
-  });
+  const [profile, setProfile] = useState(null);
+  const [batchCount, setBatchCount] = useState(null);
+  const [formData, setFormData] = useState(toForm({}));
+  const [showPassword, setShowPassword] = useState(false);
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
-
-  const fetchProfile = async () => {
+  const load = useCallback(async () => {
     try {
       setLoading(true);
-      const profile = await teacherService.getProfile();
-      setFormData({
-        fullName: profile.full_name || '',
-        email: profile.email || '',
-        phone: profile.phone || '',
-        specialization: profile.specialization || '',
-        experienceYears: profile.experience_years || 0,
-        qualifications: profile.qualifications || '',
-        bio: profile.bio || '',
-        address: '' // Add mapping if available
-      });
-      setStats({
-        totalStudents: profile.total_students || 0,
-        avgRating: profile.avg_rating || 0
-      });
+      setError(null);
+      const [p, batches] = await Promise.all([teacherService.getProfile(), teacherService.getBatches()]);
+      setProfile(p);
+      setFormData(toForm(p));
+      setBatchCount(batches.length);
     } catch (err) {
-      setError(err.message || 'Failed to load profile');
+      setError(err.message || 'Failed to load your profile');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const handleChange = (e) => setFormData((f) => ({ ...f, [e.target.name]: e.target.value }));
+
+  const cancel = () => {
+    setFormData(toForm(profile));
+    setIsEditing(false);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSaving(true);
     try {
-      setLoading(true);
-      await teacherService.updateProfile({
+      const update = {
         phone: formData.phone,
         bio: formData.bio,
         specialization: formData.specialization,
         qualifications: formData.qualifications,
         experience_years: parseInt(formData.experienceYears, 10) || 0,
-      });
-      toast.success('Profile updated.');
+      };
+      await teacherService.updateProfile(update);
+      setProfile((p) => ({ ...p, ...update }));
+      toast.success('Profile updated. Public details appear on the Teachers page.');
       setIsEditing(false);
     } catch (err) {
-      toast.error(err.message || 'Failed to update profile');
+      toast.error(err.message || 'Failed to update your profile');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  if (loading && !isEditing) return <PageSkeleton label="Loading…" />;
-  if (error) return <div className="p-8 text-red-600 text-center">{error}</div>;
+  if (loading) return <PageSkeleton label="Loading your profile…" variant="form" />;
+  if (error) return <ErrorState message={error} onRetry={load} />;
+
+  const stats = [
+    ['Batches', batchCount ?? '—'],
+    ['Students', profile.total_students ?? 0],
+    ['Years', formData.experienceYears || 0],
+    ['Rating', Number(profile.avg_rating || 0).toFixed(1)],
+  ];
+  const details = [
+    ['Email', formData.email],
+    ['Phone', formData.phone],
+    ['Specialisation', formData.specialization],
+    ['Experience', `${formData.experienceYears || 0} years`],
+    ['Qualifications', formData.qualifications],
+  ];
 
   return (
     <div className="page">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="page-title">
-              My Profile
-            </h1>
-            <p className="text-gray-600">Manage your personal information</p>
-          </div>
-          {!isEditing && (
-            <button 
-              onClick={() => setIsEditing(true)}
-              className="btn-primary"
-            >
-              Edit Profile
+      <PageHeader
+        title="My profile"
+        description="Your specialisation, qualifications and bio are shown on the public Teachers page."
+        actions={
+          !isEditing && (
+            <button type="button" onClick={() => setIsEditing(true)} className="btn-primary">
+              <Icon name="pencil" className="h-4 w-4" /> Edit profile
             </button>
-          )}
-        </div>
+          )
+        }
+      />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* Left Column - Profile Card */}
-          <div className="lg:col-span-1">
-            <div className="card text-center">
-              
-              {/* Profile Photo */}
-              <div className="mb-6">
-                <div className="w-32 h-32 mx-auto bg-gradient-to-br from-primary/20 to-secondary/20 rounded-full flex items-center justify-center mb-4">
-                  <svg className="w-20 h-20 text-primary" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                  </svg>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <aside className="space-y-6">
+          <section className="card text-center">
+            <TeacherAvatar name={formData.fullName} className="mx-auto h-24 w-24 text-3xl" />
+            <h2 className="mt-4 font-heading text-xl font-semibold text-accent">{formData.fullName}</h2>
+            <p className="text-sm text-secondary-700">{formData.specialization || 'Kathak'}</p>
+            <dl className="mt-5 grid grid-cols-4 gap-2 border-t border-sand-200 pt-5">
+              {stats.map(([k, v]) => (
+                <div key={k} className="flex flex-col-reverse">
+                  <dt className="text-[0.7rem] text-gray-500">{k}</dt>
+                  <dd className="font-heading text-xl font-semibold tabular-nums text-accent">{v}</dd>
                 </div>
-                {isEditing && (
-                  <button className="text-sm text-primary hover:text-primary-dark font-semibold">
-                    Change Photo
-                  </button>
-                )}
-              </div>
+              ))}
+            </dl>
+            <p className="mt-4 text-xs text-gray-500">Profile photos are not supported yet; your initials are shown instead.</p>
+          </section>
 
-              {/* Quick Info */}
-              <h2 className="text-2xl font-bold text-accent mb-1">{formData.fullName}</h2>
-              <p className="text-gray-600 mb-2">{formData.email}</p>
-              <span className="inline-block px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-semibold">
-                Teacher
-              </span>
+          <section className="card">
+            <h2 className="section-title">Security</h2>
+            <p className="mt-1 text-sm text-gray-600">Changing your password signs you out on other devices.</p>
+            <button type="button" onClick={() => setShowPassword(true)} className="btn-secondary mt-4 w-full">
+              <Icon name="key" className="h-4 w-4" /> Change password
+            </button>
+          </section>
+        </aside>
 
-              {/* Stats */}
-              <div className="mt-6 pt-6 border-t">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-2xl font-bold text-primary">N/A</p>
-                    <p className="text-xs text-gray-600">Batches</p>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-green-600">{stats.totalStudents}</p>
-                    <p className="text-xs text-gray-600">Students</p>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-blue-600">{formData.experienceYears}</p>
-                    <p className="text-xs text-gray-600">Years Exp.</p>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-purple-600">{parseFloat(stats.avgRating).toFixed(1)}</p>
-                    <p className="text-xs text-gray-600">Avg. Rating</p>
-                  </div>
+        <section className="card sm:p-8 lg:col-span-2" aria-labelledby="details-heading">
+          <h2 id="details-heading" className="section-title mb-5">
+            {isEditing ? 'Edit details' : 'Details'}
+          </h2>
+          {isEditing ? (
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="fullName" className="form-label">
+                    Full name
+                  </label>
+                  <input id="fullName" value={formData.fullName} className="input-field" disabled />
+                  <p className="form-hint">Ask the academy office to change your name.</p>
+                </div>
+                <div>
+                  <label htmlFor="email" className="form-label">
+                    Email
+                  </label>
+                  <input id="email" type="email" value={formData.email} className="input-field" disabled />
+                  <p className="form-hint">Your login email cannot be changed here.</p>
+                </div>
+                <div>
+                  <label htmlFor="phone" className="form-label">
+                    Phone
+                  </label>
+                  <input id="phone" type="tel" name="phone" value={formData.phone} onChange={handleChange} className="input-field" required />
+                </div>
+                <div>
+                  <label htmlFor="specialization" className="form-label">
+                    Specialisation
+                  </label>
+                  <input id="specialization" name="specialization" value={formData.specialization} onChange={handleChange} className="input-field" required />
+                </div>
+                <div>
+                  <label htmlFor="experienceYears" className="form-label">
+                    Years of experience
+                  </label>
+                  <input id="experienceYears" type="number" name="experienceYears" value={formData.experienceYears} onChange={handleChange} className="input-field" min="0" max="80" required />
+                </div>
+                <div>
+                  <label htmlFor="qualifications" className="form-label">
+                    Qualifications
+                  </label>
+                  <input id="qualifications" name="qualifications" value={formData.qualifications} onChange={handleChange} className="input-field" />
                 </div>
               </div>
-            </div>
-
-            {/* Change Password Card */}
-            {!isEditing && (
-              <div className="card mt-6">
-                <h3 className="font-bold text-accent mb-4">Security</h3>
-                <button className="w-full btn-secondary">
-                  Change Password
+              <div>
+                <label htmlFor="bio" className="form-label">
+                  Bio
+                </label>
+                <textarea id="bio" name="bio" value={formData.bio} onChange={handleChange} rows={5} className="input-field" />
+              </div>
+              <div className="flex justify-end gap-2 border-t border-sand-200 pt-5">
+                <button type="button" onClick={cancel} className="btn-secondary" disabled={saving}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary" disabled={saving}>
+                  {saving ? 'Saving…' : 'Save changes'}
                 </button>
               </div>
-            )}
-          </div>
-
-          {/* Right Column - Profile Details */}
-          <div className="lg:col-span-2">
-            <div className="card sm:p-8">
-              <h3 className="text-2xl font-bold text-accent mb-6 pb-4 border-b">
-                {isEditing ? 'Edit Information' : 'Personal Information'}
-              </h3>
-
-              {isEditing ? (
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="form-label">
-                        Full Name *
-                      </label>
-                      <input
-                        type="text"
-                        name="fullName"
-                        value={formData.fullName}
-                        onChange={handleChange}
-                        className="input-field"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="form-label">
-                        Email *
-                      </label>
-                      <input
-                        type="email"
-                        name="email"
-                        value={formData.email}
-                        className="input-field bg-sand-100"
-                        disabled
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
-                    </div>
-
-                    <div>
-                      <label className="form-label">
-                        Phone *
-                      </label>
-                      <input
-                        type="tel"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleChange}
-                        className="input-field"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="form-label">
-                        Specialization *
-                      </label>
-                      <input
-                        type="text"
-                        name="specialization"
-                        value={formData.specialization}
-                        onChange={handleChange}
-                        className="input-field"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="form-label">
-                        Years of Experience *
-                      </label>
-                      <input
-                        type="number"
-                        name="experienceYears"
-                        value={formData.experienceYears}
-                        onChange={handleChange}
-                        className="input-field"
-                        min="0"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="form-label">
-                        Qualifications
-                      </label>
-                      <input
-                        type="text"
-                        name="qualifications"
-                        value={formData.qualifications}
-                        onChange={handleChange}
-                        className="input-field"
-                      />
-                    </div>
+            </form>
+          ) : (
+            <>
+              <dl className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
+                {details.map(([k, v]) => (
+                  <div key={k}>
+                    <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">{k}</dt>
+                    <dd className="mt-1 text-accent">{v || <span className="text-gray-400">Not provided</span>}</dd>
                   </div>
-
-                  <div>
-                    <label className="form-label">
-                      Bio
-                    </label>
-                    <textarea
-                      name="bio"
-                      value={formData.bio}
-                      onChange={handleChange}
-                      rows="4"
-                      className="input-field"
-                    ></textarea>
-                  </div>
-
-                  <div>
-                    <label className="form-label">
-                      Address
-                    </label>
-                    <textarea
-                      name="address"
-                      value={formData.address}
-                      onChange={handleChange}
-                      rows="2"
-                      className="input-field"
-                    ></textarea>
-                  </div>
-
-                  <div className="flex justify-end space-x-4 pt-6 border-t">
-                    <button
-                      type="button"
-                      onClick={() => setIsEditing(false)}
-                      className="btn-secondary"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="btn-primary"
-                    >
-                      Save Changes
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="text-sm text-gray-600">Full Name</label>
-                      <p className="font-semibold text-accent">{formData.fullName}</p>
-                    </div>
-
-                    <div>
-                      <label className="text-sm text-gray-600">Email</label>
-                      <p className="font-semibold text-accent">{formData.email}</p>
-                    </div>
-
-                    <div>
-                      <label className="text-sm text-gray-600">Phone</label>
-                      <p className="font-semibold text-accent">{formData.phone}</p>
-                    </div>
-
-                    <div>
-                      <label className="text-sm text-gray-600">Specialization</label>
-                      <p className="font-semibold text-accent">{formData.specialization}</p>
-                    </div>
-
-                    <div>
-                      <label className="text-sm text-gray-600">Experience</label>
-                      <p className="font-semibold text-accent">{formData.experienceYears} years</p>
-                    </div>
-
-                    <div>
-                      <label className="text-sm text-gray-600">Qualifications</label>
-                      <p className="font-semibold text-accent">{formData.qualifications}</p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-sm text-gray-600">Bio</label>
-                    <p className="font-semibold text-accent">{formData.bio}</p>
-                  </div>
-
-                  <div>
-                    <label className="text-sm text-gray-600">Address</label>
-                    <p className="font-semibold text-accent">{formData.address}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+                ))}
+              </dl>
+              <div className="mt-6 border-t border-sand-200 pt-5">
+                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Bio</p>
+                <p className="mt-1 whitespace-pre-line leading-relaxed text-gray-700">{formData.bio || <span className="text-gray-400">Not provided</span>}</p>
+              </div>
+            </>
+          )}
+        </section>
       </div>
+
+      <ChangePasswordDialog open={showPassword} onClose={() => setShowPassword(false)} />
     </div>
   );
 };
