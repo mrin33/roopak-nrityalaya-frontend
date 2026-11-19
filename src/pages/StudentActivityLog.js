@@ -1,102 +1,111 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import EmptyState from '../components/EmptyState';
 import LoadingSpinner from '../components/LoadingSpinner';
+import ErrorState from '../components/ErrorState';
 import PerformanceGraph from '../components/PerformanceGraph';
+import studentService from '../services/studentService';
+import { useToast } from '../context/ToastContext';
+import { formatDate, todayISO } from '../utils/date';
+
+const freshForm = () => ({
+  logDate: todayISO(),
+  activitiesDone: '',
+  performances: '',
+  practiceHours: '',
+  notes: '',
+  mood: 'good',
+});
 
 const StudentActivityLog = () => {
+  const toast = useToast();
   const [logs, setLogs] = useState([]);
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [saving, setSaving] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [formData, setFormData] = useState({
-    logDate: new Date().toISOString().split('T')[0],
-    activitiesDone: '',
-    performances: '',
-    practiceHours: '',
-    notes: '',
-    mood: 'good'
-  });
+  const [editingId, setEditingId] = useState(null);
+  const [formData, setFormData] = useState(freshForm());
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [rows, statRows] = await Promise.all([studentService.getActivityLogs(), studentService.getActivityStats()]);
+      setLogs(rows.map((l) => ({ ...l, id: l.log_id, practice_hours: Number(l.practice_hours) || 0 })));
+      setStats(statRows);
+    } catch (err) {
+      setError(err.message || 'Could not load your activity logs');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    // TODO: Fetch activity logs from API
-    setTimeout(() => {
-      setLogs([
-        {
-          id: 1,
-          log_date: '2026-02-03',
-          activities_done: 'Practiced Teen Taal variations, footwork drills, chakkars',
-          performances: 'None',
-          practice_hours: 2.5,
-          notes: 'Feeling confident with the new composition',
-          mood: 'great'
-        },
-        {
-          id: 2,
-          log_date: '2026-02-02',
-          activities_done: 'Hand gesture practice, Thumri rehearsal',
-          performances: 'None',
-          practice_hours: 2.0,
-          notes: 'Need to work on expressions',
-          mood: 'good'
-        },
-        {
-          id: 3,
-          log_date: '2026-02-01',
-          activities_done: 'Group practice for annual day, solo piece rehearsal',
-          performances: 'Practice performance for teacher',
-          practice_hours: 3.0,
-          notes: 'Great session! Teacher appreciated my improvement',
-          mood: 'great'
-        },
-        {
-          id: 4,
-          log_date: '2026-01-31',
-          activities_done: 'Basic footwork, rhythm practice',
-          performances: 'None',
-          practice_hours: 1.5,
-          notes: 'Short session due to exam preparation',
-          mood: 'okay'
-        },
-        {
-          id: 5,
-          log_date: '2026-01-30',
-          activities_done: 'Full Tarana composition, speed practice',
-          performances: 'None',
-          practice_hours: 2.5,
-          notes: 'Working on increasing speed while maintaining clarity',
-          mood: 'good'
-        }
-      ]);
-      setLoading(false);
-    }, 500);
-  }, []);
+    load();
+  }, [load]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const openAdd = () => {
+    setEditingId(null);
+    setFormData(freshForm());
+    setShowAddModal(true);
+  };
+
+  const openEdit = (log) => {
+    setEditingId(log.id);
+    setFormData({
+      logDate: log.log_date,
+      activitiesDone: log.activities_done || '',
+      performances: log.performances && log.performances !== 'None' ? log.performances : '',
+      practiceHours: String(log.practice_hours),
+      notes: log.notes || '',
+      mood: log.mood || 'good',
+    });
+    setShowAddModal(true);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // TODO: API call to save activity log
-    const newLog = {
-      id: logs.length + 1,
+    const payload = {
       log_date: formData.logDate,
       activities_done: formData.activitiesDone,
       performances: formData.performances || 'None',
-      practice_hours: parseFloat(formData.practiceHours),
+      practice_hours: formData.practiceHours === '' ? 0 : parseFloat(formData.practiceHours),
       notes: formData.notes,
-      mood: formData.mood
+      mood: formData.mood,
     };
-    setLogs([newLog, ...logs]);
-    setShowAddModal(false);
-    setFormData({
-      logDate: new Date().toISOString().split('T')[0],
-      activitiesDone: '',
-      performances: '',
-      practiceHours: '',
-      notes: '',
-      mood: 'good'
-    });
-    alert('Activity log saved successfully!');
+    setSaving(true);
+    try {
+      if (editingId) {
+        await studentService.updateActivityLog(editingId, payload);
+        toast.success('Activity log updated.');
+      } else {
+        await studentService.createActivityLog(payload);
+        toast.success('Activity log saved.');
+      }
+      setShowAddModal(false);
+      setFormData(freshForm());
+      load();
+    } catch (err) {
+      toast.error(err.message || 'Could not save the activity log.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (log) => {
+    if (!window.confirm(`Delete your log for ${formatDate(log.log_date)}?`)) return;
+    try {
+      await studentService.deleteActivityLog(log.id);
+      toast.success('Activity log deleted.');
+      load();
+    } catch (err) {
+      toast.error(err.message || 'Could not delete the log.');
+    }
   };
 
   const getMoodEmoji = (mood) => {
@@ -121,22 +130,16 @@ const StudentActivityLog = () => {
     }
   };
 
-  // Calculate statistics
-  const totalPracticeHours = logs.reduce((sum, log) => sum + log.practice_hours, 0);
-  const avgPracticeHours = logs.length > 0 ? (totalPracticeHours / logs.length).toFixed(1) : 0;
-  const thisWeekLogs = logs.filter(log => {
-    const logDate = new Date(log.date);
-    const weekAgo = new Date();
-    weekAgo.setDate(weekAgo.getDate() - 7);
-    return logDate >= weekAgo;
-  }).length;
+  const totalPracticeHours = stats ? stats.total_practice_hours : 0;
+  const avgPracticeHours = stats ? stats.avg_practice_hours : 0;
+  const thisWeekLogs = stats ? stats.this_week_logs : 0;
 
   // Prepare data for PerformanceGraph (last 7 days)
   const last7DaysData = [];
   for (let i = 6; i >= 0; i--) {
     const date = new Date();
     date.setDate(date.getDate() - i);
-    const dateString = date.toISOString().split('T')[0];
+    const dateString = new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
     const dayLog = logs.find(log => log.log_date === dateString);
     
     last7DaysData.push({
@@ -149,26 +152,27 @@ const StudentActivityLog = () => {
   if (loading) {
     return <LoadingSpinner fullScreen={true} text="Loading activity logs..." size="lg" />;
   }
+  if (error) return <ErrorState message={error} onRetry={load} />;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-4xl font-heading font-bold text-primary mb-2">
               Activity Log
             </h1>
             <p className="text-gray-600">Track your practice sessions and progress</p>
           </div>
-          <button onClick={() => setShowAddModal(true)} className="btn-primary">
+          <button onClick={openAdd} className="btn-primary">
             + Add Activity
           </button>
         </div>
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-8">
           <div className="bg-white rounded-xl shadow-lg p-6">
             <p className="text-sm text-gray-600 mb-1">Total Hours</p>
             <p className="text-3xl font-bold text-primary">{totalPracticeHours}h</p>
@@ -192,7 +196,7 @@ const StudentActivityLog = () => {
           <PerformanceGraph 
             data={last7DaysData}
             title="Practice Hours - Last 7 Days"
-            maxValue={4}
+            maxValue={Math.max(4, ...last7DaysData.map((d) => d.value))}
             color="blue"
             height={200}
             showValues={true}
@@ -205,17 +209,12 @@ const StudentActivityLog = () => {
             <div key={log.id} className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-shadow">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-2">
+                  <div className="flex flex-wrap items-center gap-3 mb-2">
                     <h3 className="text-xl font-bold text-accent">
-                      {new Date(log.log_date).toLocaleDateString('en-US', { 
-                        weekday: 'long', 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      })}
+                      {formatDate(log.log_date, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     </h3>
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getMoodColor(log.mood)}`}>
-                      {getMoodEmoji(log.mood)} {log.mood.charAt(0).toUpperCase() + log.mood.slice(1)}
+                      {getMoodEmoji(log.mood)} {(log.mood || 'good').charAt(0).toUpperCase() + (log.mood || 'good').slice(1)}
                     </span>
                   </div>
                 </div>
@@ -231,7 +230,7 @@ const StudentActivityLog = () => {
                   <p className="text-gray-600">{log.activities_done}</p>
                 </div>
 
-                {log.performances !== 'None' && (
+                {log.performances && log.performances !== 'None' && (
                   <div>
                     <p className="text-sm font-semibold text-gray-700 mb-1">Performances:</p>
                     <p className="text-gray-600">{log.performances}</p>
@@ -247,6 +246,10 @@ const StudentActivityLog = () => {
                   </div>
                 )}
               </div>
+              <div className="flex gap-4 mt-4 pt-4 border-t text-sm font-semibold">
+                <button onClick={() => openEdit(log)} className="text-primary hover:underline">Edit</button>
+                <button onClick={() => handleDelete(log)} className="text-red-600 hover:underline">Delete</button>
+              </div>
             </div>
           ))}
         </div>
@@ -258,7 +261,7 @@ const StudentActivityLog = () => {
             title="No activity logs yet"
             description="Start tracking your practice sessions to see your progress over time"
             actionText="Add Your First Log"
-            onAction={() => setShowAddModal(true)}
+            onAction={openAdd}
             size="lg"
           />
         )}
@@ -269,7 +272,7 @@ const StudentActivityLog = () => {
             <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="bg-primary text-white p-6 rounded-t-2xl sticky top-0">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold">Add Activity Log</h2>
+                  <h2 className="text-2xl font-bold">{editingId ? 'Edit Activity Log' : 'Add Activity Log'}</h2>
                   <button 
                     onClick={() => setShowAddModal(false)}
                     className="text-white hover:bg-white/20 rounded-full p-2"
@@ -287,6 +290,7 @@ const StudentActivityLog = () => {
                     <label className="block text-sm font-semibold text-accent mb-2">Date *</label>
                     <input
                       type="date"
+                      max={todayISO()}
                       name="logDate"
                       value={formData.logDate}
                       onChange={handleChange}
@@ -373,8 +377,8 @@ const StudentActivityLog = () => {
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="btn-primary">
-                    Save Activity Log
+                  <button type="submit" disabled={saving} className="btn-primary disabled:opacity-50">
+                    {saving ? 'Saving…' : 'Save Activity Log'}
                   </button>
                 </div>
               </form>

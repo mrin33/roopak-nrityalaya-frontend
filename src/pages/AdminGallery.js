@@ -1,157 +1,300 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import LoadingSpinner from '../components/LoadingSpinner';
+import ErrorState from '../components/ErrorState';
+import EmptyState from '../components/EmptyState';
+import ProtectedMedia from '../components/ProtectedMedia';
+import adminService from '../services/adminService';
+import { useToast } from '../context/ToastContext';
+
+const ACCEPT = {
+  photo: 'image/jpeg,image/png,image/webp,image/gif',
+  video: 'video/mp4,video/webm,video/quicktime',
+};
+const EMPTY_FORM = { title: '', description: '', category: '', type: 'photo', isVisible: true, file: null };
 
 const AdminGallery = () => {
+  const toast = useToast();
   const [media, setMedia] = useState([]);
   const [filterType, setFilterType] = useState('all');
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    category: '',
-    type: 'image',
-    file: null
-  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [modal, setModal] = useState(null); // { mode: 'add' } | { mode: 'edit', item }
+  const [formData, setFormData] = useState(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [busyId, setBusyId] = useState(null);
 
-  useEffect(() => {
-    // TODO: Fetch gallery from API
-    setMedia([
-      { id: 1, title: 'Annual Day 2025', description: 'Students performing', category: 'Events', type: 'image', uploadDate: '2025-12-15' },
-      { id: 2, title: 'Kathak Workshop', description: 'Special workshop', category: 'Workshops', type: 'image', uploadDate: '2025-11-20' },
-      { id: 3, title: 'Performance Highlights', description: 'Competition moments', category: 'Performances', type: 'video', uploadDate: '2025-10-10' },
-    ]);
+  const fetchGallery = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      setMedia(await adminService.getGallery());
+    } catch (err) {
+      setError(err.message || 'Failed to load the gallery');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const filteredMedia = media.filter(item => filterType === 'all' || item.type === filterType);
+  useEffect(() => {
+    fetchGallery();
+  }, [fetchGallery]);
+
+  const filteredMedia = media.filter((m) => filterType === 'all' || m.media_type === filterType);
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value, type, checked } = e.target;
+    setFormData((f) => ({ ...f, [name]: type === 'checkbox' ? checked : value }));
   };
 
-  const handleFileChange = (e) => {
-    setFormData({ ...formData, file: e.target.files[0] });
+  const openAdd = () => {
+    setFormData(EMPTY_FORM);
+    setModal({ mode: 'add' });
+  };
+  const openEdit = (item) => {
+    setFormData({
+      title: item.title || '',
+      description: item.description || '',
+      category: item.category || '',
+      type: item.media_type,
+      isVisible: item.is_visible,
+      file: null,
+    });
+    setModal({ mode: 'edit', item });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    alert('Media uploaded! (File upload API pending)');
-    setShowUploadModal(false);
-    setFormData({ title: '', description: '', category: '', type: 'image', file: null });
-  };
-
-  const handleDelete = (id) => {
-    if (window.confirm('Delete?')) {
-      setMedia(media.filter(m => m.id !== id));
+    setSaving(true);
+    try {
+      if (modal.mode === 'add') {
+        if (!formData.file) throw new Error('Please choose a file to upload.');
+        const fd = new FormData();
+        fd.append('title', formData.title);
+        fd.append('description', formData.description);
+        fd.append('category', formData.category);
+        fd.append('is_visible', String(formData.isVisible));
+        fd.append('file', formData.file);
+        await adminService.createGalleryItem(fd);
+        toast.success('Media uploaded to the gallery.');
+      } else {
+        await adminService.updateGalleryItem(modal.item.id, {
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          is_visible: formData.isVisible,
+        });
+        toast.success('Gallery item updated.');
+      }
+      setModal(null);
+      fetchGallery();
+    } catch (err) {
+      toast.error(err.message || 'Could not save the gallery item.');
+    } finally {
+      setSaving(false);
     }
   };
+
+  const toggleVisible = async (item) => {
+    setBusyId(item.id);
+    try {
+      await adminService.updateGalleryItem(item.id, { is_visible: !item.is_visible });
+      toast.success(item.is_visible ? 'Hidden from the public gallery.' : 'Now visible in the public gallery.');
+      fetchGallery();
+    } catch (err) {
+      toast.error(err.message || 'Could not update visibility.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleDelete = async (item) => {
+    if (!window.confirm(`Delete "${item.title}" from the gallery? This cannot be undone.`)) return;
+    setBusyId(item.id);
+    try {
+      await adminService.deleteGalleryItem(item.id);
+      toast.success('Gallery item deleted.');
+      setMedia((list) => list.filter((m) => m.id !== item.id));
+    } catch (err) {
+      toast.error(err.message || 'Could not delete the item.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  if (loading && !media.length) return <LoadingSpinner fullScreen={true} text="Loading gallery..." size="lg" />;
+  if (error) return <ErrorState message={error} onRetry={fetchGallery} />;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-4xl font-heading font-bold text-primary mb-2">Gallery Management</h1>
-            <p className="text-gray-600">Upload and manage photos & videos</p>
+            <h1 className="text-3xl sm:text-4xl font-heading font-bold text-primary mb-2">Gallery Management</h1>
+            <p className="text-gray-600">Upload and manage photos & videos shown on the public gallery</p>
           </div>
-          <button onClick={() => setShowUploadModal(true)} className="btn-primary">+ Upload</button>
+          <button onClick={openAdd} className="btn-primary">
+            + Upload
+          </button>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <p className="text-sm text-gray-600 mb-1">Total Items</p>
-            <p className="text-3xl font-bold text-primary">{media.length}</p>
-          </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <p className="text-sm text-gray-600 mb-1">Images</p>
-            <p className="text-3xl font-bold text-green-600">{media.filter(m => m.type === 'image').length}</p>
-          </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <p className="text-sm text-gray-600 mb-1">Videos</p>
-            <p className="text-3xl font-bold text-blue-600">{media.filter(m => m.type === 'video').length}</p>
-          </div>
-        </div>
-
-        {/* Filter */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-          <div className="flex gap-3">
-            <button onClick={() => setFilterType('all')} className={`px-4 py-2 rounded-lg font-semibold ${filterType === 'all' ? 'bg-primary text-white' : 'bg-gray-100'}`}>All</button>
-            <button onClick={() => setFilterType('image')} className={`px-4 py-2 rounded-lg font-semibold ${filterType === 'image' ? 'bg-primary text-white' : 'bg-gray-100'}`}>Images</button>
-            <button onClick={() => setFilterType('video')} className={`px-4 py-2 rounded-lg font-semibold ${filterType === 'video' ? 'bg-primary text-white' : 'bg-gray-100'}`}>Videos</button>
-          </div>
-        </div>
-
-        {/* Gallery */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {filteredMedia.map((item) => (
-            <div key={item.id} className="bg-white rounded-xl shadow-lg overflow-hidden">
-              <div className="h-48 bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
-                {item.type === 'image' ? (
-                  <svg className="w-16 h-16 text-primary" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-                  </svg>
-                ) : (
-                  <svg className="w-16 h-16 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
-                  </svg>
-                )}
-              </div>
-              <div className="p-6">
-                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${item.type === 'image' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>{item.type}</span>
-                <h3 className="text-lg font-bold text-accent mt-2 mb-2">{item.title}</h3>
-                <p className="text-sm text-gray-600 mb-4">{item.description}</p>
-                <div className="flex space-x-2">
-                  <button className="flex-1 btn-secondary text-sm">Edit</button>
-                  <button onClick={() => handleDelete(item.id)} className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-semibold">Delete</button>
-                </div>
-              </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-8">
+          {[
+            ['Total Items', media.length, 'text-primary'],
+            ['Visible', media.filter((m) => m.is_visible).length, 'text-green-600'],
+            ['Photos', media.filter((m) => m.media_type === 'photo').length, 'text-blue-600'],
+            ['Videos', media.filter((m) => m.media_type === 'video').length, 'text-purple-600'],
+          ].map(([label, value, color]) => (
+            <div key={label} className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+              <p className="text-sm text-gray-600 mb-1">{label}</p>
+              <p className={`text-3xl font-bold ${color}`}>{value}</p>
             </div>
           ))}
         </div>
 
-        {/* Modal */}
-        {showUploadModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-2xl w-full">
-              <div className="bg-primary text-white p-6 rounded-t-2xl">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold">Upload Media</h2>
-                  <button onClick={() => setShowUploadModal(false)} className="text-white hover:bg-white/20 rounded-full p-2">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+        <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-8">
+          <div className="flex flex-wrap gap-3" role="group" aria-label="Filter by type">
+            {[
+              ['all', 'All'],
+              ['photo', 'Photos'],
+              ['video', 'Videos'],
+            ].map(([v, l]) => (
+              <button
+                key={v}
+                onClick={() => setFilterType(v)}
+                aria-pressed={filterType === v}
+                className={`px-4 py-2 rounded-lg font-semibold ${filterType === v ? 'bg-primary text-white' : 'bg-gray-100'}`}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+          <p className="text-sm text-gray-500 mt-3">
+            Student uploads appear here once approved in Gallery Requests.
+          </p>
+        </div>
+
+        {filteredMedia.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-lg">
+            <EmptyState
+              icon="image"
+              title={media.length ? 'Nothing of this type yet' : 'The gallery is empty'}
+              description="Upload photos or videos, or approve student submissions."
+              actionText="Upload"
+              onAction={openAdd}
+            />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredMedia.map((item) => (
+              <div key={item.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col">
+                <div className="relative h-48 bg-gray-100">
+                  <ProtectedMedia
+                    path={`/admin/gallery/${item.id}/file`}
+                    mediaType={item.media_type}
+                    alt={item.title}
+                    className="w-full h-full object-cover"
+                    controls={item.media_type === 'video'}
+                  />
+                  {!item.is_visible && (
+                    <span className="absolute top-2 left-2 px-2 py-1 rounded bg-gray-900/70 text-white text-xs font-semibold">Hidden</span>
+                  )}
                 </div>
+                <div className="p-6 flex-1 flex flex-col">
+                  <div className="flex flex-wrap gap-2">
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${item.media_type === 'photo' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                      {item.media_type}
+                    </span>
+                    {item.category && <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">{item.category}</span>}
+                    {item.uploader_role === 'student' && (
+                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
+                        by {item.uploaded_by_name || 'student'}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-lg font-bold text-accent mt-2 mb-1">{item.title}</h3>
+                  {item.description && <p className="text-sm text-gray-600 mb-4">{item.description}</p>}
+                  <p className="text-xs text-gray-400 mb-4">{new Date(item.created_at).toLocaleDateString('en-IN')}</p>
+                  <div className="mt-auto grid grid-cols-3 gap-2">
+                    <button onClick={() => openEdit(item)} className="btn-secondary text-sm px-2 py-2">
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => toggleVisible(item)}
+                      disabled={busyId === item.id}
+                      className="bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-semibold px-2 py-2 disabled:opacity-50"
+                    >
+                      {item.is_visible ? 'Hide' : 'Show'}
+                    </button>
+                    <button
+                      onClick={() => handleDelete(item)}
+                      disabled={busyId === item.id}
+                      className="bg-red-600 hover:bg-red-700 text-white px-2 py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {modal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
+            <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="bg-primary text-white p-6 rounded-t-2xl flex items-center justify-between">
+                <h2 className="text-2xl font-bold">{modal.mode === 'add' ? 'Upload Media' : 'Edit Media'}</h2>
+                <button onClick={() => setModal(null)} className="text-white hover:bg-white/20 rounded-full p-2" aria-label="Close">
+                  ×
+                </button>
               </div>
               <form onSubmit={handleSubmit} className="p-6 space-y-6">
                 <div>
-                  <label className="block text-sm font-semibold text-accent mb-2">Title *</label>
-                  <input type="text" name="title" value={formData.title} onChange={handleChange} className="input-field" required />
+                  <label htmlFor="g-title" className="block text-sm font-semibold text-accent mb-2">Title *</label>
+                  <input id="g-title" type="text" name="title" value={formData.title} onChange={handleChange} className="input-field" required />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-accent mb-2">Description</label>
-                  <textarea name="description" value={formData.description} onChange={handleChange} rows="3" className="input-field"></textarea>
+                  <label htmlFor="g-desc" className="block text-sm font-semibold text-accent mb-2">Description</label>
+                  <textarea id="g-desc" name="description" value={formData.description} onChange={handleChange} rows="3" className="input-field" />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {modal.mode === 'add' && (
+                    <div>
+                      <label htmlFor="g-type" className="block text-sm font-semibold text-accent mb-2">Type *</label>
+                      <select id="g-type" name="type" value={formData.type} onChange={handleChange} className="input-field">
+                        <option value="photo">Photo</option>
+                        <option value="video">Video</option>
+                      </select>
+                    </div>
+                  )}
                   <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">Type *</label>
-                    <select name="type" value={formData.type} onChange={handleChange} className="input-field" required>
-                      <option value="image">Image</option>
-                      <option value="video">Video</option>
-                    </select>
+                    <label htmlFor="g-cat" className="block text-sm font-semibold text-accent mb-2">Category / Event</label>
+                    <input id="g-cat" type="text" name="category" value={formData.category} onChange={handleChange} className="input-field" placeholder="e.g. Annual Day 2026" />
                   </div>
+                </div>
+                {modal.mode === 'add' && (
                   <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">Category</label>
-                    <input type="text" name="category" value={formData.category} onChange={handleChange} className="input-field" />
+                    <label htmlFor="g-file" className="block text-sm font-semibold text-accent mb-2">File *</label>
+                    <input
+                      id="g-file"
+                      type="file"
+                      onChange={(e) => setFormData((f) => ({ ...f, file: e.target.files[0] || null }))}
+                      accept={ACCEPT[formData.type]}
+                      className="input-field"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Photos: JPG, PNG, WEBP, GIF · Videos: MP4, WEBM, MOV · max 50 MB</p>
                   </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-accent mb-2">File *</label>
-                  <input type="file" onChange={handleFileChange} accept={formData.type === 'image' ? 'image/*' : 'video/*'} className="input-field" required />
-                </div>
-                <div className="flex justify-end space-x-4">
-                  <button type="button" onClick={() => setShowUploadModal(false)} className="btn-secondary">Cancel</button>
-                  <button type="submit" className="btn-primary">Upload</button>
+                )}
+                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                  <input type="checkbox" name="isVisible" checked={formData.isVisible} onChange={handleChange} />
+                  Show on the public gallery
+                </label>
+                <div className="flex justify-end gap-4">
+                  <button type="button" onClick={() => setModal(null)} className="btn-secondary">Cancel</button>
+                  <button type="submit" disabled={saving} className="btn-primary disabled:opacity-50">
+                    {saving ? 'Saving…' : modal.mode === 'add' ? 'Upload' : 'Save Changes'}
+                  </button>
                 </div>
               </form>
             </div>

@@ -4,6 +4,7 @@ import noticeService from '../services/noticeService';
 const NoticesPage = () => {
   const [notices, setNotices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   
   const categories = ['all', 'event', 'fees', 'admission', 'workshop', 'holiday', 'examination', 'general'];
@@ -17,7 +18,7 @@ const NoticesPage = () => {
         const data = await noticeService.getNotices();
         setNotices(data);
       } catch (error) {
-        console.error('Failed to fetch notices:', error);
+        setLoadError(error.message || 'Could not load notices.');
       } finally {
         setLoading(false);
       }
@@ -144,6 +145,8 @@ const NoticesPage = () => {
                </svg>
                <p className="text-gray-500 text-xl">Loading notices...</p>
              </div>
+          ) : loadError ? (
+            <div className="text-center py-12 text-red-700" role="alert">{loadError}</div>
           ) : filteredNotices.length > 0 ? (
             <div className="space-y-6">
               {filteredNotices.map((notice) => (

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import useLevels from '../hooks/useLevels';
 
 const RegisterPage = () => {
   const navigate = useNavigate();
@@ -25,16 +26,14 @@ const RegisterPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const levels = [
-    { id: 1, name: 'Praveshika Pratham', code: 'PP', monthlyFee: 1000 },
-    { id: 2, name: 'Praveshika Purna', code: 'PM', monthlyFee: 1200 },
-    { id: 3, name: 'Madhyama Pratham', code: 'MP', monthlyFee: 1500 },
-    { id: 4, name: 'Madhyama Purna', code: 'MM', monthlyFee: 1500 },
-    { id: 5, name: 'Visharad Pratham', code: 'VP', monthlyFee: 2000 },
-    { id: 6, name: 'Visharad Purna', code: 'VM', monthlyFee: 2000 },
-    { id: 7, name: 'Alankar Pratham', code: 'AP', monthlyFee: 2500 },
-    { id: 8, name: 'Alankar Purna', code: 'AM', monthlyFee: 2500 }
-  ];
+  const { levels: apiLevels, error: levelsError } = useLevels();
+  const levels = apiLevels.map((l) => ({
+    id: l.level_id,
+    name: l.level_name,
+    code: l.level_code,
+    fees: l.fees,
+    monthlyFee: (l.fees.find((f) => f.payment_window === 'monthly') || {}).discounted_amount,
+  }));
 
   const paymentOptions = [
     { value: 'monthly', label: 'Monthly', discount: 0, multiplier: 1, badge: 'Flexible', color: 'blue' },
@@ -59,8 +58,9 @@ const RegisterPage = () => {
     if (!level) return { base: 0, discounted: 0, savings: 0 };
 
     const option = paymentOptions.find(p => p.value === formData.paymentWindow);
-    const baseAmount = level.monthlyFee * option.multiplier;
-    const discountedAmount = baseAmount * (1 - option.discount / 100);
+    const configured = level.fees.find((f) => f.payment_window === formData.paymentWindow);
+    const baseAmount = configured ? configured.base_amount : (level.monthlyFee || 0) * option.multiplier;
+    const discountedAmount = configured ? configured.discounted_amount : baseAmount * (1 - option.discount / 100);
     const savings = baseAmount - discountedAmount;
 
     return {
@@ -327,10 +327,11 @@ const RegisterPage = () => {
                 >
                   {levels.map(level => (
                     <option key={level.id} value={level.id}>
-                      {level.name} - ₹{level.monthlyFee}/month
+                      {level.name}{level.monthlyFee ? ` - ₹${level.monthlyFee}/month` : ''}
                     </option>
                   ))}
                 </select>
+                {levelsError && <p className="text-sm text-red-600 mt-1">Could not load levels: {levelsError}</p>}
                 <p className="text-xs text-gray-500 mt-1">
                   Your roll number will be auto-assigned based on this level (e.g., {getSelectedLevel()?.code}1, {getSelectedLevel()?.code}2...)
                 </p>
@@ -381,11 +382,11 @@ const RegisterPage = () => {
                     <div className="flex items-baseline space-x-2">
                       {option.discount > 0 && (
                         <span className="text-sm text-gray-400 line-through">
-                          ₹{getSelectedLevel()?.monthlyFee * option.multiplier}
+                          ₹{(getSelectedLevel()?.monthlyFee || 0) * option.multiplier}
                         </span>
                       )}
                       <span className="text-xl font-bold text-primary">
-                        ₹{Math.round(getSelectedLevel()?.monthlyFee * option.multiplier * (1 - option.discount / 100))}
+                        ₹{Math.round((getSelectedLevel()?.monthlyFee || 0) * option.multiplier * (1 - option.discount / 100))}
                       </span>
                     </div>
                   </label>

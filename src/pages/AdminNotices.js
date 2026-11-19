@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useToast } from '../context/ToastContext';
 import noticeService from '../services/noticeService';
 
 const AdminNotices = () => {
+  const toast = useToast();
   const [notices, setNotices] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -20,21 +22,21 @@ const AdminNotices = () => {
     status: 'published'
   });
 
-  const fetchNotices = async () => {
+  const fetchNotices = useCallback(async () => {
     try {
       setLoading(true);
       const data = await noticeService.getAllAdminNotices();
       setNotices(data);
     } catch (err) {
-      console.error('Failed to fetch notices:', err);
+      toast.error(err.message || 'Could not load notices.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     fetchNotices();
-  }, []);
+  }, [fetchNotices]);
 
   const filteredNotices = notices.filter(notice =>
     notice.title.toLowerCase().includes(searchTerm.toLowerCase())
@@ -60,18 +62,17 @@ const AdminNotices = () => {
 
       if (editingId) {
         await noticeService.updateNotice(editingId, payload);
-        alert('Notice updated successfully!');
+        toast.success('Notice updated.');
       } else {
         await noticeService.createNotice(payload);
-        alert('Notice published successfully!');
+        toast.success(formData.status === 'draft' ? 'Draft saved.' : 'Notice published.');
       }
       
       setShowAddModal(false);
       resetForm();
       fetchNotices();
     } catch (err) {
-      console.error('Failed to submit notice:', err);
-      alert('Failed to save notice. Please try again.');
+      toast.error(err.message || 'Failed to save notice. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -83,8 +84,7 @@ const AdminNotices = () => {
         await noticeService.deleteNotice(id);
         setNotices(notices.filter(n => n.id !== id));
       } catch (err) {
-        console.error('Error deleting notice:', err);
-        alert('Failed to delete notice.');
+        toast.error(err.message || 'Failed to delete notice.');
       }
     }
   };

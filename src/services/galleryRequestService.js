@@ -7,7 +7,6 @@ const galleryRequestService = {
       const response = await api.get('/gallery-requests/student');
       return response.data;
     } catch (error) {
-      console.error('Error fetching student gallery requests:', error);
       throw error;
     }
   },
@@ -22,7 +21,6 @@ const galleryRequestService = {
       });
       return response.data;
     } catch (error) {
-      console.error('Error submitting gallery request:', error);
       throw error;
     }
   },
@@ -33,7 +31,6 @@ const galleryRequestService = {
       const response = await api.get('/gallery-requests/admin');
       return response.data;
     } catch (error) {
-      console.error('Error fetching admin gallery requests:', error);
       throw error;
     }
   },
@@ -44,7 +41,6 @@ const galleryRequestService = {
       const response = await api.put(`/gallery-requests/admin/${id}/status`, { status, rejection_reason });
       return response.data;
     } catch (error) {
-      console.error('Error updating gallery request status:', error);
       throw error;
     }
   }

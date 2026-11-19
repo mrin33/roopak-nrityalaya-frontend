@@ -18,7 +18,6 @@ const noticeService = {
       const response = await api.get(url);
       return response.data;
     } catch (error) {
-      console.error('Error fetching notices:', error);
       throw error;
     }
   },
@@ -29,7 +28,6 @@ const noticeService = {
       const response = await api.get('/notices/admin');
       return response.data;
     } catch (error) {
-      console.error('Error fetching admin notices:', error);
       throw error;
     }
   },
@@ -40,7 +38,6 @@ const noticeService = {
       const response = await api.post('/notices', noticeData);
       return response.data;
     } catch (error) {
-      console.error('Error creating notice:', error);
       throw error;
     }
   },
@@ -51,7 +48,6 @@ const noticeService = {
       const response = await api.put(`/notices/${id}`, noticeData);
       return response.data;
     } catch (error) {
-      console.error('Error updating notice:', error);
       throw error;
     }
   },
@@ -62,7 +58,6 @@ const noticeService = {
       const response = await api.delete(`/notices/${id}`);
       return response.data;
     } catch (error) {
-      console.error('Error deleting notice:', error);
       throw error;
     }
   }

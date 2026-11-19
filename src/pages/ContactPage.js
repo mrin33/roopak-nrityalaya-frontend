@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import publicService from '../services/publicService';
 
 const ContactPage = () => {
   const [formData, setFormData] = useState({
@@ -10,6 +11,7 @@ const ContactPage = () => {
   });
 
   const [formStatus, setFormStatus] = useState(''); // 'sending', 'success', 'error'
+  const [formError, setFormError] = useState('');
 
   const handleChange = (e) => {
     setFormData({
@@ -21,13 +23,25 @@ const ContactPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormStatus('sending');
-    
-    // Simulate sending (you'll replace this with actual API call later)
-    setTimeout(() => {
+    setFormError('');
+    try {
+      const subjects = {
+        admission: 'Admission Inquiry',
+        general: 'General Inquiry',
+        feedback: 'Feedback',
+        collaboration: 'Collaboration',
+        other: 'Other',
+      };
+      await publicService.sendContactMessage({
+        ...formData,
+        subject: subjects[formData.subject] || formData.subject,
+      });
       setFormStatus('success');
       setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
-      setTimeout(() => setFormStatus(''), 3000);
-    }, 1500);
+    } catch (err) {
+      setFormError(err.message || '');
+      setFormStatus('error');
+    }
   };
 
   return (
@@ -239,13 +253,13 @@ const ContactPage = () => {
                 {/* Status Messages */}
                 {formStatus === 'success' && (
                   <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg">
-                    ✓ Message sent successfully! We'll get back to you soon.
+                    ✓ Thank you! Your message has been received. We'll get back to you soon.
                   </div>
                 )}
 
                 {formStatus === 'error' && (
                   <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
-                    ✗ Failed to send message. Please try again or contact us directly.
+                    ✗ {formError || 'Failed to send message. Please try again or contact us directly.'}
                   </div>
                 )}
 

@@ -1,195 +1,196 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import LoadingSpinner from '../components/LoadingSpinner';
+import ErrorState from '../components/ErrorState';
+import EmptyState from '../components/EmptyState';
+import InviteLinkDialog from '../components/InviteLinkDialog';
+import adminService from '../services/adminService';
+import { useToast } from '../context/ToastContext';
+
+const EMPTY_FORM = {
+  fullName: '',
+  email: '',
+  phone: '',
+  specialization: '',
+  experienceYears: '',
+  qualifications: '',
+  bio: '',
+  isSenior: false,
+};
+
+const toForm = (t) => ({
+  fullName: t.full_name || '',
+  email: t.email || '',
+  phone: t.phone || '',
+  specialization: t.specialization || '',
+  experienceYears: t.experience_years ?? '',
+  qualifications: t.qualifications || '',
+  bio: t.bio || '',
+  isSenior: !!t.is_senior,
+});
 
 const AdminTeachers = () => {
+  const toast = useToast();
   const [teachers, setTeachers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showAddModal, setShowAddModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  // One-time password-setup link returned by the API (shown once to the admin)
-  const [inviteInfo, setInviteInfo] = useState(null);
-  const [copied, setCopied] = useState(false);
-  const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    phone: '',
-    specialization: '',
-    experienceYears: '',
-    qualifications: '',
-    bio: ''
-  });
+  const [modal, setModal] = useState(null); // null | { mode: 'add' } | { mode: 'edit', teacher }
+  const [formData, setFormData] = useState(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [busyId, setBusyId] = useState(null);
+  const [invite, setInvite] = useState(null); // { invite, name }
 
-  useEffect(() => {
-    fetchTeachers();
-  }, []);
-
-  const fetchTeachers = async () => {
+  const fetchTeachers = useCallback(async () => {
     try {
       setLoading(true);
-      const adminService = require('../services/adminService').default;
-      const data = await adminService.getAllTeachers();
-      setTeachers(data.map(t => ({
-        id: t.teacher_id,
-        name: t.full_name,
-        email: t.email,
-        phone: t.phone,
-        specialization: t.specialization,
-        experience: t.experience_years,
-        batches: t.total_batches || 0,
-        invitePending: t.invite_pending,
-        students: t.total_students || 0,
-        isActive: t.is_active
-      })));
+      setError(null);
+      setTeachers(await adminService.getAllTeachers());
     } catch (err) {
-      console.error('Error fetching teachers:', err);
-      setError('Failed to load teachers');
+      setError(err.message || 'Failed to load teachers');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const filteredTeachers = teachers.filter(teacher =>
-    (teacher.name && teacher.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (teacher.email && teacher.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (teacher.specialization && teacher.specialization.toLowerCase().includes(searchTerm.toLowerCase()))
+  useEffect(() => {
+    fetchTeachers();
+  }, [fetchTeachers]);
+
+  const q = searchTerm.toLowerCase();
+  const filteredTeachers = teachers.filter(
+    (t) =>
+      (t.full_name || '').toLowerCase().includes(q) ||
+      (t.email || '').toLowerCase().includes(q) ||
+      (t.specialization || '').toLowerCase().includes(q)
   );
 
+  const openAdd = () => {
+    setFormData(EMPTY_FORM);
+    setModal({ mode: 'add' });
+  };
+  const openEdit = (teacher) => {
+    setFormData(toForm(teacher));
+    setModal({ mode: 'edit', teacher });
+  };
+
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value, type, checked } = e.target;
+    setFormData((f) => ({ ...f, [name]: type === 'checkbox' ? checked : value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSaving(true);
+    const payload = {
+      full_name: formData.fullName,
+      email: formData.email,
+      phone: formData.phone,
+      specialization: formData.specialization,
+      experience_years: formData.experienceYears === '' ? undefined : parseInt(formData.experienceYears, 10),
+      qualifications: formData.qualifications,
+      bio: formData.bio,
+      is_senior: formData.isSenior,
+    };
     try {
-      const adminService = require('../services/adminService').default;
-      const teacherPayload = {
-        email: formData.email,
-        full_name: formData.fullName,
-        phone: formData.phone,
-        specialization: formData.specialization,
-        experience_years: parseInt(formData.experienceYears) || 0,
-        qualifications: formData.qualifications || '',
-        bio: formData.bio || ''
-      };
-      // No password is sent: the teacher sets their own via the invitation link.
-      const result = await adminService.createTeacher(teacherPayload);
-      setCopied(false);
-      setInviteInfo({ name: formData.fullName, ...result.invite });
+      if (modal.mode === 'add') {
+        // No password: the teacher sets their own via the invitation link.
+        const result = await adminService.createTeacher(payload);
+        setInvite({ invite: result.invite, name: formData.fullName });
+        toast.success(`${formData.fullName} was added.`);
+      } else {
+        await adminService.updateTeacher(modal.teacher.teacher_id, payload);
+        toast.success('Teacher details updated.');
+      }
+      setModal(null);
       fetchTeachers();
-      setShowAddModal(false);
-      setFormData({ fullName: '', email: '', phone: '', specialization: '', experienceYears: '', qualifications: '', bio: '' });
     } catch (err) {
-      console.error('Error adding teacher:', err);
-      alert(err.message || 'Failed to add teacher');
+      toast.error(err.message || 'Could not save the teacher.');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleToggleStatus = async (teacherId) => {
+  const handleToggleStatus = async (teacher) => {
+    setBusyId(teacher.teacher_id);
     try {
-      const teacher = teachers.find(t => t.id === teacherId);
-      const newStatus = !teacher.isActive;
-      const adminService = require('../services/adminService').default;
-      await adminService.updateTeacher(teacherId, { is_active: newStatus });
-      setTeachers(teachers.map(t => 
-        t.id === teacherId ? { ...t, isActive: newStatus } : t
-      ));
+      await adminService.updateTeacher(teacher.teacher_id, { is_active: !teacher.is_active });
+      toast.success(`${teacher.full_name} is now ${teacher.is_active ? 'inactive and cannot log in' : 'active'}.`);
+      fetchTeachers();
     } catch (err) {
-      console.error('Error updating status:', err);
-      alert('Failed to update status');
+      toast.error(err.message || 'Failed to update status');
+    } finally {
+      setBusyId(null);
     }
   };
 
   const handleSendLink = async (teacher) => {
+    setBusyId(teacher.teacher_id);
     try {
-      const adminService = require('../services/adminService').default;
-      const result = await adminService.regenerateTeacherInvite(teacher.id);
-      setCopied(false);
-      setInviteInfo({ name: teacher.name, ...result.invite });
+      const result = await adminService.regenerateTeacherInvite(teacher.teacher_id);
+      setInvite({ invite: result.invite, name: teacher.full_name });
+      fetchTeachers();
     } catch (err) {
-      alert(err.message || 'Failed to create a password setup link');
+      toast.error(err.message || 'Could not create a password setup link');
+    } finally {
+      setBusyId(null);
     }
   };
 
-  const copyInviteLink = async () => {
+  const handleDelete = async (teacher) => {
+    if (!window.confirm(`Delete ${teacher.full_name}? Their login will be removed. This cannot be undone.`)) return;
+    setBusyId(teacher.teacher_id);
     try {
-      await navigator.clipboard.writeText(inviteInfo.url);
-      setCopied(true);
-    } catch {
-      setCopied(false);
+      await adminService.deleteTeacher(teacher.teacher_id);
+      toast.success('Teacher deleted.');
+      setTeachers((list) => list.filter((t) => t.teacher_id !== teacher.teacher_id));
+    } catch (err) {
+      toast.error(err.message || 'Failed to delete teacher');
+    } finally {
+      setBusyId(null);
     }
   };
 
-  const handleDelete = async (teacherId) => {
-    if (window.confirm('Delete this teacher?')) {
-      try {
-        const adminService = require('../services/adminService').default;
-        await adminService.deleteTeacher(teacherId);
-        setTeachers(teachers.filter(t => t.id !== teacherId));
-      } catch (err) {
-        console.error('Error deleting teacher:', err);
-        alert(err.message || 'Failed to delete teacher');
-      }
-    }
-  };
-
-  if (loading) return <LoadingSpinner fullScreen={true} text="Loading teachers..." size="lg" />;
-  if (error) return <div className="min-h-screen flex items-center justify-center"><div className="text-red-600">{error}</div></div>;
+  if (loading && !teachers.length) return <LoadingSpinner fullScreen={true} text="Loading teachers..." size="lg" />;
+  if (error) return <ErrorState message={error} onRetry={fetchTeachers} />;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-4xl font-heading font-bold text-primary mb-2">
-              Manage Teachers
-            </h1>
+            <h1 className="text-3xl sm:text-4xl font-heading font-bold text-primary mb-2">Manage Teachers</h1>
             <p className="text-gray-600">Add, edit, and manage teaching staff</p>
           </div>
-          <button 
-            onClick={() => setShowAddModal(true)}
-            className="btn-primary"
-          >
+          <button onClick={openAdd} className="btn-primary">
             + Add New Teacher
           </button>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <p className="text-sm text-gray-600 mb-1">Total Teachers</p>
-            <p className="text-3xl font-bold text-primary">{teachers.length}</p>
-          </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <p className="text-sm text-gray-600 mb-1">Active</p>
-            <p className="text-3xl font-bold text-green-600">
-              {teachers.filter(t => t.isActive).length}
-            </p>
-          </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <p className="text-sm text-gray-600 mb-1">Total Batches</p>
-            <p className="text-3xl font-bold text-blue-600">
-              {teachers.reduce((sum, t) => sum + t.batches, 0)}
-            </p>
-          </div>
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <p className="text-sm text-gray-600 mb-1">Total Students</p>
-            <p className="text-3xl font-bold text-purple-600">
-              {teachers.reduce((sum, t) => sum + t.students, 0)}
-            </p>
-          </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-8">
+          {[
+            ['Total Teachers', teachers.length, 'text-primary'],
+            ['Active', teachers.filter((t) => t.is_active).length, 'text-green-600'],
+            ['Total Batches', teachers.reduce((s, t) => s + (t.total_batches || 0), 0), 'text-blue-600'],
+            ['Total Students', teachers.reduce((s, t) => s + (t.total_students || 0), 0), 'text-purple-600'],
+          ].map(([label, value, color]) => (
+            <div key={label} className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+              <p className="text-sm text-gray-600 mb-1">{label}</p>
+              <p className={`text-3xl font-bold ${color}`}>{value}</p>
+            </div>
+          ))}
         </div>
 
         {/* Search */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
           <input
-            type="text"
+            type="search"
             placeholder="Search by name, email, or specialization..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="input-field"
+            aria-label="Search teachers"
           />
           <p className="text-sm text-gray-600 mt-2">
             Showing {filteredTeachers.length} of {teachers.length} teachers
@@ -197,218 +198,160 @@ const AdminTeachers = () => {
         </div>
 
         {/* Teachers Table */}
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b-2">
-                <tr>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Name</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Contact</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Specialization</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Experience</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Batches</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Students</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Status</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-accent">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredTeachers.map((teacher) => (
-                  <tr key={teacher.id} className="border-b hover:bg-gray-50">
-                    <td className="px-6 py-4 font-semibold text-accent">{teacher.name}</td>
-                    <td className="px-6 py-4">
-                      <p className="text-sm text-gray-700">{teacher.email}</p>
-                      <p className="text-sm text-gray-500">{teacher.phone}</p>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{teacher.specialization}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{teacher.experience} years</td>
-                    <td className="px-6 py-4 text-sm font-semibold text-primary">{teacher.batches}</td>
-                    <td className="px-6 py-4 text-sm font-semibold text-green-600">{teacher.students}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        teacher.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {teacher.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                      {teacher.invitePending && (
-                        <span className="ml-2 px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-                          Invite pending
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex space-x-2">
-                        <button className="text-blue-600 hover:text-blue-800 text-sm font-semibold">
-                          Edit
-                        </button>
-                        <button 
-                          onClick={() => handleToggleStatus(teacher.id)}
-                          className="text-yellow-600 hover:text-yellow-800 text-sm font-semibold"
-                        >
-                          {teacher.isActive ? 'Deactivate' : 'Activate'}
-                        </button>
-                        <button
-                          onClick={() => handleSendLink(teacher)}
-                          className="text-primary hover:text-primary-dark text-sm font-semibold"
-                          title="Create a new password setup link"
-                        >
-                          Send link
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(teacher.id)}
-                          className="text-red-600 hover:text-red-800 text-sm font-semibold"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {filteredTeachers.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-lg">
+            <EmptyState
+              icon="user"
+              title={teachers.length ? 'No teachers match your search' : 'No teachers yet'}
+              description={teachers.length ? 'Try a different search term.' : 'Add your first teacher to get started.'}
+              actionText={teachers.length ? undefined : 'Add Teacher'}
+              onAction={teachers.length ? undefined : openAdd}
+            />
           </div>
-        </div>
-
-        {/* Invitation link (shown once after creating a teacher / requesting a new link) */}
-        {inviteInfo && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6">
-              <h2 className="text-2xl font-bold text-accent mb-2">Password setup link</h2>
-              <p className="text-gray-600 mb-4">
-                Share this one-time link with <span className="font-semibold">{inviteInfo.name}</span> so they can
-                choose their own password. It expires on{' '}
-                <span className="font-semibold">{new Date(inviteInfo.expires_at).toLocaleString()}</span> and is not
-                shown again.
-              </p>
-              <div className="flex gap-2">
-                <input readOnly value={inviteInfo.url} className="input-field text-sm" onFocus={(e) => e.target.select()} aria-label="Invitation link" />
-                <button type="button" onClick={copyInviteLink} className="btn-primary whitespace-nowrap">
-                  {copied ? 'Copied!' : 'Copy'}
-                </button>
-              </div>
-              <div className="flex justify-end mt-6">
-                <button type="button" onClick={() => setInviteInfo(null)} className="btn-secondary">Done</button>
-              </div>
+        ) : (
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b-2">
+                  <tr>
+                    {['Teacher', 'Specialization', 'Experience', 'Batches', 'Students', 'Status', 'Actions'].map((h) => (
+                      <th key={h} className="px-6 py-4 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {filteredTeachers.map((teacher) => (
+                    <tr key={teacher.teacher_id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4">
+                        <p className="font-semibold text-accent">{teacher.full_name}</p>
+                        <p className="text-sm text-gray-600">{teacher.email}</p>
+                        {teacher.phone && <p className="text-sm text-gray-500">{teacher.phone}</p>}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-600">{teacher.specialization || '—'}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">{teacher.experience_years ?? 0} years</td>
+                      <td className="px-6 py-4 text-sm font-semibold text-primary">{teacher.total_batches}</td>
+                      <td className="px-6 py-4 text-sm font-semibold text-green-600">{teacher.total_students}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                            teacher.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}
+                        >
+                          {teacher.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                        {teacher.invite_pending && (
+                          <span className="ml-2 px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                            Invite pending
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-wrap gap-x-3 gap-y-1">
+                          <button onClick={() => openEdit(teacher)} className="text-blue-600 hover:text-blue-800 text-sm font-semibold">
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleToggleStatus(teacher)}
+                            disabled={busyId === teacher.teacher_id}
+                            className="text-yellow-600 hover:text-yellow-800 text-sm font-semibold disabled:opacity-50"
+                          >
+                            {teacher.is_active ? 'Deactivate' : 'Activate'}
+                          </button>
+                          {teacher.is_active && (
+                            <button
+                              onClick={() => handleSendLink(teacher)}
+                              disabled={busyId === teacher.teacher_id}
+                              className="text-primary hover:text-primary-dark text-sm font-semibold disabled:opacity-50"
+                              title="Create a new password setup link"
+                            >
+                              Send link
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDelete(teacher)}
+                            disabled={busyId === teacher.teacher_id}
+                            className="text-red-600 hover:text-red-800 text-sm font-semibold disabled:opacity-50"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
 
-        {/* Add Teacher Modal */}
-        {showAddModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-              
-              {/* Modal Header */}
-              <div className="bg-primary text-white p-6 rounded-t-2xl sticky top-0">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold">Add New Teacher</h2>
-                  <button 
-                    onClick={() => setShowAddModal(false)} 
-                    className="text-white hover:bg-white/20 rounded-full p-2"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
+        <InviteLinkDialog invite={invite?.invite} name={invite?.name} onClose={() => setInvite(null)} />
 
-              {/* Form */}
+        {/* Add / Edit Teacher Modal */}
+        {modal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-accent">{modal.mode === 'add' ? 'Add New Teacher' : 'Edit Teacher'}</h2>
+                <button onClick={() => setModal(null)} className="text-gray-400 hover:text-gray-600 text-2xl" aria-label="Close">
+                  ×
+                </button>
+              </div>
               <form onSubmit={handleSubmit} className="p-6">
+                {modal.mode === 'add' && (
+                  <p className="text-sm text-gray-600 bg-blue-50 border-l-4 border-blue-400 p-3 rounded mb-6">
+                    After saving you will get a one-time link to share with the teacher so they can set their own password.
+                  </p>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">Full Name *</label>
-                    <input 
-                      type="text" 
-                      name="fullName" 
-                      value={formData.fullName} 
-                      onChange={handleChange} 
-                      className="input-field" 
-                      required 
-                    />
+                  {[
+                    ['fullName', 'Full Name *', 'text', true],
+                    ['email', 'Email *', 'email', true],
+                    ['phone', 'Phone', 'tel', false],
+                    ['specialization', 'Specialization', 'text', false],
+                    ['experienceYears', 'Experience (years)', 'number', false],
+                  ].map(([name, label, type, required]) => (
+                    <div key={name}>
+                      <label htmlFor={`t-${name}`} className="block text-sm font-semibold text-gray-700 mb-2">
+                        {label}
+                      </label>
+                      <input
+                        id={`t-${name}`}
+                        type={type}
+                        name={name}
+                        value={formData[name]}
+                        onChange={handleChange}
+                        className="input-field"
+                        required={required}
+                        min={type === 'number' ? 0 : undefined}
+                        max={type === 'number' ? 80 : undefined}
+                      />
+                    </div>
+                  ))}
+                  <label className="flex items-center gap-2 mt-8 text-sm font-semibold text-gray-700">
+                    <input type="checkbox" name="isSenior" checked={formData.isSenior} onChange={handleChange} />
+                    Senior teacher
+                  </label>
+                  <div className="md:col-span-2">
+                    <label htmlFor="t-qualifications" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Qualifications
+                    </label>
+                    <input id="t-qualifications" name="qualifications" value={formData.qualifications} onChange={handleChange} className="input-field" />
                   </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">Email *</label>
-                    <input 
-                      type="email" 
-                      name="email" 
-                      value={formData.email} 
-                      onChange={handleChange} 
-                      className="input-field" 
-                      required 
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">Phone *</label>
-                    <input 
-                      type="tel" 
-                      name="phone" 
-                      value={formData.phone} 
-                      onChange={handleChange} 
-                      className="input-field" 
-                      required 
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">Specialization *</label>
-                    <input 
-                      type="text" 
-                      name="specialization" 
-                      value={formData.specialization} 
-                      onChange={handleChange} 
-                      className="input-field" 
-                      placeholder="E.g., Lucknow Gharana" 
-                      required 
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">Years of Experience *</label>
-                    <input 
-                      type="number" 
-                      name="experienceYears" 
-                      value={formData.experienceYears} 
-                      onChange={handleChange} 
-                      className="input-field" 
-                      min="0" 
-                      required 
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-accent mb-2">Qualifications</label>
-                    <input 
-                      type="text" 
-                      name="qualifications" 
-                      value={formData.qualifications} 
-                      onChange={handleChange} 
-                      className="input-field" 
-                      placeholder="E.g., MA in Kathak" 
-                    />
+                  <div className="md:col-span-2">
+                    <label htmlFor="t-bio" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Bio
+                    </label>
+                    <textarea id="t-bio" name="bio" value={formData.bio} onChange={handleChange} rows="3" className="input-field" />
                   </div>
                 </div>
-                <div className="mt-6">
-                  <label className="block text-sm font-semibold text-accent mb-2">Bio</label>
-                  <textarea 
-                    name="bio" 
-                    value={formData.bio} 
-                    onChange={handleChange} 
-                    rows="4" 
-                    className="input-field" 
-                    placeholder="Brief introduction..."
-                  ></textarea>
-                </div>
-                <div className="flex justify-end space-x-4 mt-8">
-                  <button 
-                    type="button" 
-                    onClick={() => setShowAddModal(false)} 
-                    className="btn-secondary"
-                  >
+                <div className="flex justify-end gap-4 mt-8">
+                  <button type="button" onClick={() => setModal(null)} className="btn-secondary">
                     Cancel
                   </button>
-                  <button 
-                    type="submit" 
-                    className="btn-primary"
-                  >
-                    Add Teacher
+                  <button type="submit" disabled={saving} className="btn-primary disabled:opacity-50">
+                    {saving ? 'Saving…' : modal.mode === 'add' ? 'Add Teacher' : 'Save Changes'}
                   </button>
                 </div>
               </form>

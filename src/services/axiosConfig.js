@@ -24,7 +24,16 @@ api.interceptors.request.use((config) => {
 const AUTH_FORM_ENDPOINTS = ['/auth/login', '/auth/register', '/auth/set-password', '/auth/password-setup', '/auth/change-password'];
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Unwrap the API envelope { success: true, message?, data } so services
+    // receive the payload directly; the message stays available.
+    const body = response.data;
+    if (body && typeof body === 'object' && body.success === true && 'data' in body) {
+      response.message = body.message;
+      response.data = body.data;
+    }
+    return response;
+  },
   (error) => {
     if (error.response) {
       const { status, data } = error.response;

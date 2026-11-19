@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import LoadingSpinner from '../components/LoadingSpinner';
+import ErrorState from '../components/ErrorState';
+import teacherService from '../services/teacherService';
+import noticeService from '../services/noticeService';
 
 const TeacherDashboard = () => {
   const { user } = useAuth();
@@ -17,66 +20,53 @@ const TeacherDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true);
-        // We import dependencies here to avoid cycle if any, but better to import at top
-        const teacherService = require('../services/teacherService').default;
-        
-        // Fetch dashboard stats and batches
-        const [stats, batches, profile] = await Promise.all([
-          teacherService.getDashboard(),
-          teacherService.getBatches(),
-          teacherService.getProfile()
-        ]);
-
-        setDashboardData({
-          myBatches: batches.map(b => ({
-            id: b.batch_id,
-            name: b.batch_name,
-            level: b.level_name,
-            students: b.active_students,
-            schedule: `${b.schedule} - ${b.time}`
-          })),
-          totalStudents: stats.total_students,
-          classesToday: 0, // TODO: calculate from schedule
-          pendingAttendance: 0, // TODO: fetch from attendance
-          recentNotices: [], // Make endpoint if needed
-          upcomingClasses: batches.slice(0, 2).map(b => ({
-            batch: b.batch_name,
-            time: b.time,
-            students: b.active_students
-          })),
-          profile: profile
-        });
-      } catch (err) {
-        console.error('Error fetching dashboard data:', err);
-        setError('Failed to load dashboard data');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDashboardData();
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [stats, batches, profile, notices] = await Promise.all([
+        teacherService.getDashboard(),
+        teacherService.getBatches(),
+        teacherService.getProfile(),
+        noticeService.getNotices(),
+      ]);
+      setDashboardData({
+        myBatches: batches.map((b) => ({
+          id: b.batch_id,
+          name: b.batch_name,
+          level: b.level_name,
+          students: b.active_students,
+          schedule: `${b.schedule} - ${b.time}`,
+        })),
+        totalStudents: stats.total_students,
+        classesToday: stats.classes_today,
+        pendingAttendance: stats.pending_attendance,
+        recentNotices: notices.slice(0, 4).map((n) => ({ id: n.id, title: n.title, date: n.created_at })),
+        upcomingClasses: stats.today_batches.map((b) => ({
+          id: b.batch_id,
+          batch: b.batch_name,
+          time: b.time,
+          students: b.students,
+          marked: b.attendance_marked,
+        })),
+        profile,
+      });
+    } catch (err) {
+      setError(err.message || 'Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
   if (loading) {
     return <LoadingSpinner fullScreen={true} text="Loading dashboard..." size="lg" />;
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">{error}</p>
-          <button onClick={() => window.location.reload()} className="btn-primary">
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
+  if (error) return <ErrorState message={error} onRetry={fetchDashboardData} />;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
@@ -154,6 +144,9 @@ const TeacherDashboard = () => {
               </div>
 
               <div className="space-y-4">
+                {dashboardData.myBatches.length === 0 && (
+                  <p className="text-gray-500 text-center py-6">No batches are assigned to you yet.</p>
+                )}
                 {dashboardData.myBatches.map((batch) => (
                   <div key={batch.id} className="bg-gradient-to-r from-primary/5 to-secondary/5 rounded-xl p-5 hover:shadow-md transition-all">
                     <div className="flex items-center justify-between mb-3">
@@ -173,11 +166,11 @@ const TeacherDashboard = () => {
                         {batch.schedule}
                       </span>
                       <div className="flex space-x-2">
-                        <Link to={`/teacher/attendance/${batch.id}`} className="text-primary hover:text-primary-dark font-semibold">
+                        <Link to={`/teacher/attendance?batch=${batch.id}`} className="text-primary hover:text-primary-dark font-semibold">
                           Mark Attendance
                         </Link>
                         <span className="text-gray-300">|</span>
-                        <Link to={`/teacher/students/${batch.id}`} className="text-primary hover:text-primary-dark font-semibold">
+                        <Link to="/teacher/students" className="text-primary hover:text-primary-dark font-semibold">
                           View Students
                         </Link>
                       </div>
@@ -191,19 +184,20 @@ const TeacherDashboard = () => {
             <div className="bg-white rounded-xl shadow-lg p-6">
               <h2 className="text-2xl font-bold text-accent mb-6 pb-4 border-b">Today's Classes</h2>
               <div className="space-y-4">
-                {dashboardData.upcomingClasses.map((class_, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                {dashboardData.upcomingClasses.length === 0 && (
+                  <p className="text-gray-500 text-center py-6">No classes scheduled for today.</p>
+                )}
+                {dashboardData.upcomingClasses.map((class_) => (
+                  <div key={class_.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-gray-50 rounded-xl">
                     <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                        <span className="text-primary font-bold">{class_.time}</span>
-                      </div>
                       <div>
                         <p className="font-semibold text-accent">{class_.batch}</p>
+                        <p className="text-sm text-primary font-semibold">{class_.time}</p>
                         <p className="text-sm text-gray-600">{class_.students} students enrolled</p>
                       </div>
                     </div>
-                    <Link to={`/teacher/attendance`} className="btn-primary">
-                      Start Class
+                    <Link to={`/teacher/attendance?batch=${class_.id}`} className={class_.marked ? 'btn-secondary' : 'btn-primary'}>
+                      {class_.marked ? 'Attendance saved ✓' : 'Mark Attendance'}
                     </Link>
                   </div>
                 ))}
@@ -253,13 +247,13 @@ const TeacherDashboard = () => {
                   </div>
                 </Link>
 
-                <Link to="/teacher/schedule" className="block p-4 bg-gradient-to-r from-purple-100 to-purple-50 rounded-xl hover:shadow-md transition-all">
+                <Link to="/teacher/batches" className="block p-4 bg-gradient-to-r from-purple-100 to-purple-50 rounded-xl hover:shadow-md transition-all">
                   <div className="flex items-center space-x-3">
                     <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                     <div>
-                      <p className="font-semibold text-accent">My Schedule</p>
+                      <p className="font-semibold text-accent">My Batches</p>
                       <p className="text-xs text-gray-600">View teaching timetable</p>
                     </div>
                   </div>
@@ -276,11 +270,12 @@ const TeacherDashboard = () => {
                 </Link>
               </div>
               <div className="space-y-3">
+                {dashboardData.recentNotices.length === 0 && <p className="text-sm text-gray-500">No current notices.</p>}
                 {dashboardData.recentNotices.map((notice) => (
                   <div key={notice.id} className="p-3 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg">
                     <h3 className="font-semibold text-accent text-sm mb-1">{notice.title}</h3>
                     <p className="text-xs text-gray-500">
-                      {new Date(notice.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                      {new Date(notice.date).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
                     </p>
                   </div>
                 ))}

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useToast } from '../context/ToastContext';
 
 import teacherService from '../services/teacherService';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const TeacherProfile = () => {
+  const toast = useToast();
   // const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -43,8 +45,7 @@ const TeacherProfile = () => {
         avgRating: profile.avg_rating || 0
       });
     } catch (err) {
-      console.error('Error fetching profile:', err);
-      setError('Failed to load profile');
+      setError(err.message || 'Failed to load profile');
     } finally {
       setLoading(false);
     }
@@ -66,11 +67,10 @@ const TeacherProfile = () => {
         qualifications: formData.qualifications,
         experience_years: parseInt(formData.experienceYears, 10) || 0,
       });
-      alert('Profile updated successfully!');
+      toast.success('Profile updated.');
       setIsEditing(false);
     } catch (err) {
-      console.error('Error updating profile:', err);
-      alert(err.message || 'Failed to update profile');
+      toast.error(err.message || 'Failed to update profile');
     } finally {
       setLoading(false);
     }

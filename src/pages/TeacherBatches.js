@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import StatusBadge from '../components/StatusBadge';
 import LoadingSpinner from '../components/LoadingSpinner';
+import ErrorState from '../components/ErrorState';
+import teacherService from '../services/teacherService';
 
 const TeacherBatches = () => {
   const [batches, setBatches] = useState([]);
@@ -13,7 +15,6 @@ const TeacherBatches = () => {
     const fetchBatchesAndStudents = async () => {
       try {
         setLoading(true);
-        const teacherService = require('../services/teacherService').default;
         
         const [batchesData, studentsData] = await Promise.all([
           teacherService.getBatches(),
@@ -45,8 +46,7 @@ const TeacherBatches = () => {
 
         setBatches(formattedBatches);
       } catch (err) {
-        console.error('Error fetching batches:', err);
-        setError('Failed to load batches');
+        setError(err.message || 'Failed to load batches');
       } finally {
         setLoading(false);
       }
@@ -56,7 +56,7 @@ const TeacherBatches = () => {
   }, []);
 
   if (loading) return <LoadingSpinner fullScreen={true} text="Loading batches..." size="lg" />;
-  if (error) return <div className="min-h-screen flex items-center justify-center"><div className="text-red-600">{error}</div></div>;
+  if (error) return <ErrorState message={error} onRetry={() => window.location.reload()} />;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">

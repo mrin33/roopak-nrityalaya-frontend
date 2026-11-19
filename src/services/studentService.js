@@ -1,109 +1,45 @@
-import api from './axiosConfig';
+import api, { fetchProtectedMediaUrl } from './axiosConfig';
 
+// All functions resolve with the API payload or reject with { message, status }.
 const studentService = {
-  // Get student dashboard data
-  getDashboard: async () => {
-    const response = await api.get('/students/dashboard');
-    return response.data;
-  },
+  // Profile & dashboard
+  getDashboard: async () => (await api.get('/students/dashboard')).data,
+  getProfile: async () => (await api.get('/students/profile')).data,
+  updateProfile: async (profileData) => (await api.put('/students/profile', profileData)).data,
+  updatePaymentWindow: async (payment_window) => (await api.put('/students/payment-window', { payment_window })).data,
 
-  // Get student profile
-  getProfile: async () => {
-    const response = await api.get('/students/profile');
-    return response.data;
-  },
+  // Attendance → { records, overall }
+  getAttendance: async (month, year) =>
+    (await api.get('/students/attendance', { params: month && year ? { month, year } : {} })).data,
 
-  // Update student profile
-  updateProfile: async (profileData) => {
-    const response = await api.put('/students/profile', profileData);
-    return response.data;
-  },
+  // Fees
+  getFees: async () => (await api.get('/students/fees')).data,
+  getCurrentPayment: async () => (await api.get('/students/fees/current')).data,
+  getPaymentHistory: async () => (await api.get('/students/fees/history')).data,
 
-  // Get attendance records
-  getAttendance: async (month, year) => {
-    const response = await api.get('/students/attendance', {
-      params: { month, year }
-    });
-    return response.data;
-  },
+  // Schedule → { student, batchInfo }
+  getSchedule: async () => (await api.get('/students/schedule')).data,
 
-  // Get fee payments
-  getFees: async () => {
-    const response = await api.get('/students/fees');
-    return response.data;
-  },
+  // Learning resources for the student's level
+  getResources: async () => (await api.get('/students/resources')).data,
+  openResourceFile: (resourceId) => fetchProtectedMediaUrl(`/resources/${resourceId}/file`),
 
-  // Get current payment due
-  getCurrentPayment: async () => {
-    const response = await api.get('/students/fees/current');
-    return response.data;
-  },
+  // Activity logs
+  getActivityLogs: async () => (await api.get('/students/activity-logs')).data,
+  getActivityStats: async () => (await api.get('/students/activity-logs/stats')).data,
+  createActivityLog: async (logData) => (await api.post('/students/activity-logs', logData)).data,
+  updateActivityLog: async (logId, logData) => (await api.put(`/students/activity-logs/${logId}`, logData)).data,
+  deleteActivityLog: async (logId) => (await api.delete(`/students/activity-logs/${logId}`)).data,
 
-  // Get payment history
-  getPaymentHistory: async () => {
-    const response = await api.get('/students/fees/history');
-    return response.data;
-  },
+  // Reviews from teachers
+  getReviews: async () => (await api.get('/students/reviews')).data,
+  markReviewViewed: async (reviewId) => (await api.put(`/students/reviews/${reviewId}/viewed`)).data,
 
-  // Get class schedule
-  getSchedule: async () => {
-    const response = await api.get('/students/schedule');
-    return response.data;
-  },
-
-  // Get resources
-  getResources: async () => {
-    const response = await api.get('/students/resources');
-    return response.data;
-  },
-
-  // Get activity logs
-  getActivityLogs: async () => {
-    const response = await api.get('/students/activity-logs');
-    return response.data;
-  },
-
-  // Create activity log
-  createActivityLog: async (logData) => {
-    const response = await api.post('/students/activity-logs', logData);
-    return response.data;
-  },
-
-  // Get reviews
-  getReviews: async () => {
-    const response = await api.get('/students/reviews');
-    return response.data;
-  },
-
-  // Get gallery upload requests
-  getGalleryRequests: async () => {
-    const response = await api.get('/students/gallery-requests');
-    return response.data;
-  },
-
-  // Submit gallery upload request
-  submitGalleryRequest: async (requestData) => {
-    const response = await api.post('/students/gallery-requests', requestData);
-    return response.data;
-  },
-
-  // Get missed classes
-  getMissedClasses: async () => {
-    const response = await api.get('/students/missed-classes');
-    return response.data;
-  },
-
-  // Get makeup class requests
-  getMakeupRequests: async () => {
-    const response = await api.get('/students/makeup-requests');
-    return response.data;
-  },
-
-  // Create makeup class request
-  createMakeupRequest: async (requestData) => {
-    const response = await api.post('/students/makeup-requests', requestData);
-    return response.data;
-  }
+  // Makeup classes
+  getMissedClasses: async () => (await api.get('/students/missed-classes')).data,
+  getMakeupBatches: async () => (await api.get('/students/makeup-batches')).data,
+  getMakeupRequests: async () => (await api.get('/students/makeup-requests')).data,
+  createMakeupRequest: async (requestData) => (await api.post('/students/makeup-requests', requestData)).data,
 };
 
 export default studentService;

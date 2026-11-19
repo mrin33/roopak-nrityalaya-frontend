@@ -1,55 +1,42 @@
 import api from './axiosConfig';
 
+const persistSession = ({ token, user }) => {
+  localStorage.setItem('token', token);
+  localStorage.setItem('user', JSON.stringify(user));
+};
+
 const authService = {
-  // Login user
+  // Returns { token, user }; throws { message, status } on failure.
   login: async (email, password) => {
-    try {
-      const response = await api.post('/auth/login', { email, password });
-      
-      // Backend returns: { success: true, data: { token, user } }
-      if (response.data.success && response.data.data) {
-        const { token, user } = response.data.data;
-        
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(user));
-      }
-      
-      return response.data; // Return full response with success flag
-    } catch (error) {
-      throw error;
-    }
+    const response = await api.post('/auth/login', { email, password });
+    persistSession(response.data);
+    return response.data;
   },
 
-  // Register new student
+  // Student self-registration; returns { token, user }.
   register: async (userData) => {
-    try {
-      const response = await api.post('/auth/register', userData);
-      
-      // Backend returns: { success: true, data: { token, user } }
-      if (response.data.success && response.data.data) {
-        const { token, user } = response.data.data;
-        
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(user));
-      }
-      
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
+    const response = await api.post('/auth/register', userData);
+    persistSession(response.data);
+    return response.data;
   },
 
-  // Logout user
   logout: () => {
+    // JWTs are stateless: dropping the token ends the session client-side.
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    window.location.href = '/login';
+    window.location.assign('/login');
   },
 
-  // Validate a one-time invitation / reset link
+  // Fresh user + profile from the server.
+  fetchMe: async () => {
+    const response = await api.get('/auth/me');
+    return response.data;
+  },
+
+  // Validate a one-time invitation / reset link → { email, purpose }
   checkSetupToken: async (token) => {
     const response = await api.get(`/auth/password-setup/${encodeURIComponent(token)}`);
-    return response.data.data;
+    return response.data;
   },
 
   // Complete an invitation / reset by choosing a password
@@ -61,33 +48,22 @@ const authService = {
   // Change password while logged in; stores the fresh session token
   changePassword: async (currentPassword, newPassword) => {
     const response = await api.put('/auth/change-password', { currentPassword, newPassword });
-    if (response.data?.data?.token) localStorage.setItem('token', response.data.data.token);
+    if (response.data?.token) localStorage.setItem('token', response.data.token);
     return response.data;
   },
 
-  // Get current user from localStorage
   getCurrentUser: () => {
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-      try {
-        return JSON.parse(userStr);
-      } catch (error) {
-        return null;
-      }
+    try {
+      const userStr = localStorage.getItem('user');
+      return userStr ? JSON.parse(userStr) : null;
+    } catch {
+      return null;
     }
-    return null;
   },
 
-  // Check if user is authenticated
-  isAuthenticated: () => {
-    const token = localStorage.getItem('token');
-    return !!token;
-  },
+  isAuthenticated: () => !!localStorage.getItem('token'),
 
-  // Get auth token
-  getToken: () => {
-    return localStorage.getItem('token');
-  }
+  getToken: () => localStorage.getItem('token'),
 };
 
 export default authService;

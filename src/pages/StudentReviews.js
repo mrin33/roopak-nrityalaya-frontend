@@ -1,64 +1,42 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import StarRating from '../components/StarRating';
 import EmptyState from '../components/EmptyState';
+import LoadingSpinner from '../components/LoadingSpinner';
+import ErrorState from '../components/ErrorState';
+import studentService from '../services/studentService';
+import { useToast } from '../context/ToastContext';
 
 const StudentReviews = () => {
+  const toast = useToast();
   const [reviews, setReviews] = useState([]);
   const [filterMonth, setFilterMonth] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    // TODO: Fetch teacher reviews from API
-    setReviews([
-      {
-        id: 1,
-        teacher_name: 'Priya Sharma',
-        review_month: 1,
-        review_year: 2026,
-        technique_rating: 4,
-        rhythm_rating: 5,
-        creativity_rating: 4,
-        discipline_rating: 5,
-        overall_rating: 4.5,
-        review_text: 'Excellent progress in footwork. Keep practicing taal patterns. Your dedication is showing great results!',
-        is_viewed_by_student: false,
-        created_at: '2026-02-01T10:00:00'
-      },
-      {
-        id: 2,
-        teacher_name: 'Priya Sharma',
-        review_month: 12,
-        review_year: 2025,
-        technique_rating: 3,
-        rhythm_rating: 4,
-        creativity_rating: 4,
-        discipline_rating: 4,
-        overall_rating: 3.75,
-        review_text: 'Good improvement from last month. Focus more on hand gestures and facial expressions.',
-        is_viewed_by_student: true,
-        created_at: '2026-01-02T10:00:00'
-      },
-      {
-        id: 3,
-        teacher_name: 'Priya Sharma',
-        review_month: 11,
-        review_year: 2025,
-        technique_rating: 3,
-        rhythm_rating: 3,
-        creativity_rating: 3,
-        discipline_rating: 4,
-        overall_rating: 3.25,
-        review_text: 'Need to work on basic footwork consistency. Practice daily for better results.',
-        is_viewed_by_student: true,
-        created_at: '2025-12-01T10:00:00'
-      }
-    ]);
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const rows = await studentService.getReviews();
+      setReviews(rows.map((r) => ({ ...r, id: r.review_id, overall_rating: Number(r.overall_rating) })));
+    } catch (err) {
+      setError(err.message || 'Could not load your reviews');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const markAsViewed = (reviewId) => {
-    setReviews(reviews.map(r => 
-      r.id === reviewId ? { ...r, is_viewed_by_student: true } : r
-    ));
-    // TODO: API call to mark review as viewed
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const markAsViewed = async (reviewId) => {
+    try {
+      await studentService.markReviewViewed(reviewId);
+      setReviews((list) => list.map((r) => (r.id === reviewId ? { ...r, is_viewed_by_student: true } : r)));
+    } catch (err) {
+      toast.error(err.message || 'Could not update the review.');
+    }
   };
 
   const getMonthName = (month) => {
@@ -77,6 +55,9 @@ const StudentReviews = () => {
   const avgRhythm = reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.rhythm_rating, 0) / reviews.length).toFixed(1) : 0;
   const avgCreativity = reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.creativity_rating, 0) / reviews.length).toFixed(1) : 0;
   const avgDiscipline = reviews.length > 0 ? (reviews.reduce((sum, r) => sum + r.discipline_rating, 0) / reviews.length).toFixed(1) : 0;
+
+  if (loading) return <LoadingSpinner fullScreen={true} text="Loading reviews..." size="lg" />;
+  if (error) return <ErrorState message={error} onRetry={load} />;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
@@ -144,10 +125,11 @@ const StudentReviews = () => {
               className="input-field w-64"
             >
               <option value="all">All Months</option>
-              <option value="1">January 2026</option>
-              <option value="12">December 2025</option>
-              <option value="11">November 2025</option>
-              <option value="10">October 2025</option>
+              {[...new Set(reviews.map((r) => r.review_month))].map((m) => (
+                <option key={m} value={m}>
+                  {getMonthName(m)}
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -206,14 +188,14 @@ const StudentReviews = () => {
               <div className="mb-4">
                 <p className="text-sm font-semibold text-gray-700 mb-2">Teacher's Comments:</p>
                 <div className="p-4 bg-gray-50 rounded-lg">
-                  <p className="text-gray-700 italic">"{review.review_text}"</p>
+                  <p className="text-gray-700 italic">{review.review_text ? `"${review.review_text}"` : 'No written comments.'}</p>
                 </div>
               </div>
 
               {/* Footer */}
               <div className="flex items-center justify-between pt-4 border-t">
                 <p className="text-xs text-gray-500">
-                  Posted on {new Date(review.created_at).toLocaleDateString('en-US', { 
+                  Posted on {new Date(review.created_at).toLocaleDateString('en-IN', { 
                     year: 'numeric', 
                     month: 'long', 
                     day: 'numeric' 

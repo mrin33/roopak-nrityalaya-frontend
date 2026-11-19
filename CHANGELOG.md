@@ -14,3 +14,16 @@
 - Teacher profile now actually saves specialization, qualifications and experience.
 - Removed debug logging of auth responses.
 - **Removed admin/teacher/student credentials (`password123`) that the public login page displayed to every visitor.** A development-only hint lists the `seed:dev` demo emails without passwords.
+
+### Functionality (phase 6) — every page now uses real data
+- **Foundation:** the API client unwraps the backend's  envelope once; complete service modules for students, teachers, admins and the public site (dead methods pointing at non-existent endpoints removed); toast notifications replace  and appear only after the server confirms; shared  (with retry), loading and empty states on every data page;  hook replaces hardcoded level lists; calendar dates parsed as local dates (no off-by-one-day).
+- **Admin:** Add Student (with batch, enrolment note and invitation link) and Edit Student (incl. batch reassignment); student/teacher reset links; teacher Edit form; batch Edit/Activate/Deactivate; fee list fixed (names, months, paid/pending/overdue) with due dates; dashboard figures computed from real fees and attendance (no more 87%/93% placeholders, broken report links replaced); Analytics and Status History load real data; Gallery management (upload, hide/show, edit, delete, previews of hidden items); new **Messages** inbox for the contact form.
+- **Teacher:** attendance marking for real batches (pre-fills saved attendance, bulk actions, deep link from the dashboard); monthly reviews saved to the database (duplicate/validation errors shown); batch transfers (one-day or permanent, incoming and outgoing history); learning resources (file upload or https link, open, delete); new **Makeup Requests** page to approve/decline/mark attended; dashboard shows today's classes and pending attendance; broken dashboard links fixed.
+- **Student:** attendance, fees (real plan, dues, history, change payment plan), schedule (weekly grid from the batch's days, real event notices), activity log (create/edit/delete, server stats), teacher reviews (mark as read), makeup requests, learning resources — all database-backed. The dashboard no longer shows fabricated fallback data on error.
+- **Public site:** Teachers and Gallery pages show real data; the contact form stores messages for the admin and reports real success/failure; registration uses levels and fees from the database.
+- Removed fabricated "NEW" sidebar badges and claims that "the student will be notified" (no notification system exists).
+
+### Known blockers (need external input)
+- **Online fee payment** needs payment-gateway credentials (e.g. Razorpay). Students are told to pay at the office; admins record payments.
+- **Email delivery** (invitation/reset links, contact-form alerts) needs SMTP or an email API; links are shown to the admin to share manually.
+- **Social media links** on the Contact page point to generic sites until the academy's real profile URLs are provided.

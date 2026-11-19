@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useToast } from '../context/ToastContext';
 import galleryRequestService from '../services/galleryRequestService';
 import StatusBadge from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
 import ProtectedMedia, { openProtectedMedia } from '../components/ProtectedMedia';
 
 const AdminGalleryRequests = () => {
+  const toast = useToast();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
@@ -13,21 +15,21 @@ const AdminGalleryRequests = () => {
   const [rejectionReason, setRejectionReason] = useState('');
   const [processing, setProcessing] = useState(false);
 
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     try {
       setLoading(true);
       const data = await galleryRequestService.getAllAdminRequests();
       setRequests(data || []);
     } catch (error) {
-      console.error('Failed to fetch requests:', error);
+      toast.error(error.message || 'Could not load gallery requests.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     fetchRequests();
-  }, []);
+  }, [fetchRequests]);
 
   const handleApprove = async (request) => {
     if (!window.confirm(`Approve upload request from ${request.student_name}?`)) return;
@@ -35,11 +37,10 @@ const AdminGalleryRequests = () => {
     setProcessing(true);
     try {
       await galleryRequestService.updateRequestStatus(request.id, 'approved');
-      alert(`Request approved! "${request.title}" is now visible in the gallery.`);
+      toast.success(`Approved — "${request.title}" is now in the public gallery.`);
       fetchRequests();
     } catch (error) {
-      console.error('Approval failed:', error);
-      alert(error.message || 'Failed to approve request.');
+      toast.error(error.message || 'Failed to approve request.');
     } finally {
       setProcessing(false);
     }
@@ -57,11 +58,10 @@ const AdminGalleryRequests = () => {
     try {
       await galleryRequestService.updateRequestStatus(selectedRequest.id, 'rejected', rejectionReason);
       setShowRejectModal(false);
-      alert(`Request rejected. ${selectedRequest.student_name} will be notified.`);
+      toast.success(`Request rejected. ${selectedRequest.student_name || 'The student'} will see the reason on their uploads page.`);
       fetchRequests();
     } catch (error) {
-      console.error('Rejection failed:', error);
-      alert(error.message || 'Failed to reject request.');
+      toast.error(error.message || 'Failed to reject request.');
     } finally {
       setProcessing(false);
     }

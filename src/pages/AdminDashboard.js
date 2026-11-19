@@ -1,9 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import LoadingSpinner from '../components/LoadingSpinner';
+import ErrorState from '../components/ErrorState';
+import adminService from '../services/adminService';
+
+const sameMonth = (dateStr, ref) => {
+  if (!dateStr) return false;
+  const d = new Date(dateStr);
+  return d.getFullYear() === ref.getFullYear() && d.getMonth() === ref.getMonth();
+};
 
 const AdminDashboard = () => {
-  // const { user } = useAuth();
   const [dashboardData, setDashboardData] = useState({
     totalStudents: 0,
     totalTeachers: 0,
@@ -21,16 +28,28 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
       try {
         setLoading(true);
-        const adminService = require('../services/adminService').default;
-        
-        const [stats, students] = await Promise.all([
+        setError(null);
+        const [stats, students, fees, attendance] = await Promise.all([
           adminService.getDashboard(),
-          adminService.getAllStudents()
+          adminService.getAllStudents(),
+          adminService.getAllFees(),
+          adminService.getAttendanceSummary(),
         ]);
+
+        const now = new Date();
+        const lastMonthRef = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const paid = fees.filter((f) => f.payment_status === 'paid');
+        const outstanding = fees.filter((f) => f.payment_status === 'pending' || f.payment_status === 'overdue');
+        const att = attendance.reduce(
+          (acc, b) => ({
+            present: acc.present + b.total_present,
+            marked: acc.marked + b.total_present + b.total_absent + b.total_late,
+          }),
+          { present: 0, marked: 0 }
+        );
 
         // Process recent registrations
         const recentRegistrations = [...students]
@@ -59,28 +78,35 @@ const AdminDashboard = () => {
           totalStudents: stats.total_students || 0,
           totalTeachers: stats.total_teachers || 0,
           totalBatches: stats.total_batches || 0,
-          pendingFees: 0, // Need accurate endpoint or calculate from students
+          pendingFees: outstanding.length,
+          overduePayments: stats.overdue_payments || 0,
+          pendingGalleryRequests: stats.pending_gallery_requests || 0,
+          unreadMessages: stats.unread_messages || 0,
           recentRegistrations,
           feeCollection: {
             thisMonth: stats.monthly_revenue || 0,
-            lastMonth: 0,
-            pending: 0
+            lastMonth: paid
+              .filter((f) => sameMonth(f.payment_date, lastMonthRef))
+              .reduce((s, f) => s + Number(f.total_amount || 0), 0),
+            pending: outstanding.reduce((s, f) => s + Number(f.total_amount || 0), 0),
           },
+          attendanceRate: att.marked ? Math.round((att.present / att.marked) * 100) : null,
+          feeCollectionRate: fees.length ? Math.round((paid.length / fees.length) * 100) : null,
           levelDistribution
         });
       } catch (err) {
-        console.error('Error fetching admin dashboard data:', err);
-        setError('Failed to load dashboard data');
+        setError(err.message || 'Failed to load dashboard data');
       } finally {
         setLoading(false);
       }
-    };
-
-    fetchDashboardData();
   }, []);
 
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
+
   if (loading) return <LoadingSpinner fullScreen={true} text="Loading dashboard..." size="lg" />;
-  if (error) return <div className="min-h-screen flex items-center justify-center"><div className="text-red-600">{error}</div></div>;
+  if (error) return <ErrorState message={error} onRetry={fetchDashboardData} />;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
@@ -139,7 +165,9 @@ const AdminDashboard = () => {
               <div>
                 <p className="text-sm text-gray-600 mb-1">Pending Fees</p>
                 <p className="text-3xl font-bold text-yellow-600">{dashboardData.pendingFees}</p>
-                <p className="text-xs text-red-600 mt-1">Follow up needed</p>
+                <p className="text-xs text-red-600 mt-1">
+                  {dashboardData.overduePayments ? `${dashboardData.overduePayments} overdue` : 'None overdue'}
+                </p>
               </div>
               <svg className="w-14 h-14 text-yellow-500/20" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
@@ -237,6 +265,9 @@ const AdminDashboard = () => {
                 </Link>
               </div>
               <div className="space-y-3">
+                {dashboardData.recentRegistrations.length === 0 && (
+                  <p className="text-sm text-gray-500 text-center py-6">No students enrolled yet.</p>
+                )}
                 {dashboardData.recentRegistrations.map((student) => (
                   <div key={student.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                     <div className="flex items-center space-x-3">
@@ -249,7 +280,7 @@ const AdminDashboard = () => {
                       </div>
                     </div>
                     <span className="text-xs text-gray-500">
-                      {new Date(student.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      {student.date ? new Date(student.date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }) : ''}
                     </span>
                   </div>
                 ))}
@@ -298,30 +329,34 @@ const AdminDashboard = () => {
                 </div>
                 <div className="flex items-center justify-between pt-3 border-t">
                   <span className="text-sm text-gray-600">Attendance Rate</span>
-                  <span className="font-bold text-primary">87%</span>
+                  <span className="font-bold text-primary">
+                    {dashboardData.attendanceRate === null ? 'No data yet' : `${dashboardData.attendanceRate}%`}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Fee Collection Rate</span>
-                  <span className="font-bold text-primary">93%</span>
+                  <span className="font-bold text-primary">
+                    {dashboardData.feeCollectionRate === null ? 'No data yet' : `${dashboardData.feeCollectionRate}%`}
+                  </span>
                 </div>
               </div>
             </div>
 
             {/* Quick Reports */}
             <div className="bg-gradient-to-br from-secondary/20 to-primary/20 rounded-xl shadow-lg p-6">
-              <h2 className="text-xl font-bold text-accent mb-4">Quick Reports</h2>
+              <h2 className="text-xl font-bold text-accent mb-4">Needs attention</h2>
               <div className="space-y-2">
-                <Link to="/admin/reports/attendance" className="block text-sm text-primary hover:text-primary-dark hover:underline">
-                  → Attendance Report
+                <Link to="/admin/gallery-requests" className="block text-sm text-primary hover:text-primary-dark hover:underline">
+                  → Gallery requests awaiting review ({dashboardData.pendingGalleryRequests})
                 </Link>
-                <Link to="/admin/reports/fees" className="block text-sm text-primary hover:text-primary-dark hover:underline">
-                  → Fee Collection Report
+                <Link to="/admin/messages" className="block text-sm text-primary hover:text-primary-dark hover:underline">
+                  → Unread contact messages ({dashboardData.unreadMessages})
                 </Link>
-                <Link to="/admin/reports/performance" className="block text-sm text-primary hover:text-primary-dark hover:underline">
-                  → Student Performance
+                <Link to="/admin/fees" className="block text-sm text-primary hover:text-primary-dark hover:underline">
+                  → Fee records
                 </Link>
-                <Link to="/admin/reports/export" className="block text-sm text-primary hover:text-primary-dark hover:underline">
-                  → Export Data
+                <Link to="/admin/analytics" className="block text-sm text-primary hover:text-primary-dark hover:underline">
+                  → Performance analytics
                 </Link>
               </div>
             </div>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
 import Navbar from './components/Navbar';
 import LayoutWrapper from './components/LayoutWrapper';
 
@@ -35,6 +36,7 @@ import TeacherReviewStudents from './pages/TeacherReviewStudents';
 import TeacherBatchTransfer from './pages/TeacherBatchTransfer';
 import TeacherResources from './pages/TeacherResources';
 import TeacherProfile from './pages/TeacherProfile';
+import TeacherMakeupRequests from './pages/TeacherMakeupRequests';
 
 // Admin Pages
 import AdminDashboard from './pages/AdminDashboard';
@@ -47,6 +49,7 @@ import AdminAnalytics from './pages/AdminAnalytics';
 import AdminStatusChanges from './pages/AdminStatusChanges';
 import AdminNotices from './pages/AdminNotices';
 import AdminGallery from './pages/AdminGallery';
+import AdminMessages from './pages/AdminMessages';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, role }) => {
@@ -74,6 +77,7 @@ const ProtectedRoute = ({ children, role }) => {
 function App() {
   return (
     <AuthProvider>
+      <ToastProvider>
       <Router>
         <Navbar />
         <LayoutWrapper>
@@ -229,6 +233,15 @@ function App() {
               }
             />
 
+            <Route
+              path="/teacher/makeup-requests"
+              element={
+                <ProtectedRoute role="teacher">
+                  <TeacherMakeupRequests />
+                </ProtectedRoute>
+              }
+            />
+
             {/* Admin Routes */}
             <Route
               path="/admin/dashboard"
@@ -311,11 +324,21 @@ function App() {
               }
             />
 
+            <Route
+              path="/admin/messages"
+              element={
+                <ProtectedRoute role="admin">
+                  <AdminMessages />
+                </ProtectedRoute>
+              }
+            />
+
             {/* 404 Route */}
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </LayoutWrapper>
       </Router>
+      </ToastProvider>
     </AuthProvider>
   );
 }

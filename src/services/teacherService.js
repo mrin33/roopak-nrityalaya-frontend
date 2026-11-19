@@ -1,60 +1,46 @@
-import api from './axiosConfig';
+import api, { fetchProtectedMediaUrl } from './axiosConfig';
 
+// All functions resolve with the API payload or reject with { message, status }.
 const teacherService = {
-  // Profile
-  getProfile: async () => {
-    const response = await api.get('/teachers/profile');
-    return response.data;
-  },
+  // Profile & dashboard
+  getProfile: async () => (await api.get('/teachers/profile')).data,
+  updateProfile: async (profileData) => (await api.put('/teachers/profile', profileData)).data,
+  getDashboard: async () => (await api.get('/teachers/dashboard')).data,
 
-  updateProfile: async (profileData) => {
-    const response = await api.put('/teachers/profile', profileData);
-    return response.data;
-  },
+  // Students & batches
+  getStudents: async () => (await api.get('/teachers/students')).data,
+  getBatches: async () => (await api.get('/teachers/batches')).data,
 
-  // Dashboard
-  getDashboard: async () => {
-    const response = await api.get('/teachers/dashboard');
-    return response.data;
-  },
-
-  // Students & Batches
-  getStudents: async () => {
-    const response = await api.get('/teachers/students');
-    return response.data;
-  },
-
-  getBatches: async () => {
-    const response = await api.get('/teachers/batches');
-    return response.data;
-  },
+  // Attendance
+  getBatchAttendance: async (batchId, date) =>
+    (await api.get(`/teachers/batches/${batchId}/attendance`, { params: { date } })).data,
+  markAttendance: async ({ batch_id, attendance_date, records }) =>
+    (await api.post('/teachers/attendance', { batch_id, attendance_date, records })).data,
 
   // Reviews
-  createReview: async (reviewData) => {
-    const response = await api.post('/teachers/reviews', reviewData);
-    return response.data;
-  },
+  createReview: async (reviewData) => (await api.post('/teachers/reviews', reviewData)).data,
+  getReviews: async () => (await api.get('/teachers/reviews')).data,
 
-  getReviews: async () => {
-    const response = await api.get('/teachers/reviews');
-    return response.data;
-  },
+  // Batch transfers
+  getMyTransfers: async () => (await api.get('/teachers/batch-transfers')).data,
+  createTransfer: async (transferData) => (await api.post('/teachers/batch-transfers', transferData)).data,
+  getAvailableTeachers: async () => (await api.get('/teachers/batch-transfers/available-teachers')).data,
 
-  // Batch Transfers
-  getMyTransfers: async () => {
-    const response = await api.get('/teachers/batch-transfers');
-    return response.data;
-  },
+  // Learning resources — formData (multipart, field "file") or { title, external_url, ... }
+  getResources: async () => (await api.get('/teachers/resources')).data,
+  createResource: async (payload) =>
+    (
+      await api.post('/teachers/resources', payload, payload instanceof FormData
+        ? { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 120000 }
+        : undefined)
+    ).data,
+  deleteResource: async (resourceId) => (await api.delete(`/teachers/resources/${resourceId}`)).data,
+  openResourceFile: (resourceId) => fetchProtectedMediaUrl(`/resources/${resourceId}/file`),
 
-  createTransfer: async (transferData) => {
-    const response = await api.post('/teachers/batch-transfers', transferData);
-    return response.data;
-  },
-
-  getAvailableTeachers: async () => {
-    const response = await api.get('/teachers/batch-transfers/available-teachers');
-    return response.data;
-  }
+  // Makeup class requests for this teacher's batches
+  getMakeupRequests: async () => (await api.get('/teachers/makeup-requests')).data,
+  updateMakeupRequest: async (bookingId, status, notes) =>
+    (await api.put(`/teachers/makeup-requests/${bookingId}`, { status, notes })).data,
 };
 
 export default teacherService;

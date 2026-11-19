@@ -1,92 +1,124 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import LoadingSpinner from '../components/LoadingSpinner';
+import ErrorState from '../components/ErrorState';
+import teacherService from '../services/teacherService';
+import { useToast } from '../context/ToastContext';
+
+const todayISO = () => {
+  const d = new Date();
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+};
 
 const TeacherAttendance = () => {
-
-  const [selectedBatch, setSelectedBatch] = useState('');
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const toast = useToast();
+  const [searchParams] = useSearchParams();
+  const [batches, setBatches] = useState([]);
+  const [selectedBatch, setSelectedBatch] = useState(searchParams.get('batch') || '');
+  const [selectedDate, setSelectedDate] = useState(todayISO());
   const [students, setStudents] = useState([]);
   const [attendance, setAttendance] = useState({});
-  const [batches, setBatches] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingStudents, setLoadingStudents] = useState(false);
+  const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [alreadyMarked, setAlreadyMarked] = useState(false);
 
-  useEffect(() => {
-    // TODO: Fetch teacher's batches from API
-    setBatches([
-      { id: 1, name: 'Morning Batch A', level: 'Praveshika Pratham' },
-      { id: 2, name: 'Evening Batch B', level: 'Madhyama Pratham' },
-      { id: 3, name: 'Advanced Batch', level: 'Visharad Pratham' },
-      { id: 4, name: 'Weekend Special', level: 'Praveshika Purna' },
-    ]);
+  const loadBatches = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const rows = await teacherService.getBatches();
+      setBatches(
+        rows
+          .filter((b) => b.is_active !== false)
+          .map((b) => ({ id: String(b.batch_id), name: b.batch_name, level: b.level_name }))
+      );
+    } catch (err) {
+      setError(err.message || 'Could not load your batches');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    if (selectedBatch) {
-      // TODO: Fetch students for selected batch from API
-      const mockStudents = [
-        { id: 1, name: 'Riya Sharma', rollNo: 'RN001' },
-        { id: 2, name: 'Amit Kumar', rollNo: 'RN002' },
-        { id: 3, name: 'Priya Patel', rollNo: 'RN003' },
-        { id: 4, name: 'Rahul Singh', rollNo: 'RN004' },
-        { id: 5, name: 'Sneha Gupta', rollNo: 'RN005' },
-        { id: 6, name: 'Arjun Reddy', rollNo: 'RN006' },
-        { id: 7, name: 'Ananya Iyer', rollNo: 'RN007' },
-        { id: 8, name: 'Karan Mehta', rollNo: 'RN008' },
-      ];
-      
-      setStudents(mockStudents);
-      
-      // Initialize attendance state
-      const initialAttendance = {};
-      mockStudents.forEach(student => {
-        initialAttendance[student.id] = 'present'; // default to present
-      });
-      setAttendance(initialAttendance);
+    loadBatches();
+  }, [loadBatches]);
+
+  // Load the batch roster together with any attendance already saved for the date.
+  useEffect(() => {
+    if (!selectedBatch || !selectedDate) {
+      setStudents([]);
+      return undefined;
     }
-  }, [selectedBatch]);
+    let active = true;
+    setLoadingStudents(true);
+    teacherService
+      .getBatchAttendance(selectedBatch, selectedDate)
+      .then((rows) => {
+        if (!active) return;
+        setStudents(rows.map((r) => ({ id: r.student_id, name: r.full_name, rollNo: r.roll_number || '—' })));
+        const existing = {};
+        rows.forEach((r) => {
+          if (r.status !== 'unmarked') existing[r.student_id] = r.status;
+        });
+        setAttendance(existing);
+        setAlreadyMarked(Object.keys(existing).length > 0);
+      })
+      .catch((err) => active && toast.error(err.message || 'Could not load students for this batch'))
+      .finally(() => active && setLoadingStudents(false));
+    return () => {
+      active = false;
+    };
+  }, [selectedBatch, selectedDate, toast]);
 
   const handleAttendanceChange = (studentId, status) => {
-    setAttendance(prev => ({
-      ...prev,
-      [studentId]: status
-    }));
+    setAttendance((prev) => ({ ...prev, [studentId]: status }));
   };
 
   const handleBulkMark = (status) => {
-    const updatedAttendance = {};
-    students.forEach(student => {
-      updatedAttendance[student.id] = status;
+    const updated = {};
+    students.forEach((student) => {
+      updated[student.id] = status;
     });
-    setAttendance(updatedAttendance);
+    setAttendance(updated);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const records = students.filter((s) => attendance[s.id]).map((s) => ({ student_id: s.id, status: attendance[s.id] }));
+    if (!records.length) {
+      toast.error('Mark at least one student before saving.');
+      return;
+    }
+    const unmarked = students.length - records.length;
+    if (unmarked > 0 && !window.confirm(`${unmarked} student(s) are not marked and will be skipped. Save anyway?`)) return;
+
     setSaving(true);
-
-    // TODO: Send attendance data to API
-    console.log('Saving attendance:', {
-      batchId: selectedBatch,
-      date: selectedDate,
-      attendance: attendance
-    });
-
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      await teacherService.markAttendance({ batch_id: Number(selectedBatch), attendance_date: selectedDate, records });
+      setAlreadyMarked(true);
+      toast.success(`Attendance saved for ${records.length} student(s).`);
+    } catch (err) {
+      toast.error(err.message || 'Could not save attendance.');
+    } finally {
       setSaving(false);
-      alert('Attendance marked successfully!');
-    }, 1000);
+    }
   };
 
   const getStatusCount = (status) => {
     return Object.values(attendance).filter(s => s === status).length;
   };
 
+  if (loading) return <LoadingSpinner fullScreen={true} text="Loading your batches..." size="lg" />;
+  if (error) return <ErrorState message={error} onRetry={loadBatches} />;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-heading font-bold text-primary mb-2">
+          <h1 className="text-3xl sm:text-4xl font-heading font-bold text-primary mb-2">
             Mark Attendance
           </h1>
           <p className="text-gray-600">Record student attendance for your classes</p>
@@ -120,6 +152,7 @@ const TeacherAttendance = () => {
               </label>
               <input
                 type="date"
+                max={todayISO()}
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
                 className="input-field"
@@ -129,10 +162,29 @@ const TeacherAttendance = () => {
           </div>
         </div>
 
-        {selectedBatch && students.length > 0 && (
+        {batches.length === 0 && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-yellow-800 mb-8">
+            You have no active batches assigned yet. An administrator can assign batches to you.
+          </div>
+        )}
+
+        {selectedBatch && loadingStudents && <LoadingSpinner text="Loading students..." />}
+
+        {selectedBatch && !loadingStudents && students.length === 0 && (
+          <div className="bg-white rounded-xl shadow-lg p-8 text-center text-gray-600">
+            No active students are enrolled in this batch.
+          </div>
+        )}
+
+        {selectedBatch && !loadingStudents && students.length > 0 && (
           <>
             {/* Quick Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            {alreadyMarked && (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-green-800 mb-6 text-sm">
+                Attendance for this date has already been saved. Saving again will update it.
+              </div>
+            )}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               <div className="bg-white rounded-lg shadow p-4">
                 <p className="text-sm text-gray-600">Total Students</p>
                 <p className="text-2xl font-bold text-primary">{students.length}</p>
@@ -185,7 +237,7 @@ const TeacherAttendance = () => {
                   {students.map((student, index) => (
                     <div 
                       key={student.id}
-                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                     >
                       <div className="flex items-center space-x-4">
                         <span className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center font-semibold text-primary">
@@ -197,9 +249,10 @@ const TeacherAttendance = () => {
                         </div>
                       </div>
 
-                      <div className="flex space-x-2">
+                      <div className="flex gap-2" role="group" aria-label={`Attendance for ${student.name}`}>
                         <button
                           type="button"
+                          aria-pressed={attendance[student.id] === 'present'}
                           onClick={() => handleAttendanceChange(student.id, 'present')}
                           className={`px-4 py-2 rounded-lg font-medium transition-all ${
                             attendance[student.id] === 'present'
@@ -211,6 +264,7 @@ const TeacherAttendance = () => {
                         </button>
                         <button
                           type="button"
+                          aria-pressed={attendance[student.id] === 'absent'}
                           onClick={() => handleAttendanceChange(student.id, 'absent')}
                           className={`px-4 py-2 rounded-lg font-medium transition-all ${
                             attendance[student.id] === 'absent'
@@ -222,6 +276,7 @@ const TeacherAttendance = () => {
                         </button>
                         <button
                           type="button"
+                          aria-pressed={attendance[student.id] === 'late'}
                           onClick={() => handleAttendanceChange(student.id, 'late')}
                           className={`px-4 py-2 rounded-lg font-medium transition-all ${
                             attendance[student.id] === 'late'

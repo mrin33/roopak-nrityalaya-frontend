@@ -1,54 +1,40 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import LoadingSpinner from '../components/LoadingSpinner';
+import ErrorState from '../components/ErrorState';
+import adminService from '../services/adminService';
 
 const AdminStatusChanges = () => {
   const [statusChanges, setStatusChanges] = useState([]);
   const [filterType, setFilterType] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchChanges = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const rows = await adminService.getStatusChanges();
+      setStatusChanges(
+        rows.map((c) => ({
+          ...c,
+          id: c.change_id,
+          from_status: c.status_from,
+          to_status: c.status_to,
+          from_batch: c.status_from,
+          to_batch: c.status_to,
+          changed_at: c.created_at,
+        }))
+      );
+    } catch (err) {
+      setError(err.message || 'Failed to load status history');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    // TODO: Fetch from API
-    setStatusChanges([
-      {
-        id: 1,
-        student_name: 'Riya Sharma',
-        roll_number: 'PP1',
-        change_type: 'enrollment',
-        from_status: null,
-        to_status: 'active',
-        reason: 'New enrollment - interested in Kathak',
-        changed_at: '2025-09-01T10:00:00'
-      },
-      {
-        id: 2,
-        student_name: 'Amit Kumar',
-        roll_number: 'PP2',
-        change_type: 'batch_switch',
-        from_batch: 'Evening Batch A',
-        to_batch: 'Morning Batch A',
-        reason: 'Timing conflicts with school',
-        changed_at: '2025-10-15T14:30:00'
-      },
-      {
-        id: 3,
-        student_name: 'Rahul Singh',
-        roll_number: 'MP2',
-        change_type: 'discontinuation',
-        from_status: 'active',
-        to_status: 'discontinued',
-        reason: 'Relocation to another city',
-        changed_at: '2025-12-20T11:00:00'
-      },
-      {
-        id: 4,
-        student_name: 'Priya Patel',
-        roll_number: 'MP1',
-        change_type: 'rejoining',
-        from_status: 'discontinued',
-        to_status: 'active',
-        reason: 'Returned to the city, wants to continue learning',
-        changed_at: '2026-01-10T09:00:00'
-      }
-    ]);
-  }, []);
+    fetchChanges();
+  }, [fetchChanges]);
 
   const getTypeBadge = (type) => {
     switch(type) {
@@ -76,6 +62,9 @@ const AdminStatusChanges = () => {
     batchSwitches: statusChanges.filter(c => c.change_type === 'batch_switch').length
   };
 
+  if (loading) return <LoadingSpinner fullScreen={true} text="Loading status history..." size="lg" />;
+  if (error) return <ErrorState message={error} onRetry={fetchChanges} />;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -87,7 +76,7 @@ const AdminStatusChanges = () => {
           <p className="text-gray-600">Track all student enrollment and status changes</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-8">
           <div className="bg-white rounded-xl shadow-lg p-6">
             <p className="text-sm text-gray-600 mb-1">New Enrollments</p>
             <p className="text-3xl font-bold text-green-600">{stats.enrollments}</p>
@@ -107,14 +96,15 @@ const AdminStatusChanges = () => {
         </div>
 
         <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <p className="text-sm text-gray-600">
               Showing {filteredChanges.length} of {statusChanges.length} changes
             </p>
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="input-field w-64"
+              className="input-field sm:w-64"
+              aria-label="Filter changes"
             >
               <option value="all">All Changes</option>
               <option value="enrollment">New Enrollments</option>
@@ -137,7 +127,7 @@ const AdminStatusChanges = () => {
                       {getTypeBadge(change.change_type)}
                     </div>
                     <p className="text-xs text-gray-500">
-                      {new Date(change.changed_at).toLocaleDateString('en-US', { 
+                      {new Date(change.changed_at).toLocaleString('en-IN', { 
                         weekday: 'long',
                         year: 'numeric', 
                         month: 'long', 
@@ -178,6 +168,8 @@ const AdminStatusChanges = () => {
                 <div className="p-3 bg-blue-50 rounded-lg">
                   <p className="text-xs font-semibold text-blue-900 mb-1">Reason:</p>
                   <p className="text-sm text-blue-800">{change.reason}</p>
+                  {change.detailed_feedback && <p className="text-sm text-blue-700 mt-2">{change.detailed_feedback}</p>}
+                  {change.changed_by_email && <p className="text-xs text-blue-600 mt-2">By {change.changed_by_email}</p>}
                 </div>
               </div>
             ))}

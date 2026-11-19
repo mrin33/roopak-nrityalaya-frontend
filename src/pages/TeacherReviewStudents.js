@@ -1,93 +1,68 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import StarRating from '../components/StarRating';
 import RollNumberBadge from '../components/RollNumberBadge';
+import LoadingSpinner from '../components/LoadingSpinner';
+import ErrorState from '../components/ErrorState';
+import teacherService from '../services/teacherService';
+import { useToast } from '../context/ToastContext';
+
+const freshForm = () => ({
+  reviewMonth: new Date().getMonth() + 1,
+  reviewYear: new Date().getFullYear(),
+  techniqueRating: 3,
+  rhythmRating: 3,
+  creativityRating: 3,
+  disciplineRating: 3,
+  reviewText: '',
+});
 
 const TeacherReviewStudents = () => {
+  const toast = useToast();
   const [students, setStudents] = useState([]);
   const [myReviews, setMyReviews] = useState([]);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  const [formData, setFormData] = useState(freshForm());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [saving, setSaving] = useState(false);
 
-  const [formData, setFormData] = useState({
-    reviewMonth: new Date().getMonth() + 1,
-    reviewYear: new Date().getFullYear(),
-    techniqueRating: 3,
-    rhythmRating: 3,
-    creativityRating: 3,
-    disciplineRating: 3,
-    reviewText: ''
-  });
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [studentRows, reviewRows] = await Promise.all([teacherService.getStudents(), teacherService.getReviews()]);
+      const reviews = reviewRows.map((r) => ({ ...r, id: r.review_id }));
+      // Most recent review period per student
+      const latest = {};
+      reviews.forEach((r) => {
+        const key = r.review_year * 12 + r.review_month;
+        if (!latest[r.student_id] || key > latest[r.student_id].key) latest[r.student_id] = { key, r };
+      });
+      setStudents(
+        studentRows.map((st) => ({
+          ...st,
+          id: st.student_id,
+          last_review_date: latest[st.student_id]
+            ? `${latest[st.student_id].r.review_year}-${String(latest[st.student_id].r.review_month).padStart(2, '0')}-01`
+            : null,
+        }))
+      );
+      setMyReviews(reviews);
+    } catch (err) {
+      setError(err.message || 'Could not load your students');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    // TODO: Fetch my students from API
-    setStudents([
-      {
-        id: 1,
-        roll_number: 'PP1',
-        full_name: 'Riya Sharma',
-        level_name: 'Praveshika Pratham',
-        batch_name: 'Morning Batch A',
-        last_review_date: '2026-01-01'
-      },
-      {
-        id: 2,
-        roll_number: 'PP2',
-        full_name: 'Amit Kumar',
-        level_name: 'Praveshika Pratham',
-        batch_name: 'Morning Batch A',
-        last_review_date: null
-      },
-      {
-        id: 3,
-        roll_number: 'MP1',
-        full_name: 'Priya Patel',
-        level_name: 'Madhyama Pratham',
-        batch_name: 'Evening Batch B',
-        last_review_date: '2026-01-01'
-      },
-      {
-        id: 4,
-        roll_number: 'MP2',
-        full_name: 'Rahul Singh',
-        level_name: 'Madhyama Pratham',
-        batch_name: 'Evening Batch B',
-        last_review_date: '2025-12-01'
-      }
-    ]);
-
-    setMyReviews([
-      {
-        id: 1,
-        student_name: 'Riya Sharma',
-        roll_number: 'PP1',
-        review_month: 1,
-        review_year: 2026,
-        overall_rating: 4.5,
-        created_at: '2026-02-01T10:00:00'
-      },
-      {
-        id: 2,
-        student_name: 'Priya Patel',
-        roll_number: 'MP1',
-        review_month: 1,
-        review_year: 2026,
-        overall_rating: 3.75,
-        created_at: '2026-02-01T10:30:00'
-      }
-    ]);
-  }, []);
+    loadData();
+  }, [loadData]);
 
   const handleOpenReview = (student) => {
     setSelectedStudent(student);
-    setFormData({
-      reviewMonth: new Date().getMonth() + 1,
-      reviewYear: new Date().getFullYear(),
-      techniqueRating: 3,
-      rhythmRating: 3,
-      creativityRating: 3,
-      disciplineRating: 3,
-      reviewText: ''
-    });
+    setFormData(freshForm());
     setShowReviewModal(true);
   };
 
@@ -96,68 +71,59 @@ const TeacherReviewStudents = () => {
   };
 
   const handleRatingChange = (category, rating) => {
-    setFormData(prev => ({
-      ...prev,
-      [category]: rating
-    }));
+    setFormData((prev) => ({ ...prev, [category]: rating }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // TODO: API call to submit review
-    const overallRating = (
-      (parseInt(formData.techniqueRating) +
-      parseInt(formData.rhythmRating) +
-      parseInt(formData.creativityRating) +
-      parseInt(formData.disciplineRating)) / 4
-    ).toFixed(2);
-
-    const newReview = {
-      id: myReviews.length + 1,
-      student_name: selectedStudent.full_name,
-      roll_number: selectedStudent.roll_number,
-      review_month: parseInt(formData.reviewMonth),
-      review_year: parseInt(formData.reviewYear),
-      overall_rating: parseFloat(overallRating),
-      created_at: new Date().toISOString()
-    };
-
-    setMyReviews([newReview, ...myReviews]);
-    setStudents(students.map(s => 
-      s.id === selectedStudent.id 
-        ? { ...s, last_review_date: new Date().toISOString().split('T')[0] }
-        : s
-    ));
-    setShowReviewModal(false);
-    alert(`Review submitted for ${selectedStudent.full_name}! Student will be notified.`);
+    setSaving(true);
+    try {
+      await teacherService.createReview({
+        student_id: selectedStudent.id,
+        review_month: parseInt(formData.reviewMonth, 10),
+        review_year: parseInt(formData.reviewYear, 10),
+        technique_rating: parseInt(formData.techniqueRating, 10),
+        rhythm_rating: parseInt(formData.rhythmRating, 10),
+        creativity_rating: parseInt(formData.creativityRating, 10),
+        discipline_rating: parseInt(formData.disciplineRating, 10),
+        review_text: formData.reviewText,
+      });
+      setShowReviewModal(false);
+      toast.success(`Review saved for ${selectedStudent.full_name}. It is now visible on their Reviews page.`);
+      loadData();
+    } catch (err) {
+      toast.error(err.message || 'Could not save the review.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const renderStarSelector = (category) => {
-    return (
-      <StarRating
-        rating={formData[category]}
-        interactive={true}
-        onChange={(value) => handleRatingChange(category, value)}
-        size="lg"
-      />
-    );
-  };
+  const renderStarSelector = (category) => (
+    <StarRating
+      rating={formData[category]}
+      interactive={true}
+      onChange={(value) => handleRatingChange(category, value)}
+      size="lg"
+    />
+  );
 
   const getMonthName = (month) => {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return months[month - 1];
   };
 
+  // A student needs a review when none exists for the current month.
   const needsReview = (student) => {
     if (!student.last_review_date) return true;
-    const lastReview = new Date(student.last_review_date);
-    const currentDate = new Date();
-    const monthsDiff = (currentDate.getFullYear() - lastReview.getFullYear()) * 12 + 
-                       (currentDate.getMonth() - lastReview.getMonth());
-    return monthsDiff >= 1;
+    const last = new Date(student.last_review_date);
+    const now = new Date();
+    return last.getFullYear() * 12 + last.getMonth() < now.getFullYear() * 12 + now.getMonth();
   };
 
   const studentsNeedingReview = students.filter(needsReview);
+
+  if (loading) return <LoadingSpinner fullScreen={true} text="Loading your students..." size="lg" />;
+  if (error) return <ErrorState message={error} onRetry={loadData} />;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
@@ -231,6 +197,13 @@ const TeacherReviewStudents = () => {
                 </tr>
               </thead>
               <tbody>
+                {students.length === 0 && (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-10 text-center text-gray-500">
+                      No students are enrolled in your batches yet.
+                    </td>
+                  </tr>
+                )}
                 {students.map((student) => (
                   <tr key={student.id} className="border-b hover:bg-gray-50">
                     <td>
@@ -367,8 +340,14 @@ const TeacherReviewStudents = () => {
                         className="input-field"
                         required
                       >
-                        <option value="2026">2026</option>
-                        <option value="2025">2025</option>
+                        {[0, 1].map((back) => {
+                          const y = new Date().getFullYear() - back;
+                          return (
+                            <option key={y} value={y}>
+                              {y}
+                            </option>
+                          );
+                        })}
                       </select>
                     </div>
                   </div>
@@ -449,8 +428,8 @@ const TeacherReviewStudents = () => {
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="btn-primary">
-                    Submit Review
+                  <button type="submit" disabled={saving} className="btn-primary disabled:opacity-50">
+                    {saving ? 'Saving…' : 'Submit Review'}
                   </button>
                 </div>
               </form>

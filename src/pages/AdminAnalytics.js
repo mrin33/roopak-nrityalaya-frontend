@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import StarRating from '../components/StarRating';
 import RollNumberBadge from '../components/RollNumberBadge';
 import PerformanceGraph from '../components/PerformanceGraph';
+import LoadingSpinner from '../components/LoadingSpinner';
+import ErrorState from '../components/ErrorState';
+import adminService from '../services/adminService';
 
 const AdminAnalytics = () => {
   const [analytics, setAnalytics] = useState({
@@ -10,40 +13,43 @@ const AdminAnalytics = () => {
     enrollmentTrends: [],
     discontinuationReasons: []
   });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    // TODO: Fetch analytics from API
-    setAnalytics({
-      bestTeachers: [
-        { id: 1, name: 'Priya Sharma', avg_rating: 4.7, total_students: 28, experience_years: 8 },
-        { id: 2, name: 'Rajesh Kumar', avg_rating: 4.5, total_students: 25, experience_years: 6 },
-        { id: 3, name: 'Meera Iyer', avg_rating: 4.3, total_students: 20, experience_years: 5 }
-      ],
-      bestStudents: [
-        { roll_number: 'VP1', name: 'Sneha Gupta', performance_score: 95, attendance: 98, practice_hours: 180 },
-        { roll_number: 'MP1', name: 'Priya Patel', performance_score: 92, attendance: 95, practice_hours: 165 },
-        { roll_number: 'PP1', name: 'Riya Sharma', performance_score: 90, attendance: 92, practice_hours: 155 },
-        { roll_number: 'VM1', name: 'Anita Desai', performance_score: 88, attendance: 90, practice_hours: 150 },
-        { roll_number: 'PP2', name: 'Amit Kumar', performance_score: 87, attendance: 88, practice_hours: 145 }
-      ],
-      enrollmentTrends: [
-        { month: 'Sep 2025', enrolled: 45 },
-        { month: 'Oct 2025', enrolled: 52 },
-        { month: 'Nov 2025', enrolled: 58 },
-        { month: 'Dec 2025', enrolled: 60 },
-        { month: 'Jan 2026', enrolled: 65 }
-      ],
-      discontinuationReasons: [
-        { reason: 'Relocation', count: 5 },
-        { reason: 'Health Issues', count: 3 },
-        { reason: 'Financial Constraints', count: 2 },
-        { reason: 'Time Constraints', count: 4 },
-        { reason: 'Other', count: 1 }
-      ]
-    });
+  const fetchAnalytics = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [bestTeachers, bestStudents, enrollmentTrends, discontinuationReasons] = await Promise.all([
+        adminService.getBestTeachers(),
+        adminService.getBestStudents(),
+        adminService.getEnrollmentTrends(),
+        adminService.getDiscontinuationReasons(),
+      ]);
+      setAnalytics({
+        bestTeachers: bestTeachers.map((t) => ({ ...t, id: t.teacher_id, avg_rating: Number(t.avg_rating).toFixed(1) })),
+        bestStudents,
+        enrollmentTrends,
+        discontinuationReasons,
+      });
+    } catch (err) {
+      setError(err.message || 'Failed to load analytics');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  
+  useEffect(() => {
+    fetchAnalytics();
+  }, [fetchAnalytics]);
+
+  if (loading) return <LoadingSpinner fullScreen={true} text="Loading analytics..." size="lg" />;
+  if (error) return <ErrorState message={error} onRetry={fetchAnalytics} />;
+
+  const maxEnrolled = Math.max(5, ...analytics.enrollmentTrends.map((t) => t.enrolled));
+  const maxReason = Math.max(1, ...analytics.discontinuationReasons.map((r) => r.count));
+
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -58,7 +64,9 @@ const AdminAnalytics = () => {
         {/* Best Teachers */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
           <h2 className="text-2xl font-bold text-accent mb-6 pb-2 border-b">🏆 Top Performing Teachers</h2>
-          
+          {analytics.bestTeachers.length === 0 && (
+            <p className="text-gray-500 text-center py-6">No active teachers yet.</p>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {analytics.bestTeachers.map((teacher, index) => (
               <div key={teacher.id} className={`p-6 rounded-xl border-2 ${
@@ -90,7 +98,12 @@ const AdminAnalytics = () => {
         {/* Best Students */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
           <h2 className="text-2xl font-bold text-accent mb-6 pb-2 border-b">⭐ Top Performing Students</h2>
-          
+          <p className="text-sm text-gray-500 mb-4">
+            Score = average teacher review × 20; attendance over the last 90 days.
+          </p>
+          {analytics.bestStudents.length === 0 && (
+            <p className="text-gray-500 text-center py-6">No active students yet.</p>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b-2">
@@ -152,7 +165,7 @@ const AdminAnalytics = () => {
               value: t.enrolled
             }))}
             title="Enrollment Trends"
-            maxValue={70}
+            maxValue={maxEnrolled}
             color="primary"
             height={250}
           />
@@ -169,6 +182,9 @@ const AdminAnalytics = () => {
             </div>
 
             <div className="space-y-4">
+              {analytics.discontinuationReasons.length === 0 && (
+                <p className="text-gray-500 text-center py-6">No discontinuations recorded.</p>
+              )}
               {analytics.discontinuationReasons.map((item, index) => (
                 <div key={index}>
                   <div className="flex items-center justify-between mb-1">
@@ -178,7 +194,7 @@ const AdminAnalytics = () => {
                   <div className="w-full bg-gray-200 rounded-full h-3">
                     <div 
                       className="bg-red-500 h-3 rounded-full transition-all"
-                      style={{width: `${(item.count / 5) * 100}%`}}
+                      style={{width: `${(item.count / maxReason) * 100}%`}}
                     ></div>
                   </div>
                 </div>

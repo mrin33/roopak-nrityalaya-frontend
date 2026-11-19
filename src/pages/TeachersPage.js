@@ -1,69 +1,40 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import LoadingSpinner from '../components/LoadingSpinner';
+import ErrorState from '../components/ErrorState';
+import publicService from '../services/publicService';
 
 const TeachersPage = () => {
-  // Placeholder teacher data - you'll replace this with real data from backend later
-  const [teachers] = useState([
-    {
-      id: 1,
-      name: 'Teacher Name 1',
-      specialization: 'Lucknow Gharana',
-      experience: 25,
-      qualification: 'M.A. in Kathak, Sangeet Visharad',
-      bio: 'An accomplished Kathak dancer and teacher with over two decades of experience. Specializes in traditional repertoire and abhinaya.',
-      isSenior: true,
-      photoUrl: null // Placeholder - add real photo URL later
-    },
-    {
-      id: 2,
-      name: 'Teacher Name 2',
-      specialization: 'Jaipur Gharana',
-      experience: 18,
-      qualification: 'B.A. in Performing Arts, Alankar',
-      bio: 'Known for powerful footwork and rhythmic precision. Has performed at numerous national and international stages.',
-      isSenior: true,
-      photoUrl: null
-    },
-    {
-      id: 3,
-      name: 'Teacher Name 3',
-      specialization: 'Banaras Gharana',
-      experience: 15,
-      qualification: 'Diploma in Kathak, Visharad Purna',
-      bio: 'Combines traditional technique with innovative choreography. Passionate about teaching young learners.',
-      isSenior: false,
-      photoUrl: null
-    },
-    {
-      id: 4,
-      name: 'Teacher Name 4',
-      specialization: 'Lucknow Gharana',
-      experience: 20,
-      qualification: 'M.Phil in Dance Studies',
-      bio: 'Expert in Kathak theory and history. Focuses on the spiritual aspects of classical dance.',
-      isSenior: true,
-      photoUrl: null
-    },
-    {
-      id: 5,
-      name: 'Teacher Name 5',
-      specialization: 'Jaipur Gharana',
-      experience: 12,
-      qualification: 'B.Performing Arts, Visharad',
-      bio: 'Dynamic performer and patient teacher. Specializes in teaching intermediate and advanced students.',
-      isSenior: false,
-      photoUrl: null
-    },
-    {
-      id: 6,
-      name: 'Teacher Name 6',
-      specialization: 'Lucknow Gharana',
-      experience: 22,
-      qualification: 'Sangeet Prabhakar, Alankar Purna',
-      bio: 'Renowned for expressive storytelling through dance. Has trained numerous award-winning students.',
-      isSenior: true,
-      photoUrl: null
-    },
-  ]);
+  const [teachers, setTeachers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const rows = await publicService.getTeachers();
+      setTeachers(
+        rows.map((t) => ({
+          id: t.id,
+          name: t.full_name,
+          specialization: t.specialization || 'Kathak',
+          experience: t.experience_years || 0,
+          qualification: t.qualifications,
+          bio: t.bio,
+          isSenior: t.is_senior,
+          photoUrl: t.photo_url,
+        }))
+      );
+    } catch (err) {
+      setError(err.message || 'Could not load our teachers');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const [filter, setFilter] = useState('all'); // 'all', 'senior', 'regular'
 
@@ -72,6 +43,9 @@ const TeachersPage = () => {
     if (filter === 'regular') return !teacher.isSenior;
     return true;
   });
+
+  if (loading) return <LoadingSpinner fullScreen={true} text="Loading our teachers..." size="lg" />;
+  if (error) return <ErrorState message={error} onRetry={load} />;
 
   return (
     <div className="bg-background">
@@ -177,7 +151,7 @@ const TeachersPage = () => {
 
                   <div className="border-t border-gray-200 pt-4 mb-4">
                     <p className="text-sm font-semibold text-accent mb-1">Qualification:</p>
-                    <p className="text-sm text-gray-600">{teacher.qualification}</p>
+                    <p className="text-sm text-gray-600">{teacher.qualification || '—'}</p>
                   </div>
 
                   <p className="text-gray-700 text-sm leading-relaxed">

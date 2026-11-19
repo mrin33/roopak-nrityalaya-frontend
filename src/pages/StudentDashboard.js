@@ -5,6 +5,8 @@ import RollNumberBadge from '../components/RollNumberBadge';
 import PaymentWindowBadge from '../components/PaymentWindowBadge';
 import LateFeeWarning from '../components/LateFeeWarning';
 import LoadingSpinner from '../components/LoadingSpinner';
+import ErrorState from '../components/ErrorState';
+import { formatDate } from '../utils/date';
 import studentService from '../services/studentService';
 
 const StudentDashboard = () => {
@@ -32,28 +34,12 @@ const StudentDashboard = () => {
     try {
       setLoading(true);
       const data = await studentService.getDashboard();
-      console.log('✅ Dashboard data:', data);
       setDashboardData(data);
       setError('');
     } catch (err) {
-      console.error('❌ Error fetching dashboard:', err);
-      setError('Failed to load dashboard data. Please try again.');
-      // Set dummy data as fallback
-      setDashboardData({
-        attendancePercentage: 0,
-        feeStatus: 'pending',
-        batchInfo: null,
-        recentNotices: [],
-        upcomingClasses: [],
-        roll_number: 'N/A',
-        payment_window: 'monthly',
-        discount: 0,
-        next_due_date: null,
-        has_late_fee: false,
-        late_fee_amount: 0,
-        performance_score: 0,
-        current_level_id: 1
-      });
+      // No fabricated fallback data: show the error with a retry instead.
+      setDashboardData(null);
+      setError(err.message || 'Failed to load dashboard data. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -73,18 +59,8 @@ const StudentDashboard = () => {
     return <LoadingSpinner fullScreen={true} text="Loading dashboard..." size="lg" />;
   }
 
-  if (!dashboardData) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">Failed to load dashboard</p>
-          <button onClick={fetchDashboardData} className="btn-primary">
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
+  if (!dashboardData) return <ErrorState message={error} onRetry={fetchDashboardData} />;
+
 
   const currentLevel = dashboardData.current_level_id || user?.profile?.current_level_id || 1;
   const currentLevelInfo = levels.find(l => l.number === currentLevel) || levels[0];
@@ -257,7 +233,7 @@ const StudentDashboard = () => {
                       <div className="flex-1">
                         <p className="font-semibold text-accent">{notice.title}</p>
                         <p className="text-xs text-gray-500 mt-1">
-                          {new Date(notice.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                          {formatDate(notice.date)}
                         </p>
                       </div>
                     </div>

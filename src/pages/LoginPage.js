@@ -30,25 +30,10 @@ const Login = () => {
 
     try {
       // Call AuthContext login (which internally calls authService)
-      const response = await login(formData.email, formData.password);
-
-      if (response.success) {
-        // Redirect based on role
-        const role = response.data.user.role;
-        if (role === 'admin') {
-          navigate('/admin/dashboard');
-        } else if (role === 'teacher') {
-          navigate('/teacher/dashboard');
-        } else if (role === 'student') {
-          navigate('/student/dashboard');
-        } else {
-          navigate('/');
-        }
-      } else {
-        setError(response.message || 'Login failed. Please try again.');
-      }
+      const { user } = await login(formData.email, formData.password);
+      const home = { admin: '/admin/dashboard', teacher: '/teacher/dashboard', student: '/student/dashboard' };
+      navigate(home[user.role] || '/');
     } catch (err) {
-      console.error('Login error:', err);
       setError(err.message || 'Invalid email or password. Please try again.');
     } finally {
       setLoading(false);

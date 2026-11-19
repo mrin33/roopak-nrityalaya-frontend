@@ -1,88 +1,63 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import StatusBadge from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
+import LoadingSpinner from '../components/LoadingSpinner';
+import ErrorState from '../components/ErrorState';
+import studentService from '../services/studentService';
+import { useToast } from '../context/ToastContext';
+import { formatDate, todayISO } from '../utils/date';
 
 const StudentMakeupClasses = () => {
+  const toast = useToast();
   const [missedClasses, setMissedClasses] = useState([]);
   const [requests, setRequests] = useState([]);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [selectedClass, setSelectedClass] = useState(null);
   const [availableBatches, setAvailableBatches] = useState([]);
-  const [formData, setFormData] = useState({
-    makeupBatchId: '',
-    makeupDate: '',
-    notes: ''
-  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({ makeupBatchId: '', makeupDate: '', notes: '' });
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [missed, mine, batches] = await Promise.all([
+        studentService.getMissedClasses(),
+        studentService.getMakeupRequests(),
+        studentService.getMakeupBatches(),
+      ]);
+      setMissedClasses(missed.map((m) => ({ ...m, id: m.attendance_id })));
+      setRequests(
+        mine.map((r) => ({
+          ...r,
+          id: r.booking_id,
+          requested_at: r.created_at,
+          teacher_note: r.notes,
+        }))
+      );
+      setAvailableBatches(
+        batches.map((b) => ({
+          id: b.batch_id,
+          name: b.batch_name,
+          schedule: [b.schedule, b.time, b.teacher_name].filter(Boolean).join(' · '),
+        }))
+      );
+    } catch (err) {
+      setError(err.message || 'Could not load makeup classes');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    // TODO: Fetch missed classes from API
-    setMissedClasses([
-      {
-        id: 1,
-        class_date: '2026-02-01',
-        batch_name: 'Evening Batch A',
-        teacher_name: 'Priya Sharma',
-        reason: 'Absent',
-        can_request_makeup: true
-      },
-      {
-        id: 2,
-        class_date: '2026-01-29',
-        batch_name: 'Evening Batch A',
-        teacher_name: 'Priya Sharma',
-        reason: 'Absent',
-        can_request_makeup: true
-      }
-    ]);
-
-    // TODO: Fetch makeup requests from API
-    setRequests([
-      {
-        id: 1,
-        original_class_date: '2026-01-25',
-        original_batch_name: 'Evening Batch A',
-        makeup_class_date: '2026-02-10',
-        makeup_batch_name: 'Morning Batch B',
-        status: 'pending',
-        requested_at: '2026-01-26T10:00:00'
-      },
-      {
-        id: 2,
-        original_class_date: '2026-01-20',
-        original_batch_name: 'Evening Batch A',
-        makeup_class_date: '2026-01-27',
-        makeup_batch_name: 'Morning Batch B',
-        status: 'approved',
-        requested_at: '2026-01-21T09:00:00',
-        reviewed_at: '2026-01-22T10:00:00'
-      },
-      {
-        id: 3,
-        original_class_date: '2026-01-15',
-        original_batch_name: 'Evening Batch A',
-        makeup_class_date: '2026-01-22',
-        makeup_batch_name: 'Weekend Batch',
-        status: 'rejected',
-        requested_at: '2026-01-16T14:00:00',
-        reviewed_at: '2026-01-17T11:00:00',
-        rejection_reason: 'Makeup batch is at a different level'
-      }
-    ]);
-
-    setAvailableBatches([
-      { id: 1, name: 'Morning Batch A', schedule: 'Mon, Wed, Fri - 8:00 AM' },
-      { id: 2, name: 'Morning Batch B', schedule: 'Tue, Thu, Sat - 9:00 AM' },
-      { id: 3, name: 'Weekend Batch', schedule: 'Sat, Sun - 10:00 AM' }
-    ]);
-  }, []);
+    load();
+  }, [load]);
 
   const handleRequestClick = (missedClass) => {
     setSelectedClass(missedClass);
-    setFormData({
-      makeupBatchId: '',
-      makeupDate: '',
-      notes: ''
-    });
+    setFormData({ makeupBatchId: '', makeupDate: '', notes: '' });
     setShowRequestModal(true);
   };
 
@@ -90,23 +65,24 @@ const StudentMakeupClasses = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // TODO: API call to create makeup request
-    const selectedBatch = availableBatches.find(b => b.id === parseInt(formData.makeupBatchId));
-    const newRequest = {
-      id: requests.length + 1,
-      original_class_date: selectedClass.class_date,
-      original_batch_name: selectedClass.batch_name,
-      makeup_class_date: formData.makeupDate,
-      makeup_batch_name: selectedBatch?.name || '',
-      status: 'pending',
-      requested_at: new Date().toISOString(),
-      notes: formData.notes
-    };
-    setRequests([newRequest, ...requests]);
-    setShowRequestModal(false);
-    alert('Makeup class request submitted successfully!');
+    setSaving(true);
+    try {
+      await studentService.createMakeupRequest({
+        attendance_id: selectedClass.id,
+        makeup_batch_id: parseInt(formData.makeupBatchId, 10),
+        makeup_class_date: formData.makeupDate,
+        notes: formData.notes,
+      });
+      setShowRequestModal(false);
+      toast.success('Makeup request sent. The teacher of that batch will review it.');
+      load();
+    } catch (err) {
+      toast.error(err.message || 'Could not submit the request.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const stats = {
@@ -115,6 +91,9 @@ const StudentMakeupClasses = () => {
     requestsApproved: requests.filter(r => r.status === 'approved').length,
     requestsRejected: requests.filter(r => r.status === 'rejected').length
   };
+
+  if (loading) return <LoadingSpinner fullScreen={true} text="Loading makeup classes..." size="lg" />;
+  if (error) return <ErrorState message={error} onRetry={load} />;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
@@ -154,11 +133,11 @@ const StudentMakeupClasses = () => {
           
           <div className="space-y-4">
             {missedClasses.map((cls) => (
-              <div key={cls.id} className="flex items-center justify-between p-4 bg-red-50 rounded-lg border border-red-200">
+              <div key={cls.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-red-50 rounded-lg border border-red-200">
                 <div className="flex-1">
                   <div className="flex items-center space-x-3 mb-2">
                     <h3 className="font-bold text-accent">
-                      {new Date(cls.class_date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                      {formatDate(cls.class_date, { weekday: 'long', month: 'long', day: 'numeric' })}
                     </h3>
                     <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-semibold">
                       Absent
@@ -207,7 +186,7 @@ const StudentMakeupClasses = () => {
                       <StatusBadge status={request.status} />
                     </div>
                     <p className="text-sm text-gray-500">
-                      Requested on {new Date(request.requested_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      Requested on {new Date(request.requested_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
                     </p>
                   </div>
                 </div>
@@ -216,7 +195,7 @@ const StudentMakeupClasses = () => {
                   <div className="bg-red-50 rounded-lg p-4">
                     <p className="text-xs font-semibold text-gray-600 mb-2">Missed Class</p>
                     <p className="font-bold text-accent mb-1">
-                      {new Date(request.original_class_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                      {formatDate(request.original_class_date, { weekday: 'short', month: 'short', day: 'numeric' })}
                     </p>
                     <p className="text-sm text-gray-600">{request.original_batch_name}</p>
                   </div>
@@ -224,25 +203,25 @@ const StudentMakeupClasses = () => {
                   <div className="bg-green-50 rounded-lg p-4">
                     <p className="text-xs font-semibold text-gray-600 mb-2">Makeup Class</p>
                     <p className="font-bold text-accent mb-1">
-                      {new Date(request.makeup_class_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                      {formatDate(request.makeup_class_date, { weekday: 'short', month: 'short', day: 'numeric' })}
                     </p>
                     <p className="text-sm text-gray-600">{request.makeup_batch_name}</p>
                   </div>
                 </div>
 
-                {request.status === 'approved' && request.reviewed_at && (
+                {request.status === 'approved' && (
                   <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
                     <p className="text-sm text-green-700">
-                      ✓ Approved on {new Date(request.reviewed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}. 
+                      ✓ Approved{request.approved_by_name ? ` by ${request.approved_by_name}` : ''}. 
                       Please attend the makeup class on the scheduled date.
                     </p>
                   </div>
                 )}
 
-                {request.status === 'rejected' && request.rejection_reason && (
+                {request.status === 'rejected' && request.teacher_note && (
                   <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-xs font-semibold text-red-800 mb-1">Rejection Reason:</p>
-                    <p className="text-sm text-red-700">{request.rejection_reason}</p>
+                    <p className="text-xs font-semibold text-red-800 mb-1">Notes:</p>
+                    <p className="text-sm text-red-700 whitespace-pre-line">{request.teacher_note}</p>
                   </div>
                 )}
 
@@ -290,7 +269,7 @@ const StudentMakeupClasses = () => {
                 <div className="mb-6 p-4 bg-red-50 rounded-lg border border-red-200">
                   <p className="text-sm font-semibold text-red-800 mb-1">Missed Class:</p>
                   <p className="text-accent font-bold">
-                    {new Date(selectedClass.class_date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                    {new Date(selectedClass.class_date).toLocaleDateString('en-IN', { weekday: 'long', month: 'long', day: 'numeric' })}
                   </p>
                   <p className="text-sm text-gray-600 mt-1">{selectedClass.batch_name}</p>
                 </div>
@@ -307,7 +286,7 @@ const StudentMakeupClasses = () => {
                       className="input-field"
                       required
                     >
-                      <option value="">Choose a batch...</option>
+                      <option value="">{availableBatches.length ? 'Choose a batch...' : 'No batches at your level are available'}</option>
                       {availableBatches.map(batch => (
                         <option key={batch.id} value={batch.id}>
                           {batch.name} - {batch.schedule}
@@ -326,7 +305,7 @@ const StudentMakeupClasses = () => {
                       value={formData.makeupDate}
                       onChange={handleChange}
                       className="input-field"
-                      min={new Date().toISOString().split('T')[0]}
+                      min={todayISO()}
                       required
                     />
                   </div>
@@ -354,7 +333,7 @@ const StudentMakeupClasses = () => {
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="btn-primary">
+                  <button type="submit" disabled={saving} className="btn-primary disabled:opacity-50">
                     Submit Request
                   </button>
                 </div>

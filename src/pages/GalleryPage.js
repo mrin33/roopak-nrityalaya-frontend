@@ -1,17 +1,39 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import LoadingSpinner from '../components/LoadingSpinner';
+import ErrorState from '../components/ErrorState';
+import publicService from '../services/publicService';
 
 const GalleryPage = () => {
-  // Placeholder data - will be replaced with backend data later
-  const [galleryItems] = useState([
-    { id: 1, type: 'photo', eventName: 'Annual Day 2024', year: 2024, caption: 'Group performance', url: null },
-    { id: 2, type: 'video', eventName: 'Annual Day 2024', year: 2024, caption: 'Solo performance', url: null },
-    { id: 3, type: 'photo', eventName: 'Kathak Workshop', year: 2024, caption: 'Students practicing', url: null },
-    { id: 4, type: 'photo', eventName: 'Competition 2023', year: 2023, caption: 'Award ceremony', url: null },
-    { id: 5, type: 'video', eventName: 'Competition 2023', year: 2023, caption: 'Final round', url: null },
-    { id: 6, type: 'photo', eventName: 'Cultural Festival', year: 2023, caption: 'Dance performance', url: null },
-    { id: 7, type: 'photo', eventName: 'Annual Day 2024', year: 2024, caption: 'Teacher performance', url: null },
-    { id: 8, type: 'photo', eventName: 'Kathak Workshop', year: 2024, caption: 'Workshop session', url: null },
-  ]);
+  const [galleryItems, setGalleryItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const rows = await publicService.getGallery();
+      setGalleryItems(
+        rows.map((g) => ({
+          id: g.id,
+          type: g.media_type,
+          eventName: g.category || 'General',
+          year: g.year,
+          caption: g.title,
+          description: g.description,
+          url: publicService.mediaUrl(g.media_url),
+        }))
+      );
+    } catch (err) {
+      setError(err.message || 'Could not load the gallery');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const [yearFilter, setYearFilter] = useState('all');
   const [eventFilter, setEventFilter] = useState('all');
@@ -28,6 +50,9 @@ const GalleryPage = () => {
     const mediaMatch = mediaFilter === 'all' || item.type === mediaFilter;
     return yearMatch && eventMatch && mediaMatch;
   });
+
+  if (loading) return <LoadingSpinner fullScreen={true} text="Loading gallery..." size="lg" />;
+  if (error) return <ErrorState message={error} onRetry={load} />;
 
   return (
     <div className="bg-background">
@@ -46,7 +71,7 @@ const GalleryPage = () => {
       </section>
 
       {/* Filter Section */}
-      <section className="py-8 bg-white shadow-md sticky top-20 z-40">
+      <section className="py-8 bg-white shadow-md md:sticky md:top-20 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Year Filter */}
@@ -147,6 +172,7 @@ const GalleryPage = () => {
                     {item.url ? (
                       item.type === 'photo' ? (
                         <img
+                          loading="lazy"
                           src={item.url}
                           alt={item.caption}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"

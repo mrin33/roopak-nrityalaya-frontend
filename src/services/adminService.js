@@ -1,159 +1,61 @@
 import api from './axiosConfig';
 
+// All functions resolve with the API payload or reject with { message, status }.
+// Notices: see noticeService. Gallery requests: see galleryRequestService.
+const multipart = { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 120000 };
+
 const adminService = {
-  // Dashboard
-  getDashboard: async () => {
-    const response = await api.get('/admin/dashboard');
-    return response.data;
-  },
+  getDashboard: async () => (await api.get('/admin/dashboard')).data,
 
   // Students
-  getAllStudents: async (params) => {
-    const response = await api.get('/admin/students', { params });
-    return response.data;
-  },
-
-  getStudentDetails: async (studentId) => {
-    const response = await api.get(`/admin/students/${studentId}`);
-    return response.data;
-  },
-
-  updateStudent: async (studentId, studentData) => {
-    const response = await api.put(`/admin/students/${studentId}`, studentData);
-    return response.data;
-  },
-
-  deleteStudent: async (studentId) => {
-    const response = await api.delete(`/admin/students/${studentId}`);
-    return response.data;
-  },
-
-  changeStudentStatus: async (studentId, statusData) => {
-    const response = await api.put(`/admin/students/${studentId}/status`, statusData);
-    return response.data;
-  },
+  getAllStudents: async (params) => (await api.get('/admin/students', { params })).data,
+  getStudentDetails: async (studentId) => (await api.get(`/admin/students/${studentId}`)).data,
+  createStudent: async (studentData) => (await api.post('/admin/students', studentData)).data, // { student, invite }
+  regenerateStudentInvite: async (studentId) => (await api.post(`/admin/students/${studentId}/invite`)).data,
+  updateStudent: async (studentId, studentData) => (await api.put(`/admin/students/${studentId}`, studentData)).data,
+  deleteStudent: async (studentId) => (await api.delete(`/admin/students/${studentId}`)).data,
+  changeStudentStatus: async (studentId, statusData) =>
+    (await api.put(`/admin/students/${studentId}/status`, statusData)).data,
 
   // Teachers
-  getAllTeachers: async () => {
-    const response = await api.get('/admin/teachers');
-    return response.data;
-  },
-
-  createTeacher: async (teacherData) => {
-    const response = await api.post('/admin/teachers', teacherData);
-    return response.data;
-  },
-
-  updateTeacher: async (teacherId, teacherData) => {
-    const response = await api.put(`/admin/teachers/${teacherId}`, teacherData);
-    return response.data;
-  },
-
-  regenerateTeacherInvite: async (teacherId) => {
-    const response = await api.post(`/admin/teachers/${teacherId}/invite`);
-    return response.data;
-  },
-
-  deleteTeacher: async (teacherId) => {
-    const response = await api.delete(`/admin/teachers/${teacherId}`);
-    return response.data;
-  },
+  getAllTeachers: async () => (await api.get('/admin/teachers')).data,
+  createTeacher: async (teacherData) => (await api.post('/admin/teachers', teacherData)).data, // { teacher, invite }
+  regenerateTeacherInvite: async (teacherId) => (await api.post(`/admin/teachers/${teacherId}/invite`)).data,
+  updateTeacher: async (teacherId, teacherData) => (await api.put(`/admin/teachers/${teacherId}`, teacherData)).data,
+  deleteTeacher: async (teacherId) => (await api.delete(`/admin/teachers/${teacherId}`)).data,
 
   // Batches
-  getAllBatches: async () => {
-    const response = await api.get('/admin/batches');
-    return response.data;
-  },
-
-  createBatch: async (batchData) => {
-    const response = await api.post('/admin/batches', batchData);
-    return response.data;
-  },
-
-  updateBatch: async (batchId, batchData) => {
-    const response = await api.put(`/admin/batches/${batchId}`, batchData);
-    return response.data;
-  },
-
-  deleteBatch: async (batchId) => {
-    const response = await api.delete(`/admin/batches/${batchId}`);
-    return response.data;
-  },
+  getAllBatches: async () => (await api.get('/admin/batches')).data,
+  createBatch: async (batchData) => (await api.post('/admin/batches', batchData)).data,
+  updateBatch: async (batchId, batchData) => (await api.put(`/admin/batches/${batchId}`, batchData)).data,
+  deleteBatch: async (batchId) => (await api.delete(`/admin/batches/${batchId}`)).data,
 
   // Fees
-  getAllFees: async (params) => {
-    const response = await api.get('/admin/fees', { params });
-    return response.data;
-  },
+  getAllFees: async (params) => (await api.get('/admin/fees', { params })).data,
+  recordFeePayment: async (paymentData) => (await api.post('/admin/fees/record', paymentData)).data,
 
-  recordFeePayment: async (paymentData) => {
-    const response = await api.post('/admin/fees/record', paymentData);
-    return response.data;
-  },
+  // Attendance oversight
+  getAttendanceSummary: async (params) => (await api.get('/admin/attendance/summary', { params })).data,
 
-  // Gallery Requests
-  getGalleryRequests: async () => {
-    const response = await api.get('/admin/gallery-requests');
-    return response.data;
-  },
+  // Gallery management
+  getGallery: async () => (await api.get('/admin/gallery')).data,
+  createGalleryItem: async (formData) => (await api.post('/admin/gallery', formData, multipart)).data,
+  updateGalleryItem: async (id, data) => (await api.put(`/admin/gallery/${id}`, data)).data,
+  deleteGalleryItem: async (id) => (await api.delete(`/admin/gallery/${id}`)).data,
 
-  approveGalleryRequest: async (requestId) => {
-    const response = await api.put(`/admin/gallery-requests/${requestId}/approve`);
-    return response.data;
-  },
-
-  rejectGalleryRequest: async (requestId) => {
-    const response = await api.put(`/admin/gallery-requests/${requestId}/reject`);
-    return response.data;
-  },
+  // Contact-form messages
+  getMessages: async () => (await api.get('/admin/messages')).data,
+  updateMessage: async (id, is_read) => (await api.put(`/admin/messages/${id}`, { is_read })).data,
+  deleteMessage: async (id) => (await api.delete(`/admin/messages/${id}`)).data,
 
   // Analytics
-  getBestTeachers: async () => {
-    const response = await api.get('/admin/analytics/best-teachers');
-    return response.data;
-  },
+  getBestTeachers: async () => (await api.get('/admin/analytics/best-teachers')).data,
+  getBestStudents: async () => (await api.get('/admin/analytics/best-students')).data,
+  getEnrollmentTrends: async () => (await api.get('/admin/analytics/enrollment-trends')).data,
+  getDiscontinuationReasons: async () => (await api.get('/admin/analytics/discontinuation-reasons')).data,
 
-  getBestStudents: async () => {
-    const response = await api.get('/admin/analytics/best-students');
-    return response.data;
-  },
-
-  getEnrollmentTrends: async () => {
-    const response = await api.get('/admin/analytics/enrollment-trends');
-    return response.data;
-  },
-
-  getDiscontinuationReasons: async () => {
-    const response = await api.get('/admin/analytics/discontinuation-reasons');
-    return response.data;
-  },
-
-  // Status Changes
-  getStatusChanges: async (params) => {
-    const response = await api.get('/admin/status-changes', { params });
-    return response.data;
-  },
-
-  // Notices
-  getAllNotices: async () => {
-    const response = await api.get('/admin/notices');
-    return response.data;
-  },
-
-  createNotice: async (noticeData) => {
-    const response = await api.post('/admin/notices', noticeData);
-    return response.data;
-  },
-
-  updateNotice: async (noticeId, noticeData) => {
-    const response = await api.put(`/admin/notices/${noticeId}`, noticeData);
-    return response.data;
-  },
-
-  deleteNotice: async (noticeId) => {
-    const response = await api.delete(`/admin/notices/${noticeId}`);
-    return response.data;
-  }
+  // Status history
+  getStatusChanges: async (params) => (await api.get('/admin/status-changes', { params })).data,
 };
 
 export default adminService;

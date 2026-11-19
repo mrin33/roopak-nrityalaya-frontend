@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useToast } from '../context/ToastContext';
 import galleryRequestService from '../services/galleryRequestService';
 import StatusBadge from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
 import ProtectedMedia from '../components/ProtectedMedia';
 
 const StudentGalleryUpload = () => {
+  const toast = useToast();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -19,21 +21,21 @@ const StudentGalleryUpload = () => {
   });
   const [selectedFile, setSelectedFile] = useState(null);
 
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     try {
       setLoading(true);
       const data = await galleryRequestService.getStudentRequests();
       setRequests(data || []);
     } catch (error) {
-      console.error('Failed to fetch requests:', error);
+      toast.error(error.message || 'Could not load your uploads.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     fetchRequests();
-  }, []);
+  }, [fetchRequests]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -48,7 +50,7 @@ const StudentGalleryUpload = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selectedFile) {
-      alert("Please select a file to upload.");
+      toast.error('Please select a file to upload.');
       return;
     }
 
@@ -72,11 +74,10 @@ const StudentGalleryUpload = () => {
       });
       setSelectedFile(null);
       
-      alert('Upload request submitted successfully! Admin will review it soon.');
+      toast.success('Upload submitted. An admin will review it soon.');
       fetchRequests();
     } catch (error) {
-      console.error('Submission failed:', error);
-      alert(error.message || 'Failed to submit upload request.');
+      toast.error(error.message || 'Failed to submit upload request.');
     } finally {
       setSubmitting(false);
     }

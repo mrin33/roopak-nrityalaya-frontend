@@ -29,7 +29,9 @@ const Breadcrumb = () => {
     'analytics': 'Analytics',
     'status-changes': 'Status Changes',
     'notices': 'Notices',
-    'gallery': 'Gallery'
+    'gallery': 'Gallery',
+    'messages': 'Messages',
+    'makeup-requests': 'Makeup Requests'
   };
 
   return (

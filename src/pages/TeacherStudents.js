@@ -4,6 +4,8 @@ import RollNumberBadge from '../components/RollNumberBadge';
 import StatusBadge from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
 import LoadingSpinner from '../components/LoadingSpinner';
+import ErrorState from '../components/ErrorState';
+import teacherService from '../services/teacherService';
 
 const TeacherStudents = () => {
   // const { user } = useAuth();
@@ -19,7 +21,6 @@ const TeacherStudents = () => {
     const fetchStudentsAndBatches = async () => {
       try {
         setLoading(true);
-        const teacherService = require('../services/teacherService').default;
         
         const [studentsData, batchesData] = await Promise.all([
           teacherService.getStudents(),
@@ -34,7 +35,7 @@ const TeacherStudents = () => {
         setStudents(studentsData.map(s => ({
           id: s.student_id,
           name: s.full_name,
-          rollNo: s.roll_number,
+          rollNo: s.roll_number || '',
           batch: s.batch_name,
           level: s.level_name,
           attendance: Math.round(Number(s.attendance_percentage) || 0),
@@ -42,8 +43,7 @@ const TeacherStudents = () => {
           email: s.email
         })));
       } catch (err) {
-        console.error('Error fetching students:', err);
-        setError('Failed to load students');
+        setError(err.message || 'Failed to load students');
       } finally {
         setLoading(false);
       }
@@ -61,7 +61,7 @@ const TeacherStudents = () => {
   });
 
   if (loading) return <LoadingSpinner fullScreen={true} text="Loading students..." size="lg" />;
-  if (error) return <div className="min-h-screen flex items-center justify-center"><div className="text-red-600">{error}</div></div>;
+  if (error) return <ErrorState message={error} onRetry={() => window.location.reload()} />;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-8">
