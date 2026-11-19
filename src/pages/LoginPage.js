@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const sessionExpired = new URLSearchParams(location.search).get('session') === 'expired';
+  const [showForgotHelp, setShowForgotHelp] = useState(false);
   const { login } = useAuth(); // Get login from AuthContext
   const [formData, setFormData] = useState({
     email: '',
@@ -64,6 +67,18 @@ const Login = () => {
             Sign in to your Roopak Nrityalaya account
           </p>
         </div>
+
+        {sessionExpired && !error && (
+          <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded text-sm text-yellow-800">
+            Your session has ended. Please log in again.
+          </div>
+        )}
+
+        {showForgotHelp && (
+          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded text-sm text-blue-800">
+            Please contact the academy office. An administrator can send you a secure link to set a new password.
+          </div>
+        )}
 
         {/* Error Message */}
         {error && (
@@ -134,7 +149,12 @@ const Login = () => {
             </div>
 
             <div className="text-sm">
-              <button type="button" className="font-medium text-primary hover:text-primary-dark outline-none">
+              <button
+                type="button"
+                onClick={() => setShowForgotHelp((v) => !v)}
+                className="font-medium text-primary hover:text-primary-dark outline-none"
+                aria-expanded={showForgotHelp}
+              >
                 Forgot password?
               </button>
             </div>
@@ -170,15 +190,16 @@ const Login = () => {
           </div>
         </form>
 
-        {/* Test Credentials Info */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
-          <p className="text-xs font-semibold text-blue-800 mb-2">Test Credentials:</p>
-          <div className="text-xs text-blue-700 space-y-1">
-            <p><strong>Admin:</strong> admin@roopak.com / password123</p>
-            <p><strong>Teacher:</strong> priya.sharma@roopak.com / password123</p>
-            <p><strong>Student:</strong> student1@test.com / password123</p>
+        {/* Development-only hint; never shipped in production builds and never shows passwords */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4 text-xs text-blue-700">
+            <p className="font-semibold text-blue-800 mb-1">Local demo accounts</p>
+            <p>
+              admin@test.com, teacher@test.com, student@test.com — created by <code>npm run seed:dev</code> in the
+              backend, using your SEED_PASSWORD.
+            </p>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

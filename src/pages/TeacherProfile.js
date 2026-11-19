@@ -34,7 +34,7 @@ const TeacherProfile = () => {
         phone: profile.phone || '',
         specialization: profile.specialization || '',
         experienceYears: profile.experience_years || 0,
-        qualifications: '', // Add mapping if available
+        qualifications: profile.qualifications || '',
         bio: profile.bio || '',
         address: '' // Add mapping if available
       });
@@ -62,15 +62,15 @@ const TeacherProfile = () => {
       await teacherService.updateProfile({
         phone: formData.phone,
         bio: formData.bio,
-        photo_url: null, // Handle if we add photo upload
+        specialization: formData.specialization,
+        qualifications: formData.qualifications,
+        experience_years: parseInt(formData.experienceYears, 10) || 0,
       });
-      // Note: Backend might need to be adjusted if UI allows editing specialization/etc.
-      // Current backend only allows updating phone, bio, photo_url.
       alert('Profile updated successfully!');
       setIsEditing(false);
     } catch (err) {
       console.error('Error updating profile:', err);
-      alert('Failed to update profile');
+      alert(err.message || 'Failed to update profile');
     } finally {
       setLoading(false);
     }

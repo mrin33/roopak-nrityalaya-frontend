@@ -6,21 +6,16 @@ const authService = {
     try {
       const response = await api.post('/auth/login', { email, password });
       
-      console.log('🔵 Auth Service Response:', response.data);
-      
       // Backend returns: { success: true, data: { token, user } }
       if (response.data.success && response.data.data) {
         const { token, user } = response.data.data;
         
         localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(user));
-        
-        console.log('✅ Stored token and user');
       }
       
       return response.data; // Return full response with success flag
     } catch (error) {
-      console.error('❌ Auth service error:', error);
       throw error;
     }
   },
@@ -49,6 +44,25 @@ const authService = {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     window.location.href = '/login';
+  },
+
+  // Validate a one-time invitation / reset link
+  checkSetupToken: async (token) => {
+    const response = await api.get(`/auth/password-setup/${encodeURIComponent(token)}`);
+    return response.data.data;
+  },
+
+  // Complete an invitation / reset by choosing a password
+  setPassword: async (token, password) => {
+    const response = await api.post('/auth/set-password', { token, password });
+    return response.data;
+  },
+
+  // Change password while logged in; stores the fresh session token
+  changePassword: async (currentPassword, newPassword) => {
+    const response = await api.put('/auth/change-password', { currentPassword, newPassword });
+    if (response.data?.data?.token) localStorage.setItem('token', response.data.data.token);
+    return response.data;
   },
 
   // Get current user from localStorage

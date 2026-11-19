@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import galleryRequestService from '../services/galleryRequestService';
 import StatusBadge from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
+import ProtectedMedia, { openProtectedMedia } from '../components/ProtectedMedia';
 
 const AdminGalleryRequests = () => {
   const [requests, setRequests] = useState([]);
@@ -38,7 +39,7 @@ const AdminGalleryRequests = () => {
       fetchRequests();
     } catch (error) {
       console.error('Approval failed:', error);
-      alert('Failed to approve request.');
+      alert(error.message || 'Failed to approve request.');
     } finally {
       setProcessing(false);
     }
@@ -60,7 +61,7 @@ const AdminGalleryRequests = () => {
       fetchRequests();
     } catch (error) {
       console.error('Rejection failed:', error);
-      alert('Failed to reject request.');
+      alert(error.message || 'Failed to reject request.');
     } finally {
       setProcessing(false);
     }
@@ -77,9 +78,6 @@ const AdminGalleryRequests = () => {
     total: requests.length
   };
 
-  // Create an absolute URL for media files since the backend serves them at /uploads
-  const API_BASE = process.env.REACT_APP_API_URL ? process.env.REACT_APP_API_URL.replace('/api', '') : 'http://localhost:5000';
-  const getMediaUrl = (url) => url ? `${API_BASE}${url}` : '';
 
   if (loading) {
     return (
@@ -142,11 +140,12 @@ const AdminGalleryRequests = () => {
             <div key={request.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col">
               <div className="relative h-48 bg-gray-100 flex items-center justify-center overflow-hidden">
                 {request.file_url ? (
-                  request.media_type === 'photo' ? (
-                    <img src={getMediaUrl(request.file_url)} alt="preview" className="object-cover w-full h-full" />
-                  ) : (
-                    <video src={getMediaUrl(request.file_url)} className="object-cover w-full h-full" controls={false} />
-                  )
+                  <ProtectedMedia
+                    requestId={request.id}
+                    mediaType={request.media_type}
+                    alt={request.title}
+                    className="object-cover w-full h-full"
+                  />
                 ) : (
                   <div className={request.media_type === 'photo' ? 'text-blue-400' : 'text-red-400'}>
                     {request.media_type === 'photo' ? (
@@ -170,17 +169,17 @@ const AdminGalleryRequests = () => {
                 )}
                 
                 {request.file_url && (
-                   <a 
-                     href={getMediaUrl(request.file_url)} 
-                     target="_blank" 
-                     rel="noreferrer" 
+                   <button
+                     type="button"
+                     onClick={() => openProtectedMedia(request.id)}
                      className="absolute top-2 right-2 bg-black/50 text-white p-2 rounded-full hover:bg-black/70"
                      title="View full size"
+                     aria-label="View full size"
                    >
                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                      </svg>
-                   </a>
+                   </button>
                 )}
               </div>
 

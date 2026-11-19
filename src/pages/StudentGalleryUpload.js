@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import galleryRequestService from '../services/galleryRequestService';
 import StatusBadge from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
+import ProtectedMedia from '../components/ProtectedMedia';
 
 const StudentGalleryUpload = () => {
   const [requests, setRequests] = useState([]);
@@ -75,7 +76,7 @@ const StudentGalleryUpload = () => {
       fetchRequests();
     } catch (error) {
       console.error('Submission failed:', error);
-      alert('Failed to submit upload request.');
+      alert(error.message || 'Failed to submit upload request.');
     } finally {
       setSubmitting(false);
     }
@@ -92,9 +93,6 @@ const StudentGalleryUpload = () => {
     rejected: requests.filter(r => r.status === 'rejected').length
   };
 
-  // Create an absolute URL for media files since the backend serves them at /uploads
-  const API_BASE = process.env.REACT_APP_API_URL ? process.env.REACT_APP_API_URL.replace('/api', '') : 'http://localhost:5000';
-  const getMediaUrl = (url) => url ? `${API_BASE}${url}` : '';
 
   if (loading) {
     return (
@@ -166,11 +164,12 @@ const StudentGalleryUpload = () => {
             <div key={request.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
               <div className="relative h-48 bg-gray-100 flex items-center justify-center overflow-hidden">
                 {request.file_url ? (
-                  request.media_type === 'photo' ? (
-                    <img src={getMediaUrl(request.file_url)} alt="preview" className="object-cover w-full h-full" />
-                  ) : (
-                    <video src={getMediaUrl(request.file_url)} className="object-cover w-full h-full" controls={false} />
-                  )
+                  <ProtectedMedia
+                    requestId={request.id}
+                    mediaType={request.media_type}
+                    alt={request.title}
+                    className="object-cover w-full h-full"
+                  />
                 ) : (
                   <div className={request.media_type === 'photo' ? 'text-blue-400' : 'text-red-400'}>
                     {request.media_type === 'photo' ? (
@@ -338,7 +337,7 @@ const StudentGalleryUpload = () => {
                     <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:bg-gray-50 transition-colors">
                       <input
                         type="file"
-                        accept={formData.mediaType === 'photo' ? 'image/*' : 'video/*'}
+                        accept={formData.mediaType === 'photo' ? 'image/jpeg,image/png,image/webp,image/gif' : 'video/mp4,video/webm,video/quicktime'}
                         onChange={handleFileChange}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         required

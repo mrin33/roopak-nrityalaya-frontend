@@ -78,7 +78,7 @@ const AdminFees = () => {
       setFormData({ studentId: '', month: '', amount: '', paymentMethod: '', transactionId: '' });
     } catch (err) {
       console.error('Error recording payment:', err);
-      alert('Failed to record payment');
+      alert(err.message || 'Failed to record payment');
     } finally {
       setLoading(false);
     }
@@ -233,7 +233,8 @@ const AdminFees = () => {
                       <option value="cash">Cash</option>
                       <option value="card">Card</option>
                       <option value="upi">UPI</option>
-                      <option value="bank_transfer">Bank Transfer</option>
+                      <option value="net_banking">Net Banking / Bank Transfer</option>
+                      <option value="cheque">Cheque</option>
                     </select>
                   </div>
                   <div>

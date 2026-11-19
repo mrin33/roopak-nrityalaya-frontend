@@ -49,6 +49,11 @@ const adminService = {
     return response.data;
   },
 
+  regenerateTeacherInvite: async (teacherId) => {
+    const response = await api.post(`/admin/teachers/${teacherId}/invite`);
+    return response.data;
+  },
+
   deleteTeacher: async (teacherId) => {
     const response = await api.delete(`/admin/teachers/${teacherId}`);
     return response.data;

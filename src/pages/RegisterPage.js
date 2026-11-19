@@ -85,8 +85,8 @@ const RegisterPage = () => {
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (formData.password.length < 8 || !/[A-Za-z]/.test(formData.password) || !/d/.test(formData.password)) {
+      setError('Password must be at least 8 characters and contain a letter and a number');
       return;
     }
 
@@ -110,7 +110,7 @@ const RegisterPage = () => {
 
       // Will redirect automatically via useEffect when user state updates
     } catch (err) {
-      setError(err.response?.data?.message || 'Registration failed. Please try again.');
+      setError(err.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -188,7 +188,7 @@ const RegisterPage = () => {
                     value={formData.password}
                     onChange={handleChange}
                     className="input-field"
-                    placeholder="At least 6 characters"
+                    placeholder="At least 8 characters, letters and numbers"
                     required
                   />
                 </div>

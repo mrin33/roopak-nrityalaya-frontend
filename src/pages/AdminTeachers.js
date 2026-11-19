@@ -7,6 +7,9 @@ const AdminTeachers = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // One-time password-setup link returned by the API (shown once to the admin)
+  const [inviteInfo, setInviteInfo] = useState(null);
+  const [copied, setCopied] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -33,7 +36,8 @@ const AdminTeachers = () => {
         phone: t.phone,
         specialization: t.specialization,
         experience: t.experience_years,
-        batches: 0, // Not provided directly, default to 0
+        batches: t.total_batches || 0,
+        invitePending: t.invite_pending,
         students: t.total_students || 0,
         isActive: t.is_active
       })));
@@ -61,21 +65,23 @@ const AdminTeachers = () => {
       const adminService = require('../services/adminService').default;
       const teacherPayload = {
         email: formData.email,
-        password: 'password123', // Default password for new teachers created silently
         full_name: formData.fullName,
         phone: formData.phone,
         specialization: formData.specialization,
         experience_years: parseInt(formData.experienceYears) || 0,
+        qualifications: formData.qualifications || '',
         bio: formData.bio || ''
       };
-      await adminService.createTeacher(teacherPayload);
-      alert('Teacher added successfully!');
+      // No password is sent: the teacher sets their own via the invitation link.
+      const result = await adminService.createTeacher(teacherPayload);
+      setCopied(false);
+      setInviteInfo({ name: formData.fullName, ...result.invite });
       fetchTeachers();
       setShowAddModal(false);
       setFormData({ fullName: '', email: '', phone: '', specialization: '', experienceYears: '', qualifications: '', bio: '' });
     } catch (err) {
       console.error('Error adding teacher:', err);
-      alert('Failed to add teacher');
+      alert(err.message || 'Failed to add teacher');
     }
   };
 
@@ -94,6 +100,26 @@ const AdminTeachers = () => {
     }
   };
 
+  const handleSendLink = async (teacher) => {
+    try {
+      const adminService = require('../services/adminService').default;
+      const result = await adminService.regenerateTeacherInvite(teacher.id);
+      setCopied(false);
+      setInviteInfo({ name: teacher.name, ...result.invite });
+    } catch (err) {
+      alert(err.message || 'Failed to create a password setup link');
+    }
+  };
+
+  const copyInviteLink = async () => {
+    try {
+      await navigator.clipboard.writeText(inviteInfo.url);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  };
+
   const handleDelete = async (teacherId) => {
     if (window.confirm('Delete this teacher?')) {
       try {
@@ -102,7 +128,7 @@ const AdminTeachers = () => {
         setTeachers(teachers.filter(t => t.id !== teacherId));
       } catch (err) {
         console.error('Error deleting teacher:', err);
-        alert('Failed to delete teacher');
+        alert(err.message || 'Failed to delete teacher');
       }
     }
   };
@@ -204,6 +230,11 @@ const AdminTeachers = () => {
                       }`}>
                         {teacher.isActive ? 'Active' : 'Inactive'}
                       </span>
+                      {teacher.invitePending && (
+                        <span className="ml-2 px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                          Invite pending
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex space-x-2">
@@ -215,6 +246,13 @@ const AdminTeachers = () => {
                           className="text-yellow-600 hover:text-yellow-800 text-sm font-semibold"
                         >
                           {teacher.isActive ? 'Deactivate' : 'Activate'}
+                        </button>
+                        <button
+                          onClick={() => handleSendLink(teacher)}
+                          className="text-primary hover:text-primary-dark text-sm font-semibold"
+                          title="Create a new password setup link"
+                        >
+                          Send link
                         </button>
                         <button 
                           onClick={() => handleDelete(teacher.id)}
@@ -230,6 +268,30 @@ const AdminTeachers = () => {
             </table>
           </div>
         </div>
+
+        {/* Invitation link (shown once after creating a teacher / requesting a new link) */}
+        {inviteInfo && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6">
+              <h2 className="text-2xl font-bold text-accent mb-2">Password setup link</h2>
+              <p className="text-gray-600 mb-4">
+                Share this one-time link with <span className="font-semibold">{inviteInfo.name}</span> so they can
+                choose their own password. It expires on{' '}
+                <span className="font-semibold">{new Date(inviteInfo.expires_at).toLocaleString()}</span> and is not
+                shown again.
+              </p>
+              <div className="flex gap-2">
+                <input readOnly value={inviteInfo.url} className="input-field text-sm" onFocus={(e) => e.target.select()} aria-label="Invitation link" />
+                <button type="button" onClick={copyInviteLink} className="btn-primary whitespace-nowrap">
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+              <div className="flex justify-end mt-6">
+                <button type="button" onClick={() => setInviteInfo(null)} className="btn-secondary">Done</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Add Teacher Modal */}
         {showAddModal && (
